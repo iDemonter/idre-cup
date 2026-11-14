@@ -1,0 +1,49 @@
+name: IdreCup
+options:
+  bundleIdPrefix: com.idemonter
+  deploymentTarget:
+    iOS: "18.0"
+  createIntermediateGroups: true
+  developmentLanguage: ru
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  IdreCup:
+    type: application
+    platform: iOS
+    sources:
+      - path: IdreCup
+    info:
+      path: IdreCup/Info.plist
+      properties:
+        CFBundleDisplayName: Idre Cup
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleDevelopmentRegion: ru
+        LSRequiresIPhoneOS: true
+        ITSAppUsesNonExemptEncryption: false
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        NSLocationWhenInUseUsageDescription: "Idre Cup показывает вашу точку на карте трасс."
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.idemonter.idrecup
+        PRODUCT_NAME: IdreCup
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        CODE_SIGN_STYLE: Automatic
+        GENERATE_INFOPLIST_FILE: false
+schemes:
+  IdreCup:
+    build:
+      targets:
+        IdreCup: all
+    run:
+      config: Debug
+    archive:
+      config: Release

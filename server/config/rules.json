@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "maxParticipants": 8,
+  "days": 6,
+  "pairDays": 2,
+  "jokersPerWeek": 1,
+  "lastDayMultiplier": 2,
+  "day": {
+    "speedPoints": [10, 7, 5, 3, 1],
+    "volumePoints": [10, 7, 5, 3, 1],
+    "speedHoldSeconds": 3
+  },
+  "crowns": {
+    "pointsPerCrownAtDayEnd": 2,
+    "autoRaceWinPoints": 1,
+    "autoRaceStartWindowSeconds": 30
+  },
+  "duel": {
+    "stake": 5
+  },
+  "events": {
+    "perDayMin": 2,
+    "perDayMax": 3,
+    "pointsMin": 3,
+    "pointsMax": 8,
+    "windowFrom": "09:30",
+    "windowTo": "15:00"
+  },
+  "evening": {
+    "gamePoints": [6, 4, 2, 1]
+  }
+}

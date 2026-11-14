@@ -1,0 +1,19 @@
+# Xcode: проект и Info.plist создаёт XcodeGen из app/project.yml
+*.xcodeproj
+app/IdreCup/Info.plist
+DerivedData/
+build/
+*.xcarchive
+*.ipa
+
+# Секреты никогда не попадают в репозиторий
+*.p8
+*.p12
+*.mobileprovision
+.env
+
+# Node
+node_modules/
+npm-debug.log*
+
+.DS_Store
