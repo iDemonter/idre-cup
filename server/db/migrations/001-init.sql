@@ -1,4 +1,4 @@
--- Начальная схема Idre Cup. Применяется при первом запуске контейнера Postgres.
+-- Начальная схема Idre Cup. Миграции применяет сервер при запуске (src/migrate.js).
 
 create table if not exists cups (
   id          uuid primary key default gen_random_uuid(),

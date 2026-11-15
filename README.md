@@ -83,19 +83,12 @@ Settings → Secrets and variables → Actions → New repository secret.
 
 ## Сервер
 
+Node + Postgres в Docker. Как поставить и обновлять: [server/deploy.md](server/deploy.md).
+
 ```bash
 cd server
-cp .env.example .env      # задать POSTGRES_PASSWORD
-docker compose up -d --build
-curl http://127.0.0.1:8080/health
+npm install && npm test       # проверки без базы
 ```
-
-- `GET /health` — сервер жив, база отвечает.
-- `GET /v1/config` — правила и очки из `server/config/rules.json`. Меняются без новой сборки приложения.
-
-Тесты: `cd server && npm install && npm test`.
-
-Порт открыт только на самом мини-ПК. Наружу сервер будет выходить через туннель, это следующий шаг.
 
 ## План
 

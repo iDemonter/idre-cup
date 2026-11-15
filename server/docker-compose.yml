@@ -1,5 +1,6 @@
-# Запуск на мини-ПК:  cp .env.example .env  →  поменять пароль  →  docker compose up -d --build
-# Проверка:           curl http://127.0.0.1:8080/health
+# Сервер Idre Cup: API и своя база Postgres. Запуск и обновление: см. deploy.md.
+# Стек изолирован: своё имя проекта, своя сеть, свой том. К другим сервисам на машине он не подключается.
+name: idre-cup
 
 services:
   db:
@@ -11,7 +12,6 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?задайте POSTGRES_PASSWORD в .env}
     volumes:
       - db-data:/var/lib/postgresql/data
-      - ./db/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U idrecup -d idrecup"]
       interval: 10s
@@ -29,16 +29,18 @@ services:
       APP_VERSION: ${APP_VERSION:-dev}
       DATABASE_URL: postgres://idrecup:${POSTGRES_PASSWORD}@db:5432/idrecup
     ports:
-      # Только локально. Наружу сервер выходит через туннель, порт на роутере не открываем.
-      - "127.0.0.1:8080:8080"
-
-  # Туннель наружу подключим отдельным шагом, когда появится домен:
-  # tunnel:
-  #   image: cloudflare/cloudflared:latest
-  #   restart: unless-stopped
-  #   command: tunnel run
-  #   environment:
-  #     TUNNEL_TOKEN: ${TUNNEL_TOKEN}
+      # Только на самой машине. Наружу сервер выходит через туннель, порт на роутере не открываем.
+      - "127.0.0.1:${API_PORT:-8080}:8080"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
 volumes:
   db-data:

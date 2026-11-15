@@ -8,6 +8,7 @@ RUN npm ci --omit=dev
 
 COPY src ./src
 COPY config ./config
+COPY db ./db
 
 USER node
 EXPOSE 8080
