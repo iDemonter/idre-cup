@@ -18,6 +18,9 @@ struct RideLockScreenView: View {
                 Spacer(minLength: 8)
                 if isStale {
                     Text("НЕТ СВЕЖИХ ДАННЫХ")
+                } else if state.paused {
+                    Image(systemName: "pause.fill")
+                    Text("ПАУЗА")
                 } else {
                     Circle()
                         .fill(Theme.pisteRed)

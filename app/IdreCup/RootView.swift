@@ -29,7 +29,7 @@ struct RootView: View {
         }
     }
 
-    @StateObject private var tracker = Tracker()
+    @ObservedObject private var tracker = Tracker.shared
     @StateObject private var homeStore = HomeStore()
     @StateObject private var session = Session()
     @State private var section: Screen
@@ -92,6 +92,22 @@ struct RootView: View {
                 guard let tracker, let session else { return }
                 live.sync(tracker: tracker, session: session)
             }
+            // Часы показывают место, очки, событие и дуэль, пока приложение на телефоне живо.
+            PhoneLink.shared.extra = { [weak session] in
+                guard let session else { return [:] }
+                var extra: [String: Any] = [:]
+                if let place = session.todayPlace { extra["place"] = place }
+                if let points = session.todayPoints { extra["points"] = points }
+                if let title = session.eventTitle, let end = session.eventEnds {
+                    extra["event"] = title
+                    extra["eventEnds"] = end.timeIntervalSince1970
+                }
+                if let rival = session.duelWith, let end = session.duelEnds {
+                    extra["duel"] = rival
+                    extra["duelEnds"] = end.timeIntervalSince1970
+                }
+                return extra
+            }
             await session.start()
             // Пока приложение живо (в том числе в фоне во время записи), трек уходит на сервер раз в полминуты.
             while !Task.isCancelled {
@@ -103,6 +119,8 @@ struct RootView: View {
                     await session.refreshToday()
                 }
                 live.sync(tracker: tracker, session: session)
+                // Место и очки на часах обновляются вместе с рейтингом.
+                PhoneLink.shared.trackerChanged()
                 try? await Task.sleep(for: .seconds(30))
             }
         }

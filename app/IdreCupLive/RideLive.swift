@@ -15,12 +15,7 @@ struct IdreCupLiveBundle: WidgetBundle {
 struct RideLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: RideAttributes.self) { context in
-            RideLockScreenView(
-                cupName: context.attributes.cupName,
-                startedAt: context.attributes.startedAt,
-                state: context.state,
-                isStale: context.isStale
-            )
+            RideContent(context: context)
             .activityBackgroundTint(Theme.base)
             .activitySystemActionForegroundColor(Theme.textPrimary)
         } dynamicIsland: { context in
@@ -62,6 +57,8 @@ struct RideLiveActivity: Widget {
                     .foregroundStyle(Theme.accent)
             }
         }
+        // Своя раскладка для Smart Stack на Apple Watch.
+        .supplementalActivityFamilies([.small])
     }
 
     /// «629 м · 3 спуска · 2-е место, +19».
@@ -78,6 +75,63 @@ struct RideLiveActivity: Widget {
             parts.append("событие: \(title)")
         } else if let rival = state.duelWith {
             parts.append("дуэль: \(rival)")
+        }
+        return parts.joined(separator: " · ")
+    }
+}
+
+/// Экран блокировки телефона или маленькая карточка в Smart Stack на часах.
+private struct RideContent: View {
+    @Environment(\.activityFamily) private var family
+    let context: ActivityViewContext<RideAttributes>
+
+    var body: some View {
+        switch family {
+        case .small:
+            small
+        default:
+            RideLockScreenView(
+                cupName: context.attributes.cupName,
+                startedAt: context.attributes.startedAt,
+                state: context.state,
+                isStale: context.isStale
+            )
+        }
+    }
+
+    /// Часы: крупно скорость, ниже перепад, спуски и очки.
+    private var small: some View {
+        let state = context.state
+        return VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 4) {
+                Image(systemName: state.paused ? "pause.fill" : "figure.skiing.downhill")
+                Text(state.paused ? "ПАУЗА" : "ЗАПИСЬ")
+                Spacer(minLength: 2)
+                if !state.paused {
+                    Text(context.attributes.startedAt, style: .timer)
+                        .monospacedDigit()
+                        .multilineTextAlignment(.trailing)
+                }
+            }
+            .font(Theme.overline(10))
+            .foregroundStyle(Theme.accent)
+            Text("\(Format.kmh(state.topSpeed)) км/ч")
+                .font(Theme.title(22))
+                .foregroundStyle(Theme.textPrimary)
+                .minimumScaleFactor(0.7)
+            Text(line(state))
+                .font(Theme.caption(11))
+                .foregroundStyle(Theme.textSecondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+        .padding(.horizontal, 4)
+    }
+
+    private func line(_ state: RideAttributes.ContentState) -> String {
+        var parts = ["\(Format.meters(state.vertical)) м", "\(state.runs) \(Format.plural(state.runs, "спуск", "спуска", "спусков"))"]
+        if let points = state.points {
+            parts.append(points < 0 ? "−\(-points)" : "+\(points)")
         }
         return parts.joined(separator: " · ")
     }

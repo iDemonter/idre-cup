@@ -6,6 +6,7 @@ import UIKit
 struct MyDayScreen: View {
     @EnvironmentObject private var tracker: Tracker
     @EnvironmentObject private var session: Session
+    @ObservedObject private var link = PhoneLink.shared
     /// Мои пройденные трассы за день с сервера: ими подписываются спуски.
     @State private var trails: [MyTrail] = []
     /// Показать демо-день (трек строит RootView: ему известны трассы и рельеф).
@@ -78,7 +79,7 @@ struct MyDayScreen: View {
                 Circle()
                     .fill(tracker.isRecording ? Theme.onAccent : Theme.textSecondary)
                     .frame(width: 8, height: 8)
-                Text(tracker.isRecording ? "Запись идёт" : "Запись выключена")
+                Text(tracker.isRecording ? "Запись идёт" : (tracker.isPaused ? "Пауза" : "Запись выключена"))
             }
             .font(Theme.caption())
             .foregroundStyle(tracker.isRecording ? Theme.onAccent : Theme.textSecondary)
@@ -166,44 +167,59 @@ struct MyDayScreen: View {
 
     // MARK: - Запись
 
+    @ViewBuilder
     private var recordButton: some View {
-        Button {
-            if tracker.isDemo {
-                tracker.leaveDemo()
-            } else if tracker.isRecording {
-                tracker.stop()
-            } else {
-                tracker.start()
-            }
-        } label: {
+        if tracker.isDemo {
+            bigButton("Вернуться к своему дню", symbol: "arrow.uturn.backward", filled: false) { tracker.leaveDemo() }
+        } else if tracker.isRecording {
             HStack(spacing: 10) {
-                Image(systemName: recordSymbol)
-                Text(recordTitle)
+                bigButton("Пауза", symbol: "pause.fill", filled: false) { tracker.pause() }
+                bigButton("Стоп", symbol: "stop.fill", filled: false) { tracker.stop() }
+            }
+        } else if tracker.isPaused {
+            HStack(spacing: 10) {
+                bigButton("Продолжить", symbol: "play.fill", filled: true) { tracker.start() }
+                bigButton("Стоп", symbol: "stop.fill", filled: false) { tracker.stop() }
+            }
+        } else {
+            bigButton("Начать запись", symbol: "record.circle", filled: true) { tracker.start() }
+        }
+        if link.hasWatchApp && !tracker.isAlways && !tracker.isDemo {
+            Button {
+                tracker.requestAlways()
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "applewatch")
+                    Text("Чтобы включать запись с часов, когда телефон в кармане, разреши геопозицию «Всегда». Нажми здесь.")
+                        .multilineTextAlignment(.leading)
+                }
+                .font(Theme.caption())
+                .foregroundStyle(Theme.accent)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
+                .background(Theme.accent.opacity(0.18), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func bigButton(_ title: String, symbol: String, filled: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Image(systemName: symbol)
+                Text(title)
             }
             .font(Theme.headline())
-            .foregroundStyle(isQuietButton ? Theme.textPrimary : Theme.onAccent)
+            .foregroundStyle(filled ? Theme.onAccent : Theme.textPrimary)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
-            .background(isQuietButton ? Theme.raised : Theme.accent, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .background(filled ? Theme.accent : Theme.raised, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(Theme.border, lineWidth: isQuietButton ? 1.5 : 0)
+                    .stroke(Theme.border, lineWidth: filled ? 0 : 1.5)
             )
         }
         .buttonStyle(.plain)
-    }
-
-    /// В демо-дне записи нет: на месте кнопки записи стоит выход к своему дню.
-    private var isQuietButton: Bool { tracker.isDemo || tracker.isRecording }
-
-    private var recordSymbol: String {
-        if tracker.isDemo { return "arrow.uturn.backward" }
-        return tracker.isRecording ? "stop.fill" : "record.circle"
-    }
-
-    private var recordTitle: String {
-        if tracker.isDemo { return "Вернуться к своему дню" }
-        return tracker.isRecording ? "Остановить запись" : "Начать запись"
     }
 
     private var deniedNote: some View {

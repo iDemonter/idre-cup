@@ -24,9 +24,11 @@ final class LiveRide {
             duelWith: session.duelWith,
             duelEnds: session.duelEnds,
             eventTitle: session.eventTitle,
-            eventEnds: session.eventEnds
+            eventEnds: session.eventEnds,
+            paused: tracker.isPaused
         )
-        apply(isRecording: tracker.isRecording && !tracker.isDemo, cupName: session.cup?.name ?? "Idre Cup", state: state)
+        // На паузе карточка остаётся: день не закончен.
+        apply(isRecording: (tracker.isRecording || tracker.isPaused) && !tracker.isDemo, cupName: session.cup?.name ?? "Idre Cup", state: state)
     }
 
     private func apply(isRecording: Bool, cupName: String, state: RideAttributes.ContentState) {

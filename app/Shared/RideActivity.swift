@@ -19,6 +19,8 @@ struct RideAttributes: ActivityAttributes {
         /// Идущее событие дня: название и когда оно кончится.
         var eventTitle: String?
         var eventEnds: Date?
+        /// Запись на паузе.
+        var paused = false
     }
 
     var cupName: String

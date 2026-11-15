@@ -4,6 +4,11 @@ import Foundation
 /// Запись трека: получает точки GPS, в том числе в фоне, хранит трек дня на телефоне
 /// и считает по нему итоги. Очки и рейтинг считает сервер, здесь только свой день.
 final class Tracker: NSObject, ObservableObject, CLLocationManagerDelegate {
+    /// Один трекер на приложение: его включают и экраны, и часы (в том числе когда телефон в кармане).
+    static let shared = Tracker()
+
+    /// Запись на паузе: точки не пишутся, но день не закончен (Live Activity и часы показывают «Пауза»).
+    @Published private(set) var isPaused = false
     @Published private(set) var status: CLAuthorizationStatus = .notDetermined
     @Published private(set) var isRecording = false
     @Published private(set) var stats = DayStats.empty
@@ -27,6 +32,7 @@ final class Tracker: NSObject, ObservableObject, CLLocationManagerDelegate {
     private var day = TrackStore.dayName(Date())
     private var sinceStats = 0
     private let recordingKey = "recording"
+    private let pausedKey = "paused"
     /// Последнее место, где телефон двигался: если час стоит на месте, запись выключается сама.
     private var anchor: TrackPoint?
     static let idleLimit: TimeInterval = 60 * 60
@@ -40,6 +46,7 @@ final class Tracker: NSObject, ObservableObject, CLLocationManagerDelegate {
         manager.delegate = self
         status = manager.authorizationStatus
         points = store.load(day: Date())
+        isPaused = UserDefaults.standard.bool(forKey: pausedKey)
         rebuild()
         // Запись шла, когда приложение закрыли: продолжаем.
         if UserDefaults.standard.bool(forKey: recordingKey), isAllowed {
@@ -53,6 +60,17 @@ final class Tracker: NSObject, ObservableObject, CLLocationManagerDelegate {
 
     func requestAccess() {
         if manager.authorizationStatus == .notDetermined {
+            manager.requestWhenInUseAuthorization()
+        }
+    }
+
+    /// Разрешение «Всегда»: без него телефон в кармане не может начать запись по кнопке на часах.
+    var isAlways: Bool { status == .authorizedAlways }
+
+    func requestAlways() {
+        if manager.authorizationStatus == .authorizedWhenInUse {
+            manager.requestAlwaysAuthorization()
+        } else if manager.authorizationStatus == .notDetermined {
             manager.requestWhenInUseAuthorization()
         }
     }
@@ -74,6 +92,7 @@ final class Tracker: NSObject, ObservableObject, CLLocationManagerDelegate {
         }
         guard isAllowed else { return }
         UserDefaults.standard.set(true, forKey: recordingKey)
+        setPaused(false)
         autoStopNote = nil
         anchor = nil
         begin()
@@ -83,7 +102,23 @@ final class Tracker: NSObject, ObservableObject, CLLocationManagerDelegate {
         UserDefaults.standard.set(false, forKey: recordingKey)
         manager.stopUpdatingLocation()
         isRecording = false
+        setPaused(false)
         refreshStats()
+    }
+
+    /// Пауза: точки не пишутся (обед, перерыв), продолжить можно кнопкой «Старт».
+    func pause() {
+        guard isRecording, !isDemo else { return }
+        UserDefaults.standard.set(false, forKey: recordingKey)
+        manager.stopUpdatingLocation()
+        isRecording = false
+        setPaused(true)
+        refreshStats()
+    }
+
+    private func setPaused(_ value: Bool) {
+        isPaused = value
+        UserDefaults.standard.set(value, forKey: pausedKey)
     }
 
     private func begin() {
@@ -103,6 +138,7 @@ final class Tracker: NSObject, ObservableObject, CLLocationManagerDelegate {
         MainActor.assumeIsolated {
             onChange?()
         }
+        PhoneLink.shared.trackerChanged()
     }
 
     /// Настоящие точки позже заданного времени (секунды с 1970): их Session отправляет на сервер.
@@ -140,6 +176,7 @@ final class Tracker: NSObject, ObservableObject, CLLocationManagerDelegate {
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         status = manager.authorizationStatus
+        PhoneLink.shared.trackerChanged(force: true)
         if isAllowed, UserDefaults.standard.bool(forKey: recordingKey), !isRecording, !isDemo {
             begin()
         }
