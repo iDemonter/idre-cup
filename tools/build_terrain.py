@@ -312,7 +312,11 @@ def main():
     forest *= 1 - canvas.array(canvas.areas(water_shapes), blur=3)
     forest *= 1 - canvas.array(canvas.areas(open_shapes), blur=6)
     forest *= fade > 0.75
+    # Лес неровный: где-то гуще, где-то реже.
+    patches = ndimage.gaussian_filter(np.random.default_rng(2027).standard_normal(h.shape), 55 / PIXEL)
+    forest *= np.clip(0.97 + 0.8 * patches / patches.std(), 0.2, 1)
     forest = np.clip(forest, 0, 1)
+    scenery = build_scenery(land, forest)
 
     # Цвет по высоте: внизу холодный серо-синий, вверху белая вершина.
     low, high = 580.0, 890.0
@@ -342,6 +346,20 @@ def main():
         line = np.clip(width + 0.5 - to_line, 0, 1) * strength
         color = color * (1 - line[..., None]) + np.array(CONTOUR, dtype=float) * line[..., None]
 
+    # Деревья на раскраске: тёмное пятнышко тени и светлая макушка. Издалека лес читается как фактура,
+    # а вблизи приложение ставит на эти же места объёмные ели.
+    shadows = Image.new("L", (width_px, height_px), 0)
+    crowns = Image.new("L", (width_px, height_px), 0)
+    draw_shadow, draw_crown = ImageDraw.Draw(shadows), ImageDraw.Draw(crowns)
+    trees = scenery["trees"]
+    for index in range(0, len(trees), 3):
+        x, y = to_pixel((trees[index], trees[index + 1]))
+        size = (5.5 + trees[index + 2] * 0.35) / PIXEL
+        draw_shadow.ellipse([x - size + 1.2, y - size + 1.2, x + size + 1.2, y + size + 1.2], fill=255)
+        draw_crown.ellipse([x - size * 0.55 - 0.6, y - size * 0.55 - 0.6, x + size * 0.55 - 0.6, y + size * 0.55 - 0.6], fill=255)
+    color = paint(color, canvas.array(shadows, blur=1.5), 0.5, (0x2F, 0x3D, 0x73))
+    color = paint(color, canvas.array(crowns, blur=1.0), 0.55, (0xB7, 0xC5, 0xEA))
+
     # Вода, дороги, тени домов.
     color = paint(color, canvas.array(canvas.areas(water_shapes), blur=1.5), 0.9, WATER)
     color = paint(color, canvas.array(canvas.lines(road_lines, 6), blur=1.5), 0.55, ROAD)
@@ -349,8 +367,6 @@ def main():
 
     color = np.array(BACKGROUND, dtype=float) * (1 - fade[..., None]) + color * fade[..., None]
     Image.fromarray(np.clip(color, 0, 255).astype(np.uint8), "RGB").save(OUT_TEXTURE, quality=86, optimize=True)
-
-    scenery = build_scenery(land, forest)
 
     print(f"Сетка {terrain['cols']}×{terrain['rows']}, высоты {gh.min():.0f}-{gh.max():.0f} м, base {base:.0f}")
     print(f"Раскраска {width_px}×{height_px}: {OUT_TEXTURE.stat().st_size // 1024} КБ; сетка: {OUT_GRID.stat().st_size // 1024} КБ")

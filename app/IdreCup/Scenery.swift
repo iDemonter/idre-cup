@@ -148,7 +148,7 @@ struct SceneryBuilder {
             }
         }
         let forest = SCNNode()
-        forest.addChildNode(node(lit, color: Self.rgb(0xC2CFEE)))
+        forest.addChildNode(node(lit, color: Self.rgb(0xB7C5EA)))
         forest.addChildNode(node(mid, color: Self.rgb(0x5E74AE)))
         forest.addChildNode(node(dark, color: Self.rgb(0x2F3D73)))
         return forest

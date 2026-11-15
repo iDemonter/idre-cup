@@ -92,6 +92,8 @@ struct TerrainView: UIViewRepresentable {
         private let trackNode = SCNNode()
         private var meNode: SCNNode?
         private var homeNode: SCNNode?
+        /// Объёмные ели: видны вблизи, издалека лес нарисован на самой горе.
+        private var treesNode: SCNNode?
         private var isHomeShown = false
         private let terrainName = "terrain"
         private var badges: [Badge] = []
@@ -186,7 +188,9 @@ struct TerrainView: UIViewRepresentable {
             // Лес и дома.
             if let scenery = parent.scenery {
                 let builder = SceneryBuilder(terrain: terrain, unit: unit)
-                scene.rootNode.addChildNode(builder.trees(scenery.trees))
+                let forest = builder.trees(scenery.trees)
+                scene.rootNode.addChildNode(forest)
+                treesNode = forest
                 scene.rootNode.addChildNode(builder.buildings(scenery.buildings))
 
                 // Полезные места: светлый кружок с рисунком. Появляются вблизи, когда есть место.
@@ -485,6 +489,7 @@ struct TerrainView: UIViewRepresentable {
             if front.y < -0.01 {
                 ground = Double((eye.y - 2) / -front.y) * unit
             }
+            treesNode?.isHidden = ground > 5_200
             var chosen = false
             for level in ribbonLevels {
                 let fits = !chosen && ground <= level.upTo
