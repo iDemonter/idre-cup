@@ -30,8 +30,16 @@ docker compose up -d --build
 
 ## Копия базы
 
+Ночную копию делает `backup.sh`: дамп в `~/idre-cup-backups` (14 дней) и, если в `.env` задан `BACKUP_NAS=user@host`, rsync по SSH-ключу в `idre-cup-backups` на NAS (90 дней). Строка для `crontab -e`:
+
+```
+45 3 * * * /home/hermes/idre-cup/server/backup.sh >> /home/hermes/idre-cup-backups/backup.log 2>&1
+```
+
+Восстановление:
+
 ```bash
-docker compose exec db pg_dump -U idrecup idrecup | gzip > ~/idre-cup-$(date +%F).sql.gz
+gunzip -c ~/idre-cup-backups/idrecup_ДАТА.sql.gz | docker compose exec -T db psql -U idrecup -d idrecup
 ```
 
 ## Адрес в интернете
