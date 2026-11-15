@@ -1,0 +1,46 @@
+name: Данные высот
+
+# Скачивает высоты района Idre Fjäll (Copernicus DEM GLO-30) и кладёт их в data/dem-idre.json.
+# Запускается вручную или при изменении скрипта.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "tools/fetch_dem.py"
+      - ".github/workflows/dem.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dem
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    name: Скачать высоты
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Поставить rasterio
+        run: python3 -m pip install --quiet rasterio
+
+      - name: Скачать высоты
+        run: python3 tools/fetch_dem.py
+
+      - name: Сохранить в репозиторий
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/dem-idre.json
+          if git diff --cached --quiet; then
+            echo "Данные не изменились"
+          else
+            git commit -m "Данные высот: Copernicus DEM GLO-30, район Idre Fjäll"
+            git pull --rebase
+            git push
+          fi
