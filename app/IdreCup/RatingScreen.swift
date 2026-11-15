@@ -198,6 +198,9 @@ struct RatingScreen: View {
             if day.multiplier > 1 {
                 note("Последний день кубка: очки ×\(day.multiplier)")
             }
+            if let pairs = day.pairs, !pairs.isEmpty {
+                note(pairNote(pairs))
+            }
             if let events, !events.events.isEmpty {
                 EventsCard(reply: events, clockOffset: eventsOffset, myID: session.me?.id)
             }
@@ -258,6 +261,22 @@ struct RatingScreen: View {
         return text
     }
 
+    /// «Парный день: ты с Олегом. Пары: Иван + Олег 31 · Анна (одна, ×2) 24». Лучшие пары получают бонус каждому.
+    private func pairNote(_ pairs: [DayPair]) -> String {
+        let mine = pairs.first { $0.ids.contains(session.me?.id ?? "") }
+        var text = "Парный день"
+        if let mine {
+            let partner = zip(mine.ids, mine.names).first { $0.0 != session.me?.id }?.1
+            text += partner.map { ": ты в паре с \($0)." } ?? ": ты один, твои очки считаются за двоих."
+        } else {
+            text += "."
+        }
+        let list = pairs.map { pair in
+            "\(pair.place). \(pair.names.joined(separator: " + ")) · \(pair.score)" + (pair.bonus > 0 ? " (+\(pair.bonus))" : "")
+        }
+        return text + " Очки пары = сумма очков дня обоих, лучшие пары получают бонус каждому.\n" + list.joined(separator: "\n")
+    }
+
     /// Майки и джокер под строкой недели.
     private func weekFootnote(_ row: StandingRow, _ jerseys: Jerseys?) -> String? {
         var parts: [String] = []
@@ -289,6 +308,9 @@ struct RatingScreen: View {
         }
         if let events = row.eventPoints, events != 0 {
             parts.append("события \(signed(events))")
+        }
+        if let pair = row.pairPoints {
+            parts.append(row.partner.map { "в паре с \($0) \(signed(pair))" } ?? "один \(signed(pair))")
         }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }

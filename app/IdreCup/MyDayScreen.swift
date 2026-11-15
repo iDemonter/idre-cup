@@ -5,6 +5,9 @@ import UIKit
 /// Места и очки появятся, когда заработает сервер; пока здесь только свои цифры.
 struct MyDayScreen: View {
     @EnvironmentObject private var tracker: Tracker
+    @EnvironmentObject private var session: Session
+    /// Мои пройденные трассы за день с сервера: ими подписываются спуски.
+    @State private var trails: [MyTrail] = []
     /// Показать демо-день (трек строит RootView: ему известны трассы и рельеф).
     let startDemo: () -> Void
 
@@ -32,6 +35,22 @@ struct MyDayScreen: View {
             .padding(.bottom, 24)
         }
         .background(Theme.base.ignoresSafeArea())
+        .task(id: session.phase == .signedIn) {
+            while !Task.isCancelled && session.phase == .signedIn {
+                if let day = await session.day() {
+                    trails = day.myTrails ?? []
+                }
+                try? await Task.sleep(for: .seconds(30))
+            }
+        }
+    }
+
+    /// Трасса, пройденная на этом спуске: её отрезок лежит внутри спуска (с запасом на сглаживание).
+    private func trail(for segment: TrackSegment) -> MyTrail? {
+        guard segment.kind == .run, !tracker.isDemo else { return nil }
+        let from = segment.start.timeIntervalSince1970 - 40
+        let to = segment.end.timeIntervalSince1970 + 40
+        return trails.first { $0.start >= from && $0.end <= to }
     }
 
     // MARK: - Шапка
@@ -247,6 +266,12 @@ struct MyDayScreen: View {
                 Text("\(isRun ? "Спуск" : "Подъём") · \(Format.clock(segment.start))")
                     .font(Theme.headline(15))
                     .foregroundStyle(Theme.textPrimary)
+                if let trail = trail(for: segment) {
+                    Text("\(trail.number) \(trail.name) · \(Format.lap(trail.seconds))")
+                        .font(Theme.caption())
+                        .foregroundStyle(Theme.accent)
+                        .lineLimit(1)
+                }
                 Text(segmentDetails(segment))
                     .font(Theme.caption())
                     .foregroundStyle(Theme.textSecondary)

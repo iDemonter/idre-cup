@@ -1117,6 +1117,20 @@ export function mountApi(app, { db, rules, attemptLimit = 30, autoEvents = true 
     return { points, bonus };
   }
 
+  /**
+   * Пары парного дня: случайные, но одни и те же весь день (порядок задаёт хеш кубка и даты).
+   * При нечётном числе последний идёт один.
+   */
+  function dayPairs(cup, people, date) {
+    const order = [...people].sort((a, b) => {
+      const key = (person) => createHash("sha256").update(`${cup.id}|${date}|${person.id}`).digest("hex");
+      return key(a).localeCompare(key(b));
+    });
+    const pairs = [];
+    for (let index = 0; index < order.length; index += 2) pairs.push(order.slice(index, index + 2).map((person) => person.id));
+    return pairs;
+  }
+
   async function scoredDay(cup, people, date) {
     const { dayNumber, multiplier } = dayInfo(cup, date);
     const stats = await Promise.all(people.map((person) => dayStats(person.id, date, cup)));
@@ -1176,8 +1190,35 @@ export function mountApi(app, { db, rules, attemptLimit = 30, autoEvents = true 
         points: row.points + crownPoints + racePoints + duel.points,
       };
     });
+    // Парный день: очки пары = сумма очков дня обоих (одиночка считается за двоих).
+    // Лучшие пары получают бонус каждому участнику.
+    let pairs = null;
+    if (dayNumber !== null && rules.pairs?.days.includes(dayNumber) && people.length >= 2) {
+      const byId = new Map(scored.map((row) => [row.id, row]));
+      pairs = dayPairs(cup, people, date).map((ids) => {
+        const sum = ids.reduce((total, id) => total + (byId.get(id)?.points ?? 0), 0);
+        return { ids, names: ids.map((id) => byId.get(id)?.name ?? "?"), score: ids.length === 1 ? sum * rules.pairs.soloFactor : sum };
+      });
+      pairs.sort((a, b) => b.score - a.score);
+      let place = 0;
+      pairs.forEach((pair, index) => {
+        if (index === 0 || pair.score < pairs[index - 1].score) place = index + 1;
+        pair.place = place;
+        pair.bonus = pair.score > 0 ? (rules.pairs.points[place - 1] ?? 0) * multiplier : 0;
+      });
+      for (const pair of pairs) {
+        for (const id of pair.ids) {
+          const row = byId.get(id);
+          if (!row) continue;
+          row.partner = pair.ids.length === 2 ? (pair.names[pair.ids[0] === id ? 1 : 0] ?? null) : null;
+          row.pairPoints = pair.bonus;
+          row.points += pair.bonus;
+        }
+      }
+    }
+
     scored.sort((a, b) => b.points - a.points || b.topSpeed - a.topSpeed || a.name.localeCompare(b.name, "ru"));
-    return { date, dayNumber, multiplier, rows: scored };
+    return { date, dayNumber, multiplier, pairs, rows: scored };
   }
 
   // --- Рейтинг дня.
@@ -1187,7 +1228,11 @@ export function mountApi(app, { db, rules, attemptLimit = 30, autoEvents = true 
     const people = await loadPeople(cup.id);
     await refreshDuels(cup);
     await refreshEvents(cup, people);
-    res.json(await scoredDay(cup, people, date));
+    const day = await scoredDay(cup, people, date);
+    // Мои пройденные трассы за день: «Мой день» подписывает ими спуски.
+    const mine = await dayStats(req.me.id, date, cup);
+    const names = new Map(trails.map((trail) => [trail.number, trail.name]));
+    res.json({ ...day, myTrails: mine.trailRuns.map((run) => ({ ...run, name: names.get(run.number) ?? "" })) });
   });
 
   // --- Общий зачёт: сумма очков по дням кубка. Пока даты не заданы, в зачёт идут все дни с треками.

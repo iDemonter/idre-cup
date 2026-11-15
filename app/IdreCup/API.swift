@@ -64,6 +64,28 @@ struct DayRow: Decodable, Identifiable {
     /// Очки за события дня и метры, которые «двойной счёт» добавил в объём.
     let eventPoints: Int?
     let bonusVertical: Double?
+    /// Парный день: с кем в паре (nil у одиночки) и бонус пары.
+    let partner: String?
+    let pairPoints: Int?
+}
+
+/// Пара парного дня: её очки (сумма очков дня обоих; одиночка за двоих), место и бонус каждому.
+struct DayPair: Decodable {
+    let ids: [String]
+    let names: [String]
+    let score: Int
+    let place: Int
+    let bonus: Int
+}
+
+/// Моя пройденная трасса за день: по ней «Мой день» подписывает спуск.
+struct MyTrail: Decodable {
+    let number: Int
+    let name: String
+    /// Секунды с 1970.
+    let start: Double
+    let end: Double
+    let seconds: Double
 }
 
 struct CrownRow: Decodable, Identifiable {
@@ -90,6 +112,9 @@ struct DayReply: Decodable {
     let date: String
     let dayNumber: Int?
     let multiplier: Int
+    /// Пары, если сегодня парный день.
+    let pairs: [DayPair]?
+    let myTrails: [MyTrail]?
     let rows: [DayRow]
 }
 

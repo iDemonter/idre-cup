@@ -459,9 +459,43 @@ test("джокер и майки: пропущенный день закрыва
   assert.equal(row("Иван").joker, 1, "вчерашний пропуск закрыт джокером");
   assert.equal(row("Иван").days[1], Math.min(row("Иван").days[0], row("Иван").days[2]));
   assert.equal(row("Олег").joker, null);
-  assert.equal(standings.jerseys.leader, ivan.me.id);
+  // Второй день кубка парный, поэтому очки могут сравняться: майка лидера только у единоличного лидера.
+  const [top, next] = standings.rows;
+  assert.equal(standings.jerseys.leader, top.points > next.points ? top.id : null);
   assert.equal(standings.jerseys.volume, oleg.me.id, "Олег проехал на один круг больше");
   assert.equal(standings.jerseys.crowns, null, "корон ни у кого нет");
+});
+
+test("парный день: пары на весь день, бонус лучшей паре, одиночка за двоих", options, async () => {
+  // Сегодня второй день кубка: он парный.
+  const start = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+  const ivan = (await call("POST", "/v1/cups", { body: { cupName: "Пары", name: "Иван", startsOn: start } })).body;
+  const others = [];
+  for (const name of ["Олег", "Анна"]) others.push((await call("POST", "/v1/join", { body: { code: ivan.cup.code, name } })).body);
+  const now = Math.floor(Date.now() / 1000);
+  await call("POST", "/v1/tracks", { token: ivan.token, body: { points: lap(now - 1000, { peakSpeed: 20 }) } });
+  await call("POST", "/v1/tracks", { token: others[0].token, body: { points: lap(now - 1000, { peakSpeed: 15, east: 200 }) } });
+  await call("POST", "/v1/tracks", { token: others[1].token, body: { points: lap(now - 1000, { peakSpeed: 12, east: -200 }) } });
+
+  const day = (await call("GET", "/v1/day", { token: ivan.token })).body;
+  assert.equal(day.dayNumber, 2);
+  assert.equal(day.pairs.length, 2);
+  assert.deepEqual(day.pairs.map((pair) => pair.ids.length).sort(), [1, 2]);
+  const again = (await call("GET", "/v1/day", { token: ivan.token })).body;
+  assert.deepEqual(again.pairs.map((pair) => pair.ids), day.pairs.map((pair) => pair.ids), "пары не меняются");
+  const [first, second] = day.pairs;
+  assert.ok(first.score >= second.score);
+  assert.equal(first.bonus, 6);
+  assert.equal(second.bonus, 4);
+  for (const row of day.rows) {
+    const pair = day.pairs.find((item) => item.ids.includes(row.id));
+    assert.equal(row.pairPoints, pair.bonus);
+    assert.equal(row.partner ?? null, pair.ids.length === 2 ? pair.names.find((name) => name !== row.name) : null);
+  }
+  const solo = day.pairs.find((pair) => pair.ids.length === 1);
+  const soloRow = day.rows.find((row) => row.id === solo.ids[0]);
+  assert.equal(solo.score, 2 * (soloRow.points - soloRow.pairPoints));
+  assert.ok(Array.isArray(day.myTrails));
 });
 
 test("территория: трек вдали от курорта в зачёт не идёт, пока её не выключить", options, async () => {

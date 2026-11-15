@@ -39,7 +39,8 @@ function lap(start, speed, east) {
 }
 
 const now = Math.floor(Date.now() / 1000);
-const startsOn = new Date((now - 2 * 86_400) * 1000).toISOString().slice(0, 10);
+// Кубок начался вчера: сегодня второй день, он парный. Позавчерашние треки в зачёт не идут.
+const startsOn = new Date((now - 86_400) * 1000).toISOString().slice(0, 10);
 
 // Имя и скорости спусков (м/с) по дням: позавчера, вчера, сегодня.
 const people = [
