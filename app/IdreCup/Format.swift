@@ -35,6 +35,12 @@ enum Format {
         return String(format: "%d:%02d", total / 60, total % 60)
     }
 
+    /// Время на трассе: «1:23,4».
+    static func lap(_ seconds: Double) -> String {
+        let tenths = Int((seconds * 10).rounded())
+        return String(format: "%d:%02d,%d", tenths / 600, tenths / 10 % 60, tenths % 10)
+    }
+
     /// «воскресенье · 15 ноября».
     static func day(_ date: Date) -> String {
         let weekday = date.formatted(.dateTime.weekday(.wide).locale(russian))

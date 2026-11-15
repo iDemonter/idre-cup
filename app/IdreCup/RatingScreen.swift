@@ -37,18 +37,21 @@ struct RatingScreen: View {
     enum Mode: String, CaseIterable {
         case day = "Сегодня"
         case week = "Неделя"
+        case crowns = "Короны"
     }
 
     @EnvironmentObject private var session: Session
     @State private var mode: Mode
     @State private var day: DayReply?
     @State private var standings: StandingsReply?
+    @State private var crowns: CrownsReply?
     @State private var showsProfile: Bool
 
     init() {
         // Для снимков экрана: -ratingTab week -showProfile YES.
         let defaults = UserDefaults.standard
-        _mode = State(initialValue: defaults.string(forKey: "ratingTab") == "week" ? .week : .day)
+        let asked = defaults.string(forKey: "ratingTab")
+        _mode = State(initialValue: asked == "week" ? .week : (asked == "crowns" ? .crowns : .day))
         _showsProfile = State(initialValue: defaults.bool(forKey: "showProfile"))
     }
 
@@ -111,10 +114,10 @@ struct RatingScreen: View {
                 }
                 .pickerStyle(.segmented)
 
-                if mode == .day {
-                    dayList
-                } else {
-                    weekList
+                switch mode {
+                case .day: dayList
+                case .week: weekList
+                case .crowns: crownList
                 }
             }
             .padding(.horizontal, 20)
@@ -144,6 +147,7 @@ struct RatingScreen: View {
         async let freshStandings = session.standings()
         if let reply = await freshDay { day = reply }
         if let reply = await freshStandings { standings = reply }
+        if let reply = await session.crowns() { crowns = reply }
     }
 
     private var header: some View {
@@ -199,7 +203,7 @@ struct RatingScreen: View {
                             ? "\(Format.kmh(row.topSpeed)) км/ч · \(Format.meters(row.vertical)) м · \(row.runs) \(Format.plural(row.runs, "спуск", "спуска", "спусков"))"
                             : "ещё не катался",
                         points: "+\(row.points)",
-                        footnote: row.runs > 0 ? "скорость \(place(row.speedPlace)) · объём \(place(row.volumePlace))" : nil
+                        footnote: row.runs > 0 ? dayFootnote(row) : nil
                     )
                 }
             }
@@ -228,6 +232,87 @@ struct RatingScreen: View {
         } else {
             ProgressView().tint(Theme.accent).frame(maxWidth: .infinity).padding(.top, 40)
         }
+    }
+
+    private func dayFootnote(_ row: DayRow) -> String {
+        var parts = ["скорость \(place(row.speedPlace))", "объём \(place(row.volumePlace))"]
+        if let count = row.crowns, count > 0 {
+            parts.append("\(count) \(Format.plural(count, "корона", "короны", "корон"))")
+        }
+        if let wins = row.raceWins, wins > 0 {
+            parts.append("\(wins) \(Format.plural(wins, "гонка", "гонки", "гонок"))")
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    /// Короны: у каждой зачётной трассы король с лучшим временем недели. Рядом своё лучшее время.
+    @ViewBuilder
+    private var crownList: some View {
+        if let crowns {
+            let taken = crowns.trails.filter { $0.holder != nil }
+            let free = crowns.trails.filter { $0.holder == nil }
+            note("Корона у того, кто быстрее всех прошёл трассу сверху донизу. Каждая корона на конец дня даёт +2 очка, отобрать её можно в любой момент.")
+            VStack(spacing: 8) {
+                ForEach(taken) { row in
+                    crownCard(row)
+                }
+            }
+            if !free.isEmpty {
+                Text("СВОБОДНЫЕ КОРОНЫ · \(free.count)")
+                    .font(Theme.overline())
+                    .foregroundStyle(Theme.textSecondary)
+                    .padding(.top, 6)
+                Text(free.map { "\($0.number) \($0.name)" }.joined(separator: " · "))
+                    .font(Theme.caption())
+                    .foregroundStyle(Theme.textSecondary)
+            }
+        } else {
+            ProgressView().tint(Theme.accent).frame(maxWidth: .infinity).padding(.top, 40)
+        }
+    }
+
+    private func crownCard(_ row: CrownRow) -> some View {
+        let holder = row.holder
+        let isMine = holder?.id == session.me?.id
+        return HStack(spacing: 12) {
+            Text(String(row.number))
+                .font(Theme.headline(15))
+                .foregroundStyle(Theme.textPrimary)
+                .frame(width: 34, height: 34)
+                .background(Theme.raised, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(row.name)
+                    .font(Theme.headline(16))
+                    .foregroundStyle(Theme.textPrimary)
+                    .lineLimit(1)
+                Text(row.mine.map { "моё время \(Format.lap($0))" } ?? "я здесь ещё не был")
+                    .font(Theme.caption())
+                    .foregroundStyle(Theme.textSecondary)
+            }
+            Spacer(minLength: 8)
+            if let holder {
+                VStack(alignment: .trailing, spacing: 2) {
+                    HStack(spacing: 5) {
+                        Image(systemName: "crown.fill")
+                            .font(.system(size: 11, weight: .bold))
+                        Text(holder.name ?? "?")
+                            .font(Theme.caption())
+                            .lineLimit(1)
+                    }
+                    .foregroundStyle(Theme.accent)
+                    Text(Format.lap(holder.seconds))
+                        .font(Theme.headline(17))
+                        .foregroundStyle(Theme.textPrimary)
+                }
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Theme.accent.opacity(isMine ? 0.7 : 0), lineWidth: 1.5)
+        )
     }
 
     private func place(_ value: Int?) -> String {

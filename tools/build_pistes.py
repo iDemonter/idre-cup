@@ -21,6 +21,11 @@ import pathlib
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SOURCE = ROOT / "data" / "osm-idre.json"
 OUT = ROOT / "app" / "IdreCup" / "Resources" / "pistes.json"
+TERRAIN = ROOT / "app" / "IdreCup" / "Resources" / "terrain.json"
+OUT_TRAILS = ROOT / "server" / "config" / "trails.json"
+
+# Соединительные и детские трассы: в коронах и автогонках не участвуют.
+NO_CROWN = {2, 3, 4, 9, 12, 36}
 
 SUMMIT = (61.8881353, 12.8587081)  # Gränjåsvålen, 891 м
 RADIUS_KM = 2.6                    # всё дальше относится к Idre Himmelfjäll
@@ -241,6 +246,31 @@ def rounded(points):
     return [[round(p[0], 5), round(p[1], 5)] for p in points]
 
 
+def write_trails(longest):
+    """Зачётные участки трасс для сервера: по ним считаются короны и автогонки.
+
+    Участок = самый длинный основной отрезок трассы, точки идут сверху вниз.
+    """
+    terrain = json.loads(TERRAIN.read_text(encoding="utf-8"))
+    lon_m = 111320 * math.cos(math.radians(SUMMIT[0]))
+
+    def height(point):
+        column = min(max(((point[1] - SUMMIT[1]) * lon_m - terrain["west"]) / terrain["step"], 0), terrain["cols"] - 1)
+        row = min(max((terrain["north"] - (point[0] - SUMMIT[0]) * 111320) / terrain["step"], 0), terrain["rows"] - 1)
+        return terrain["heights"][int(round(row)) * terrain["cols"] + int(round(column))]
+
+    trails = []
+    for number, piste in sorted(longest.items()):
+        if number in NO_CROWN:
+            continue
+        coords = piste["coords"]
+        if height(coords[0]) < height(coords[-1]):
+            coords = coords[::-1]
+        trails.append({"number": number, "name": piste["name"], "length": piste["length"], "coords": coords})
+    OUT_TRAILS.write_text(json.dumps({"trails": trails}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    print(f"Зачётных трасс для сервера: {len(trails)} → {OUT_TRAILS}")
+
+
 def main():
     data = json.loads(SOURCE.read_text(encoding="utf-8"))
     official_by_name = {name.lower(): (number, name, zone, difficulty, lit) for number, name, zone, difficulty, lit in OFFICIAL}
@@ -378,6 +408,8 @@ def main():
     }
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(result, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+
+    write_trails(longest)
 
     found = sorted({p["number"] for p in pistes if p["number"] is not None})
     missing = [f"{n} {name}" for n, name, *_ in OFFICIAL if n not in found]

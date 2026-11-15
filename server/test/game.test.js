@@ -199,16 +199,68 @@ test("треки и рейтинг: быстрее всех получает 10 
   assert.ok(Math.abs(first.vertical - 400) < 30, `перепад Ивана ${first.vertical}`);
   assert.equal(second.name, "Олег");
   assert.equal(second.speedPoints, 7);
-  assert.equal(second.points, 14);
+  assert.equal(second.speedPoints + second.volumePoints, 14);
   assert.equal(third.name, "Анна");
   assert.equal(third.points, 0);
   assert.equal(third.speedPlace, null);
 
   const standings = await call("GET", "/v1/standings", { token: oleg.token });
-  assert.deepEqual(standings.body.rows.map((row) => [row.name, row.points, row.place]), [["Иван", 20, 1], ["Олег", 14, 2], ["Анна", 0, 3]]);
+  assert.deepEqual(standings.body.rows.map((row) => [row.name, row.place]), [["Иван", 1], ["Олег", 2], ["Анна", 3]]);
 
   const live = await call("GET", "/v1/live", { token: anna.token });
   assert.deepEqual(live.body.positions.map((position) => position.name).sort(), ["Иван", "Олег"]);
+});
+
+test("короны и автогонки: лучшее время на трассе даёт корону, старт рядом даёт гонку", options, async () => {
+  const { readFileSync } = await import("node:fs");
+  const trail = JSON.parse(readFileSync(new URL("../config/trails.json", import.meta.url), "utf8")).trails.find((item) => item.number === 28);
+
+  // Спуск точно по линии трассы 28 с постоянной скоростью, точка в секунду, высота падает на 160 м.
+  function ride(start, speed) {
+    const points = [];
+    let t = start;
+    const total = trail.length;
+    let walked = 0;
+    for (let index = 1; index < trail.coords.length; index += 1) {
+      const [lat1, lon1] = trail.coords[index - 1];
+      const [lat2, lon2] = trail.coords[index];
+      const length = Math.hypot((lat2 - lat1) * 111_320, (lon2 - lon1) * 52_456);
+      for (let done = 0; done < length; done += speed) {
+        const share = done / length;
+        points.push([t, lat1 + (lat2 - lat1) * share, lon1 + (lon2 - lon1) * share, 840 - ((walked + done) / total) * 160, speed, 5]);
+        t += 1;
+      }
+      walked += length;
+    }
+    const [lat, lon] = trail.coords.at(-1);
+    points.push([t, lat, lon, 680, speed, 5]);
+    return points;
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  const ivan = (await call("POST", "/v1/cups", { body: { cupName: "Короны", name: "Иван", startsOn: today } })).body;
+  const oleg = (await call("POST", "/v1/join", { body: { code: ivan.cup.code, name: "Олег" } })).body;
+  const start = Math.floor(Date.now() / 1000) - 600;
+  await call("POST", "/v1/tracks", { token: ivan.token, body: { points: ride(start, 12) } });
+  await call("POST", "/v1/tracks", { token: oleg.token, body: { points: ride(start + 10, 15) } });
+
+  const crowns = await call("GET", "/v1/crowns", { token: ivan.token });
+  assert.equal(crowns.status, 200);
+  const crown = crowns.body.trails.find((item) => item.number === 28);
+  assert.equal(crown.holder.name, "Олег");
+  assert.ok(crown.mine > crown.holder.seconds, `Иван ${crown.mine} c, Олег ${crown.holder.seconds} c`);
+  assert.equal(crowns.body.trails.filter((item) => item.holder).length, 1, "другие трассы не засчитаны");
+
+  const day = await call("GET", "/v1/day", { token: ivan.token });
+  const [first, second] = day.body.rows;
+  assert.equal(first.name, "Олег");
+  assert.equal(first.crowns, 1);
+  assert.equal(first.crownPoints, 2);
+  assert.equal(first.raceWins, 1);
+  assert.equal(first.racePoints, 1);
+  assert.equal(second.crowns, 0);
+  assert.equal(second.raceWins, 0);
+  assert.equal(first.points, first.speedPoints + first.volumePoints + 3);
 });
 
 test("территория: трек вдали от курорта в зачёт не идёт, пока её не выключить", options, async () => {

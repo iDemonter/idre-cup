@@ -71,4 +71,36 @@ for (const [index, [name, days]] of people.entries()) {
   }
 }
 
+// Спуски по настоящим трассам, чтобы в демо были короны и одна автогонка (Иван и Олег на 28-й).
+const { readFileSync } = await import("node:fs");
+const trails = JSON.parse(readFileSync(new URL("../config/trails.json", import.meta.url), "utf8")).trails;
+
+function ride(number, start, speed) {
+  const trail = trails.find((item) => item.number === number);
+  const points = [];
+  let t = start;
+  let walked = 0;
+  for (let index = 1; index < trail.coords.length; index += 1) {
+    const [lat1, lon1] = trail.coords[index - 1];
+    const [lat2, lon2] = trail.coords[index];
+    const length = Math.hypot((lat2 - lat1) * 111_320, (lon2 - lon1) * 52_456);
+    for (let done = 0; done < length; done += speed) {
+      const share = done / length;
+      points.push([t, lat1 + (lat2 - lat1) * share, lon1 + (lon2 - lon1) * share, 840 - ((walked + done) / trail.length) * 160, speed, 5]);
+      t += 1;
+    }
+    walked += length;
+  }
+  return points;
+}
+
+const early = now - 3 * 3600;
+const rides = [
+  ["Иван", 28, early, 15], ["Олег", 28, early + 12, 13.5], ["Иван", 20, early + 900, 16],
+  ["Анна", 20, early + 300, 14], ["Анна", 31, early + 1500, 12], ["Макс", 24, early + 600, 19], ["Макс", 11, early + 1800, 17],
+];
+for (const [name, number, start, speed] of rides) {
+  await call("POST", "/v1/tracks", { token: tokens[name], body: { points: ride(number, start, speed) } });
+}
+
 console.log(JSON.stringify({ server, code: created.cup.code, tokens }, null, 2));

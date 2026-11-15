@@ -6,6 +6,7 @@ import { createHash, randomBytes, randomInt } from "node:crypto";
 import express from "express";
 import { analyze, meters } from "./analyzer.js";
 import { scoreDay } from "./scoring.js";
+import { loadTrails, matchRun, toMeters } from "./trails.js";
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // без похожих O/0 и I/1
 const MAX_BATCH = 5000;
@@ -72,6 +73,7 @@ export function mountApi(app, { db, rules }) {
     movingSpeed: rules.track.movingSpeed,
   };
   const resort = { lat: rules.resort.lat, lon: rules.resort.lon };
+  const trails = loadTrails(resort);
 
   // --- Защита от перебора кодов: не больше 30 попыток создать или войти за 10 минут с одного адреса.
   const attempts = new Map();
@@ -414,11 +416,24 @@ export function mountApi(app, { db, rules }) {
       ? loaded.rows.filter((point) => meters(resort, point) <= rules.resort.radiusKm * 1000)
       : loaded.rows;
     const full = analyze(points, trackRules);
+    // Какие трассы пройдены на каждом спуске и за сколько: для корон и автогонок.
+    const trailRuns = [];
+    for (const segment of full.segments) {
+      if (segment.kind !== "run") continue;
+      const run = points
+        .filter((point) => point.t >= segment.start - 20 && point.t <= segment.end + 5)
+        .map((point) => {
+          const [x, y] = toMeters(resort, point.lat, point.lon);
+          return { t: point.t, x, y };
+        });
+      trailRuns.push(...matchRun(run, trails));
+    }
     const stats = {
       topSpeed: full.topSpeed,
       vertical: Math.round(full.vertical),
       runs: full.runs,
       distance: Math.round(full.runDistance),
+      trailRuns,
     };
     statsCache.set(key, { count: mark.rows[0].count, last: mark.rows[0].last, stats });
     if (statsCache.size > 2000) statsCache.delete(statsCache.keys().next().value);
@@ -441,12 +456,80 @@ export function mountApi(app, { db, rules }) {
     return { dayNumber: number, multiplier: number === cup.days ? rules.lastDayMultiplier : 1 };
   }
 
+  /** Дни, которые идут в зачёт на дату until включительно. */
+  async function countedDates(cup, people, until) {
+    if (cup.starts_on) {
+      const count = Math.min(cup.days, daysBetween(cup.starts_on, until) + 1);
+      return Array.from({ length: Math.max(count, 0) }, (_, index) => addDays(cup.starts_on, index));
+    }
+    const found = await db.query(
+      `select distinct to_char((ts at time zone $2)::date, 'YYYY-MM-DD') as date
+       from track_points where participant_id = any($1::uuid[]) and (ts at time zone $2)::date <= $3::date
+       order by date desc limit 14`,
+      [people.map((person) => person.id), cup.timezone, until],
+    );
+    return found.rows.map((row) => row.date).reverse();
+  }
+
+  /**
+   * Лучшие времена на трассах за зачётные дни до даты until включительно.
+   * holders: трасса → { id, seconds, at } (король), personal: участник → (трасса → секунды).
+   */
+  async function bestTimes(cup, people, until) {
+    const holders = new Map();
+    const personal = new Map(people.map((person) => [person.id, new Map()]));
+    for (const date of await countedDates(cup, people, until)) {
+      for (const person of people) {
+        for (const run of (await dayStats(person.id, date, cup)).trailRuns) {
+          const mine = personal.get(person.id);
+          if (!mine.has(run.number) || run.seconds < mine.get(run.number)) mine.set(run.number, run.seconds);
+          const best = holders.get(run.number);
+          // При равном времени король тот, кто проехал раньше.
+          if (!best || run.seconds < best.seconds || (run.seconds === best.seconds && run.end < best.at)) {
+            holders.set(run.number, { id: person.id, seconds: run.seconds, at: run.end });
+          }
+        }
+      }
+    }
+    return { holders, personal };
+  }
+
   async function scoredDay(cup, people, date) {
     const { dayNumber, multiplier } = dayInfo(cup, date);
-    const rows = await Promise.all(
-      people.map(async (person) => ({ id: person.id, name: person.name, ...(await dayStats(person.id, date, cup)) })),
-    );
-    return { date, dayNumber, multiplier, rows: scoreDay(rows, rules, multiplier) };
+    const stats = await Promise.all(people.map((person) => dayStats(person.id, date, cup)));
+    const rows = people.map((person, index) => {
+      const { trailRuns: _runs, ...numbers } = stats[index];
+      return { id: person.id, name: person.name, ...numbers };
+    });
+
+    // Короны: кто держит лучшее время на трассе к концу этого дня.
+    const { holders } = await bestTimes(cup, people, date);
+    const crowns = new Map();
+    for (const holder of holders.values()) crowns.set(holder.id, (crowns.get(holder.id) ?? 0) + 1);
+
+    // Автогонки: двое стартовали на одной трассе почти одновременно, побеждает меньшее время.
+    const wins = new Map();
+    const starts = people.flatMap((person, index) => stats[index].trailRuns.map((run) => ({ ...run, id: person.id })));
+    for (let a = 0; a < starts.length; a += 1) {
+      for (let b = a + 1; b < starts.length; b += 1) {
+        const one = starts[a];
+        const two = starts[b];
+        if (one.id === two.id || one.number !== two.number) continue;
+        if (Math.abs(one.start - two.start) > rules.crowns.autoRaceStartWindowSeconds || one.seconds === two.seconds) continue;
+        const winner = one.seconds < two.seconds ? one.id : two.id;
+        wins.set(winner, (wins.get(winner) ?? 0) + 1);
+      }
+    }
+
+    const scored = scoreDay(rows, rules, multiplier).map((row) => {
+      const crownCount = crowns.get(row.id) ?? 0;
+      const raceWins = wins.get(row.id) ?? 0;
+      const crownPoints = crownCount * rules.crowns.pointsPerCrownAtDayEnd * multiplier;
+      const racePoints = raceWins * rules.crowns.autoRaceWinPoints * multiplier;
+      return { ...row, crowns: crownCount, crownPoints, raceWins, racePoints, points: row.points + crownPoints + racePoints };
+    });
+    scored.sort((a, b) => b.points - a.points || b.topSpeed - a.topSpeed || a.name.localeCompare(b.name, "ru"));
+    return { date, dayNumber, multiplier, rows: scored };
   }
 
   // --- Рейтинг дня.
@@ -463,18 +546,7 @@ export function mountApi(app, { db, rules }) {
     const people = await loadPeople(cup.id);
     const now = await today(cup);
 
-    let dates;
-    if (cup.starts_on) {
-      const count = Math.min(cup.days, daysBetween(cup.starts_on, now) + 1);
-      dates = Array.from({ length: Math.max(count, 0) }, (_, index) => addDays(cup.starts_on, index));
-    } else {
-      const found = await db.query(
-        `select distinct to_char((ts at time zone $2)::date, 'YYYY-MM-DD') as date
-         from track_points where participant_id = any($1::uuid[]) order by date desc limit 14`,
-        [people.map((person) => person.id), cup.timezone],
-      );
-      dates = found.rows.map((row) => row.date).reverse();
-    }
+    const dates = await countedDates(cup, people, now);
 
     const days = await Promise.all(dates.map((date) => scoredDay(cup, people, date)));
     const rows = people
@@ -489,6 +561,26 @@ export function mountApi(app, { db, rules }) {
       row.place = place;
     });
     res.json({ today: now, dates, rows });
+  });
+
+  // --- Короны: лучшее время на каждой зачётной трассе, король и мой результат.
+  app.get("/v1/crowns", auth, async (req, res) => {
+    const cup = await loadCup(req.me.cup_id);
+    const people = await loadPeople(cup.id);
+    const { holders, personal } = await bestTimes(cup, people, await today(cup));
+    const names = new Map(people.map((person) => [person.id, person.name]));
+    const mine = personal.get(req.me.id) ?? new Map();
+    res.json({
+      trails: trails.map((trail) => {
+        const holder = holders.get(trail.number);
+        return {
+          number: trail.number,
+          name: trail.name,
+          holder: holder ? { id: holder.id, name: names.get(holder.id), seconds: holder.seconds } : null,
+          mine: mine.get(trail.number) ?? null,
+        };
+      }),
+    });
   });
 
   // --- Где сейчас участники: последняя точка каждого за 15 минут.

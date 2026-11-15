@@ -135,6 +135,7 @@ jobs:
             shoot join 10 -section rating -serverURL $SERVER
             shoot rating-day 12 -section rating -serverURL $SERVER -token "$TOKEN"
             shoot rating-week 12 -section rating -ratingTab week -serverURL $SERVER -token "$TOKEN"
+            shoot rating-crowns 12 -section rating -ratingTab crowns -serverURL $SERVER -token "$TOKEN"
             shoot profile 12 -section rating -showProfile YES -serverURL $SERVER -token "$TOKEN"
             shoot model-friends 25 -look Модель -preset Ost -serverURL $SERVER -token "$TOKEN"
             shoot satellite-friends 30 -look Спутник -preset Ost -serverURL $SERVER -token "$TOKEN"

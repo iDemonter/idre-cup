@@ -56,6 +56,29 @@ struct DayRow: Decodable, Identifiable {
     let volumePlace: Int?
     let volumePoints: Int
     let points: Int
+    /// Короны на конец дня и выигранные автогонки. На старом сервере этих полей нет.
+    let crowns: Int?
+    let raceWins: Int?
+}
+
+struct CrownRow: Decodable, Identifiable {
+    struct Holder: Decodable {
+        let id: String
+        let name: String?
+        let seconds: Double
+    }
+
+    let number: Int
+    let name: String
+    let holder: Holder?
+    /// Моё лучшее время на трассе, секунды.
+    let mine: Double?
+
+    var id: Int { number }
+}
+
+struct CrownsReply: Decodable {
+    let trails: [CrownRow]
 }
 
 struct DayReply: Decodable {

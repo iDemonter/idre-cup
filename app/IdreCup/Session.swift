@@ -276,6 +276,11 @@ final class Session: ObservableObject {
         return try? await api.send("GET", "/v1/standings")
     }
 
+    func crowns() async -> CrownsReply? {
+        guard let api, phase == .signedIn else { return nil }
+        return try? await api.send("GET", "/v1/crowns")
+    }
+
     // MARK: - Аватары
 
     func setAvatar(_ image: UIImage) async {
