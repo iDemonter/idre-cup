@@ -11,6 +11,12 @@ enum Theme {
     static let onAccent = Color(red: 0x0B / 255, green: 0x10 / 255, blue: 0x26 / 255)
     static let accent = Color(red: 0x4F / 255, green: 0xD8 / 255, blue: 0xFF / 255)
 
+    // Цвета сложности трасс, как на официальной карте курорта.
+    static let pisteGreen = Color(red: 0x2F / 255, green: 0xC2 / 255, blue: 0x7A / 255)
+    static let pisteBlue = Color(red: 0x4F / 255, green: 0x8B / 255, blue: 0xFF / 255)
+    static let pisteRed = Color(red: 0xF0 / 255, green: 0x3E / 255, blue: 0x64 / 255)
+    static let pisteBlack = Color(red: 0x05 / 255, green: 0x07 / 255, blue: 0x0F / 255)
+
     static func title(_ size: CGFloat = 24) -> Font {
         .system(size: size, weight: .heavy, design: .rounded)
     }

@@ -41,6 +41,17 @@ Settings → Secrets and variables → Actions → New repository secret.
 
 `com.idemonter.idrecup`. Он должен быть зарегистрирован в Certificates, Identifiers & Profiles, и для него должна быть создана запись приложения в App Store Connect.
 
+## Трассы на карте
+
+Линии трасс и подъёмников взяты из OpenStreetMap, номера, зоны и сложность из официальной карты трасс Idre Fjäll 2026/27.
+
+- `data/osm-idre.json` — сырые данные OpenStreetMap. Обновляет workflow «Данные трасс» (`tools/fetch_osm.py`).
+- `tools/build_pistes.py` — собирает из них `app/IdreCup/Resources/pistes.json`, который читает приложение.
+
+В OpenStreetMap сейчас есть 35 трасс из 41. Нет линий для 2 Familjeparken, 3 Askes skidområde, 7 Äventyret, 8 Snowpark, 39 Glidaren и 40 Gondolsvängen.
+
+Данные карты: © участники OpenStreetMap, лицензия ODbL.
+
 ## Сервер
 
 ```bash
