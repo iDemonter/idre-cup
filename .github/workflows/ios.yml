@@ -82,14 +82,22 @@ jobs:
           brew install postgresql@17 >/dev/null
           export PATH="$(brew --prefix postgresql@17)/bin:$PATH"
           brew services start postgresql@17
-          for attempt in $(seq 1 20); do pg_isready -q && break; sleep 1; done
-          createdb idrecup
+          for attempt in $(seq 1 90); do pg_isready -q && break; sleep 1; done
+          createdb idrecup || { sleep 10; createdb idrecup; }
           cd server
           npm ci --omit=dev >/dev/null
           PORT=8080 DATABASE_URL="postgres://$(whoami)@127.0.0.1:5432/idrecup" nohup node src/index.js > ../server.log 2>&1 &
-          for attempt in $(seq 1 20); do curl -fsS http://127.0.0.1:8080/health | grep -q '"db":true' && break; sleep 1; done
-          node tools/seed-demo.js http://127.0.0.1:8080 > ../demo.json
+          for attempt in $(seq 1 90); do curl -fsS http://127.0.0.1:8080/health 2>/dev/null | grep -q '"db":true' && break; sleep 1; done
+          # Если демо-кубок не получился, файла demo.json быть не должно: снимки кубка тогда пропускаются,
+          # а причина попадает в ветку screenshots (demo-log.txt), где её видно без входа в GitHub.
+          if node tools/seed-demo.js http://127.0.0.1:8080 > ../demo.json 2> ../seed-error.txt; then
+            echo "демо-кубок создан" > ../demo-log.txt
+          else
+            rm -f ../demo.json
+            { echo "демо-кубок не создан"; cat ../seed-error.txt; echo "--- сервер:"; tail -20 ../server.log; } > ../demo-log.txt
+          fi
           cd ..
+          [ -f demo.json ] || exit 0
           # Двум участникам ставим аватар из значка приложения, чтобы на снимках были и картинки, и буквы.
           ICON=$(ls app/IdreCup/Assets.xcassets/AppIcon.appiconset/*.png | head -1)
           sips -Z 256 -s format jpeg "$ICON" --out avatar.jpg >/dev/null
@@ -143,6 +151,7 @@ jobs:
 
       - name: Сохранить снимки в ветку screenshots
         run: |
+          cp demo-log.txt shots/ 2>/dev/null || true
           cd shots
           ls -la
           git init -q -b screenshots
