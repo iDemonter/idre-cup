@@ -566,10 +566,15 @@ private struct NewDuelSheet: View {
         .background(Theme.base.ignoresSafeArea())
         .task {
             minutes = spans(kind).first ?? 60
-            if let reply = await session.crowns() {
-                trails = reply.trails
-                if trail == 0 {
-                    trail = reply.trails.first?.number ?? 0
+            // Список трасс приходит с сервера; при плохой связи пробуем снова, пока лист открыт.
+            while trails.isEmpty && !Task.isCancelled {
+                if let reply = await session.crowns() {
+                    trails = reply.trails
+                    if trail == 0 {
+                        trail = reply.trails.first?.number ?? 0
+                    }
+                } else {
+                    try? await Task.sleep(for: .seconds(2))
                 }
             }
         }

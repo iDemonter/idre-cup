@@ -596,7 +596,8 @@ struct MapScreen: View {
         }
         .padding(12)
         .background(Theme.raised.opacity(0.6), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .task(id: piste.id) {
+        // Ключ включает вход в кубок: карточка могла открыться раньше, чем приложение узнало участника.
+        .task(id: "\(piste.id)-\(session.phase == .signedIn)") {
             if let reply = await session.crowns() {
                 crowns = Dictionary(reply.trails.map { ($0.number, $0) }, uniquingKeysWith: { first, _ in first })
             }

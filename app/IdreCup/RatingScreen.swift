@@ -374,8 +374,7 @@ struct RatingScreen: View {
                     Text(footnote)
                         .font(Theme.caption(10))
                         .foregroundStyle(Theme.textSecondary.opacity(0.75))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
+                        .lineLimit(2)
                 }
             }
             Spacer(minLength: 8)
