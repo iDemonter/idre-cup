@@ -115,6 +115,7 @@ jobs:
           cat server.log | tail -5
 
       - name: Снимки экрана в симуляторе
+        timeout-minutes: 16
         run: |
           APP=build/Build/Products/Debug-iphonesimulator/IdreCup.app
           DEVICE=$(xcrun simctl list devices available -j | python3 -c "
@@ -126,18 +127,22 @@ jobs:
           ")
           echo "$DEVICE" > device.txt
           xcrun simctl boot "$DEVICE"
-          xcrun simctl bootstatus "$DEVICE" -b
-          xcrun simctl install "$DEVICE" "$APP"
+          perl -e 'alarm shift; exec @ARGV' 420 xcrun simctl bootstatus "$DEVICE" -b || echo "::warning::Симулятор не подтвердил загрузку за 7 минут"
+          perl -e 'alarm shift; exec @ARGV' 180 xcrun simctl install "$DEVICE" "$APP"
           xcrun simctl privacy "$DEVICE" grant location com.idemonter.idrecup
           mkdir -p shots
+          # Симулятор на общей машине иногда зависает: каждой команде даём не больше минуты,
+          # а о сбое сообщаем предупреждением (его видно через API без входа в GitHub).
+          limit() { perl -e 'alarm shift; exec @ARGV' "$@"; }
           shoot() {
             # $1 = имя файла, $2 = сколько секунд ждать, остальное = параметры запуска
             name="$1"; pause="$2"; shift 2
-            xcrun simctl launch "$DEVICE" com.idemonter.idrecup "$@"
+            limit 60 xcrun simctl launch "$DEVICE" com.idemonter.idrecup "$@" || echo "::warning::Снимок $name: приложение не запустилось"
             sleep "$pause"
-            xcrun simctl io "$DEVICE" screenshot "shots/$name.png"
-            xcrun simctl terminate "$DEVICE" com.idemonter.idrecup
+            limit 60 xcrun simctl io "$DEVICE" screenshot "shots/$name.png" || echo "::warning::Снимок $name: не снят"
+            limit 60 xcrun simctl terminate "$DEVICE" com.idemonter.idrecup || true
           }
+          echo "::notice::Симулятор запущен, приложение установлено"
           shoot model-overview 25 -look Модель
           shoot model-nord-demo 12 -look Модель -preset Nord -demo YES
           shoot model-vast-home 12 -look Модель -preset Väst -homeLat 61.88634 -homeLon 12.83393
@@ -168,19 +173,22 @@ jobs:
         continue-on-error: true
         run: |
           DEVICE=$(cat device.txt)
-          xcrun simctl launch "$DEVICE" com.idemonter.idrecup -livePreview YES
+          limit() { perl -e 'alarm shift; exec @ARGV' "$@"; }
+          limit 60 xcrun simctl launch "$DEVICE" com.idemonter.idrecup -livePreview YES
           sleep 8
-          xcrun simctl io "$DEVICE" screenshot shots/live-card.png
-          xcrun simctl terminate "$DEVICE" com.idemonter.idrecup
-          xcrun simctl launch "$DEVICE" com.idemonter.idrecup -liveTest YES
+          limit 60 xcrun simctl io "$DEVICE" screenshot shots/live-card.png
+          limit 60 xcrun simctl terminate "$DEVICE" com.idemonter.idrecup
+          limit 60 xcrun simctl launch "$DEVICE" com.idemonter.idrecup -liveTest YES
           sleep 8
-          xcrun simctl launch "$DEVICE" com.apple.Preferences
+          limit 60 xcrun simctl launch "$DEVICE" com.apple.Preferences
           sleep 5
-          xcrun simctl io "$DEVICE" screenshot shots/live-island.png
-          xcrun simctl terminate "$DEVICE" com.idemonter.idrecup || true
+          limit 60 xcrun simctl io "$DEVICE" screenshot shots/live-island.png
+          limit 60 xcrun simctl terminate "$DEVICE" com.idemonter.idrecup || true
 
       - name: Сохранить снимки в ветку screenshots
+        if: always()
         run: |
+          mkdir -p shots
           cp demo-log.txt shots/ 2>/dev/null || true
           cd shots
           ls -la
