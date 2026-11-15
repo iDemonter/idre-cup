@@ -17,6 +17,9 @@ struct TerrainView: UIViewRepresentable {
     let home: CLLocationCoordinate2D?
     let isPlacingHome: Bool
     let onPlaceHome: (CLLocationCoordinate2D) -> Void
+    /// Лес, дома и полезные места. Нажатие на значок места кладёт его в selectedPlace.
+    let scenery: SceneryData?
+    @Binding var selectedPlace: SceneryData.Place?
     @Binding var selectedID: Int?
 
     func makeCoordinator() -> Coordinator {
@@ -83,6 +86,8 @@ struct TerrainView: UIViewRepresentable {
         private let frame: LocalFrame
         private let terrain: TerrainData
         private let data: PisteData
+        /// Всё, на что можно нажать: гора, трассы, значки. Лес и дома лежат отдельно и нажатия не ловят.
+        private let touchable = SCNNode()
         private let highlightNode = SCNNode()
         private let trackNode = SCNNode()
         private var meNode: SCNNode?
@@ -108,6 +113,8 @@ struct TerrainView: UIViewRepresentable {
             let number: Int?
             /// Виден всегда и поверх всего: своя точка.
             let always: Bool
+            /// Ширина к высоте: у подписей районов значок вытянут.
+            let aspect: Double
             /// Место значка: метры от вершины и высота в единицах сцены.
             let east: Double
             let north: Double
@@ -132,17 +139,18 @@ struct TerrainView: UIViewRepresentable {
             lens.zFar = 900
             cameraNode.camera = lens
             scene.rootNode.addChildNode(cameraNode)
+            scene.rootNode.addChildNode(touchable)
 
             let ground = SCNNode(geometry: terrainGeometry())
             ground.name = terrainName
-            scene.rootNode.addChildNode(ground)
-            scene.rootNode.addChildNode(highlightNode)
-            scene.rootNode.addChildNode(trackNode)
+            touchable.addChildNode(ground)
+            touchable.addChildNode(highlightNode)
+            touchable.addChildNode(trackNode)
 
             for lift in data.lifts {
                 let line = lift.coords.map { frame.local($0) }
                 let geometry = ribbon(line, width: 7, lift: 16, color: UIColor(Theme.raised))
-                scene.rootNode.addChildNode(SCNNode(geometry: geometry))
+                touchable.addChildNode(SCNNode(geometry: geometry))
             }
 
             let lines = data.pistes.map { piste in piste.coords.map { frame.local($0) } }
@@ -155,7 +163,7 @@ struct TerrainView: UIViewRepresentable {
                     level.addChildNode(node)
                 }
                 level.isHidden = !ribbonLevels.isEmpty
-                scene.rootNode.addChildNode(level)
+                touchable.addChildNode(level)
                 ribbonLevels.append((level, width, upTo))
             }
 
@@ -173,6 +181,24 @@ struct TerrainView: UIViewRepresentable {
                 guard let mid = lift.mid else { continue }
                 let image = LiftIcon.badge(LiftKind(osm: lift.kind))
                 addBadge(image: image, at: frame.local(mid), above: 16, name: nil, size: 22, rank: lift.show ?? 0, number: nil)
+            }
+
+            // Лес и дома.
+            if let scenery = parent.scenery {
+                let builder = SceneryBuilder(terrain: terrain, unit: unit)
+                scene.rootNode.addChildNode(builder.trees(scenery.trees))
+                scene.rootNode.addChildNode(builder.buildings(scenery.buildings))
+
+                // Полезные места: светлый кружок с рисунком. Появляются вблизи, когда есть место.
+                for (index, place) in scenery.places.enumerated() {
+                    let image = Self.symbolImage(place.symbol, fill: UIColor.white, tint: UIColor(Theme.base))
+                    addBadge(image: image, at: (place.east, place.north), above: 30, name: "place-\(index)", size: 20, rank: 3_000 - Double(index), number: nil)
+                }
+                // Названия районов посёлка.
+                for (index, area) in scenery.areas.enumerated() {
+                    let label = Self.labelImage(area.name)
+                    addBadge(image: label.image, at: (area.east, area.north), above: 45, name: nil, size: 15, rank: 2_000 - Double(index), number: nil, aspect: label.aspect)
+                }
             }
 
             // Жильё: звёздочка, видна всегда.
@@ -306,7 +332,7 @@ struct TerrainView: UIViewRepresentable {
         }
 
         @discardableResult
-        private func addBadge(image: UIImage, at place: (east: Double, north: Double), above: Double, name: String?, size: Double, rank: Double, number: Int?, always: Bool = false) -> SCNNode {
+        private func addBadge(image: UIImage, at place: (east: Double, north: Double), above: Double, name: String?, size: Double, rank: Double, number: Int?, always: Bool = false, aspect: Double = 1) -> SCNNode {
             let plane = SCNPlane(width: 1, height: 1)
             let material = SCNMaterial()
             material.lightingModel = .constant
@@ -321,8 +347,8 @@ struct TerrainView: UIViewRepresentable {
             node.position = point(place.east, place.north, lift: above)
             node.constraints = [SCNBillboardConstraint()]
             node.renderingOrder = 100
-            scene.rootNode.addChildNode(node)
-            badges.append(Badge(node: node, size: size, rank: rank, number: number, always: always, east: place.east, north: place.north, up: Double(node.position.y)))
+            touchable.addChildNode(node)
+            badges.append(Badge(node: node, size: size, rank: rank, number: number, always: always, aspect: aspect, east: place.east, north: place.north, up: Double(node.position.y)))
             return node
         }
 
@@ -419,6 +445,7 @@ struct TerrainView: UIViewRepresentable {
             guard let view = gesture.view as? SCNView else { return }
             let hits = view.hitTest(gesture.location(in: view), options: [
                 SCNHitTestOption.searchMode: SCNHitTestSearchMode.all.rawValue,
+                SCNHitTestOption.rootNode: touchable,
             ])
             if parent.isPlacingHome {
                 // Ближайшее к камере место на горе под пальцем.
@@ -429,8 +456,15 @@ struct TerrainView: UIViewRepresentable {
                 return
             }
             for hit in hits {
-                if let name = hit.node.name, name.hasPrefix("piste-"), let id = Int(name.dropFirst(6)) {
+                guard let name = hit.node.name else { continue }
+                if name.hasPrefix("piste-"), let id = Int(name.dropFirst(6)) {
+                    parent.selectedPlace = nil
                     parent.selectedID = id
+                    return
+                }
+                if name.hasPrefix("place-"), let index = Int(name.dropFirst(6)), let places = parent.scenery?.places, places.indices.contains(index) {
+                    parent.selectedID = nil
+                    parent.selectedPlace = places[index]
                     return
                 }
             }
@@ -466,7 +500,7 @@ struct TerrainView: UIViewRepresentable {
                 let dz = Double(badge.node.position.z - eye.z)
                 let away = max((dx * dx + dy * dy + dz * dz).squareRoot(), 0.01)
                 let scale = Float(badge.size * away * spread / heightPoints)
-                badge.node.scale = SCNVector3(scale, scale, scale)
+                badge.node.scale = SCNVector3(scale * Float(badge.aspect), scale, scale)
 
                 if badge.always {
                     // Своя точка и жильё: ничем не заслоняются и никого не вытесняют.
@@ -477,7 +511,8 @@ struct TerrainView: UIViewRepresentable {
                 let isSelected = badge.number != nil && badge.number == selectedNumber
                 let spot = renderer.projectPoint(badge.node.position)
                 let half = badge.size / 2 + 1.5
-                let box = CGRect(x: Double(spot.x) - half, y: Double(spot.y) - half, width: half * 2, height: half * 2)
+                let wide = half * badge.aspect
+                let box = CGRect(x: Double(spot.x) - wide, y: Double(spot.y) - half, width: wide * 2, height: half * 2)
                 var visible = spot.z > 0 && spot.z < 1
                 if visible && !isSelected {
                     visible = !isBehindTerrain(badge, eye: eye) && !taken.contains { $0.intersects(box) }
@@ -550,6 +585,25 @@ struct TerrainView: UIViewRepresentable {
                     symbol.draw(at: CGPoint(x: (side - symbol.size.width) / 2, y: (side - symbol.size.height) / 2))
                 }
             }
+        }
+
+        /// Подпись района: тёмная плашка со светлым текстом. Возвращает картинку и её ширину к высоте.
+        private static func labelImage(_ text: String) -> (image: UIImage, aspect: Double) {
+            let height: CGFloat = 44
+            let label = NSAttributedString(string: text.uppercased(), attributes: [
+                .font: roundedFont(size: 22),
+                .foregroundColor: UIColor.white,
+                .kern: 1.2,
+            ])
+            let textSize = label.size()
+            let size = CGSize(width: ceil(textSize.width) + 28, height: height)
+            let image = UIGraphicsImageRenderer(size: size).image { _ in
+                let plate = UIBezierPath(roundedRect: CGRect(origin: .zero, size: size).insetBy(dx: 1, dy: 1), cornerRadius: height / 2)
+                UIColor(Theme.base).withAlphaComponent(0.78).setFill()
+                plate.fill()
+                label.draw(at: CGPoint(x: 14, y: (height - textSize.height) / 2))
+            }
+            return (image, Double(size.width / size.height))
         }
 
         /// Своя точка: акцентный кружок в светлой обводке.

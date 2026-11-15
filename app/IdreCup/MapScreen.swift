@@ -6,6 +6,7 @@ import SwiftUI
 struct MapScreen: View {
     private let data: PisteData
     private let terrain: TerrainData?
+    private let scenery = SceneryData.load()
 
     @EnvironmentObject private var tracker: Tracker
     @EnvironmentObject private var homeStore: HomeStore
@@ -15,6 +16,8 @@ struct MapScreen: View {
     @State private var activePreset: String?
     @State private var distance: Double = MapScreen.overviewDistance
     @State private var selectedID: Int?
+    /// Выбранное на модели место: ресторан, прокат, ски-центр.
+    @State private var selectedPlace: SceneryData.Place?
     /// Режим «поставить жильё»: следующее нажатие на карту ставит звёздочку.
     @State private var isPlacingHome = false
 
@@ -135,6 +138,8 @@ struct MapScreen: View {
                     home: homeStore.home,
                     isPlacingHome: isPlacingHome,
                     onPlaceHome: placeHome,
+                    scenery: scenery,
+                    selectedPlace: $selectedPlace,
                     selectedID: $selectedID
                 )
                     .ignoresSafeArea()
@@ -315,6 +320,9 @@ struct MapScreen: View {
             } else if let selected {
                 pisteCard(selected)
                     .padding(.horizontal, 20)
+            } else if let place = selectedPlace, showsModel {
+                placeCard(place)
+                    .padding(.horizontal, 20)
             }
 
             ScrollView(.horizontal, showsIndicators: false) {
@@ -351,7 +359,7 @@ struct MapScreen: View {
             }
 
             HStack {
-                Text(showsModel ? "Трассы: © OpenStreetMap · Высоты: Copernicus DEM" : "Трассы: © участники OpenStreetMap")
+                Text(showsModel ? "Карта: © OpenStreetMap · Высоты: Copernicus DEM" : "Трассы: © участники OpenStreetMap")
                     .font(Theme.caption(10))
                     .foregroundStyle(Theme.textSecondary.opacity(0.8))
                 Spacer()
@@ -458,6 +466,37 @@ struct MapScreen: View {
                 }
                 .buttonStyle(.plain)
             }
+        }
+        .padding(12)
+        .background(Theme.raised.opacity(0.6), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    private func placeCard(_ place: SceneryData.Place) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: place.symbol)
+                .font(.system(size: 17, weight: .bold))
+                .foregroundStyle(Theme.base)
+                .frame(width: 40, height: 40)
+                .background(Color.white, in: Circle())
+            VStack(alignment: .leading, spacing: 2) {
+                Text(place.name ?? place.kindTitle)
+                    .font(Theme.headline())
+                    .foregroundStyle(Theme.textPrimary)
+                Text(place.kindTitle)
+                    .font(Theme.caption())
+                    .foregroundStyle(Theme.textSecondary)
+            }
+            Spacer()
+            Button {
+                selectedPlace = nil
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(Theme.textSecondary)
+                    .frame(width: 30, height: 30)
+                    .background(Theme.raised, in: Circle())
+            }
+            .buttonStyle(.plain)
         }
         .padding(12)
         .background(Theme.raised.opacity(0.6), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
