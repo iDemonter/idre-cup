@@ -267,7 +267,7 @@ struct RatingScreen: View {
         var text = "Парный день"
         if let mine {
             let partner = zip(mine.ids, mine.names).first { $0.0 != session.me?.id }?.1
-            text += partner.map { ": ты в паре с \($0)." } ?? ": ты один, твои очки считаются за двоих."
+            text += partner.map { ". Твоя пара: \($0)." } ?? ". Ты без пары: твои очки считаются за двоих."
         } else {
             text += "."
         }
@@ -310,7 +310,7 @@ struct RatingScreen: View {
             parts.append("события \(signed(events))")
         }
         if let pair = row.pairPoints {
-            parts.append(row.partner.map { "в паре с \($0) \(signed(pair))" } ?? "один \(signed(pair))")
+            parts.append(row.partner.map { "пара: \($0) \(signed(pair))" } ?? "без пары \(signed(pair))")
         }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
@@ -420,7 +420,7 @@ struct RatingScreen: View {
                     Text(footnote)
                         .font(Theme.caption(10))
                         .foregroundStyle(Theme.textSecondary.opacity(0.75))
-                        .lineLimit(2)
+                        .lineLimit(3)
                 }
             }
             Spacer(minLength: 8)
