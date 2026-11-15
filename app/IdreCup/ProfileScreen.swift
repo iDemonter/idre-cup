@@ -18,6 +18,7 @@ struct ProfileScreen: View {
     @State private var asksSignOut = false
     @State private var asksNewCode = false
     @State private var firstDay = Date()
+    @State private var restoreCode: RestoreCode?
 
     var body: some View {
         ScrollView {
@@ -53,6 +54,19 @@ struct ProfileScreen: View {
                     if session.isAdmin {
                         adminCard(cup)
                     }
+                }
+
+                if let me = session.me {
+                    Button {
+                        Task { restoreCode = await session.restoreCode(for: me) }
+                    } label: {
+                        Text("Переезжаю на новый телефон: получить код возврата")
+                            .font(Theme.caption())
+                            .foregroundStyle(Theme.accent)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                    }
+                    .buttonStyle(.plain)
                 }
 
                 Button {
@@ -107,6 +121,13 @@ struct ProfileScreen: View {
         } message: {
             Text("Его очки пропадут из зачёта. Вернуться он сможет только заново, по коду.")
         }
+        .alert(item: $restoreCode) { issued in
+            Alert(
+                title: Text("Код возврата: \(issued.code)"),
+                message: Text("Для участника «\(issued.name)». На новом телефоне: «Рейтинг» → «Войти по коду» → этот код. Действует \(issued.hours) часа, один раз. Старый телефон после входа отключится."),
+                dismissButton: .default(Text("Понятно"))
+            )
+        }
         .confirmationDialog("Выдать новый код?", isPresented: $asksNewCode, titleVisibility: .visible) {
             Button("Выдать новый код") {
                 Task { await session.newCode() }
@@ -120,7 +141,7 @@ struct ProfileScreen: View {
                 dismiss()
             }
         } message: {
-            Text("Телефон забудет кубок. Вернуться можно будет только новым участником, очки останутся у старого.")
+            Text("Телефон забудет кубок. Вернуться с очками можно по коду возврата: его выдаёт админ.")
         }
     }
 
@@ -268,6 +289,11 @@ struct ProfileScreen: View {
                                 renamed = person
                             } label: {
                                 Label("Переименовать", systemImage: "pencil")
+                            }
+                            Button {
+                                Task { restoreCode = await session.restoreCode(for: person) }
+                            } label: {
+                                Label("Код возврата", systemImage: "arrow.uturn.backward.circle")
                             }
                             Button {
                                 Task { await session.makeAdmin(person) }

@@ -3,6 +3,21 @@ import SceneKit
 import SwiftUI
 import UIKit
 
+/// Друг на карте: где он и что рисовать в кружке.
+struct FriendMark: Equatable {
+    let id: String
+    let coordinate: CLLocationCoordinate2D
+    let letter: String
+    let photo: UIImage?
+    /// Меняется вместе с аватаром: по нему модель понимает, что кружок пора перерисовать.
+    let photoKey: String
+
+    static func == (left: FriendMark, right: FriendMark) -> Bool {
+        left.id == right.id && left.photoKey == right.photoKey
+            && left.coordinate.latitude == right.coordinate.latitude && left.coordinate.longitude == right.coordinate.longitude
+    }
+}
+
 /// Вид «Модель»: 3D-гора из сетки высот, на ней трассы, подъёмники и значки.
 /// Высота вытянута (TerrainData.exaggeration), чтобы пологая гора читалась.
 /// Крутится одним пальцем, приближается щипком, сдвигается двумя пальцами.
@@ -17,6 +32,8 @@ struct TerrainView: UIViewRepresentable {
     let home: CLLocationCoordinate2D?
     let isPlacingHome: Bool
     let onPlaceHome: (CLLocationCoordinate2D) -> Void
+    /// Остальные участники кубка: их аватары на горе.
+    let friends: [FriendMark]
     /// Лес, дома и полезные места. Нажатие на значок места кладёт его в selectedPlace.
     let scenery: SceneryData?
     @Binding var selectedPlace: SceneryData.Place?
@@ -50,6 +67,7 @@ struct TerrainView: UIViewRepresentable {
         coordinator.select(selectedID)
         coordinator.showTrack(path, version: pathVersion)
         coordinator.showHome(home)
+        coordinator.showFriends(friends)
         return view
     }
 
@@ -68,6 +86,9 @@ struct TerrainView: UIViewRepresentable {
         if home?.latitude != coordinator.home?.latitude || home?.longitude != coordinator.home?.longitude {
             coordinator.showHome(home)
         }
+        if friends != coordinator.friends {
+            coordinator.showFriends(friends)
+        }
     }
 
     // MARK: - Сцена
@@ -80,6 +101,11 @@ struct TerrainView: UIViewRepresentable {
         private(set) var selectedID: Int?
         private(set) var trackVersion: Int?
         private(set) var home: CLLocationCoordinate2D?
+        private(set) var friends: [FriendMark] = []
+        /// Кружки друзей. Меняются с главного потока, читаются при отрисовке: отсюда замок.
+        private var friendNodes: [String: (node: SCNNode, photoKey: String)] = [:]
+        private var friendList: [SCNNode] = []
+        private let friendLock = NSLock()
 
         /// Одна единица сцены = 100 м.
         private let unit: Double = 100
@@ -337,6 +363,16 @@ struct TerrainView: UIViewRepresentable {
 
         @discardableResult
         private func addBadge(image: UIImage, at place: (east: Double, north: Double), above: Double, name: String?, size: Double, rank: Double, number: Int?, always: Bool = false, aspect: Double = 1) -> SCNNode {
+            let node = Self.badgeNode(image: image)
+            node.name = name
+            node.position = point(place.east, place.north, lift: above)
+            touchable.addChildNode(node)
+            badges.append(Badge(node: node, size: size, rank: rank, number: number, always: always, aspect: aspect, east: place.east, north: place.north, up: Double(node.position.y)))
+            return node
+        }
+
+        /// Плоская картинка, всегда повёрнутая к камере и нарисованная поверх горы.
+        private static func badgeNode(image: UIImage) -> SCNNode {
             let plane = SCNPlane(width: 1, height: 1)
             let material = SCNMaterial()
             material.lightingModel = .constant
@@ -345,15 +381,66 @@ struct TerrainView: UIViewRepresentable {
             material.readsFromDepthBuffer = false
             material.writesToDepthBuffer = false
             plane.materials = [material]
-
             let node = SCNNode(geometry: plane)
-            node.name = name
-            node.position = point(place.east, place.north, lift: above)
             node.constraints = [SCNBillboardConstraint()]
             node.renderingOrder = 100
-            touchable.addChildNode(node)
-            badges.append(Badge(node: node, size: size, rank: rank, number: number, always: always, aspect: aspect, east: place.east, north: place.north, up: Double(node.position.y)))
             return node
+        }
+
+        /// Друзья: кружок с аватаром или буквой на месте последней точки каждого.
+        func showFriends(_ marks: [FriendMark]) {
+            friends = marks
+            var next: [String: (node: SCNNode, photoKey: String)] = [:]
+            for mark in marks {
+                let place = frame.local(mark.coordinate)
+                guard terrain.contains(east: place.east, north: place.north) else { continue }
+                var entry = friendNodes[mark.id]
+                if entry == nil || entry?.photoKey != mark.photoKey {
+                    entry?.node.removeFromParentNode()
+                    let node = Self.badgeNode(image: Self.friendImage(letter: mark.letter, photo: mark.photo))
+                    node.renderingOrder = 110
+                    touchable.addChildNode(node)
+                    entry = (node, mark.photoKey)
+                }
+                if let entry {
+                    entry.node.position = point(place.east, place.north, lift: 22)
+                    next[mark.id] = entry
+                }
+            }
+            for (id, entry) in friendNodes where next[id] == nil {
+                entry.node.removeFromParentNode()
+            }
+            friendLock.lock()
+            friendNodes = next
+            friendList = next.values.map { $0.node }
+            friendLock.unlock()
+        }
+
+        /// Кружок друга: фото или буква, тёмная обводка, чтобы читался на снегу.
+        private static func friendImage(letter: String, photo: UIImage?) -> UIImage {
+            let side: CGFloat = 96
+            return UIGraphicsImageRenderer(size: CGSize(width: side, height: side)).image { context in
+                let box = CGRect(x: 6, y: 6, width: side - 12, height: side - 12)
+                let circle = UIBezierPath(ovalIn: box)
+                context.cgContext.saveGState()
+                circle.addClip()
+                if let photo {
+                    photo.draw(in: box)
+                } else {
+                    UIColor(Theme.raised).setFill()
+                    circle.fill()
+                    let label = NSAttributedString(string: letter, attributes: [
+                        .font: roundedFont(size: side * 0.42),
+                        .foregroundColor: UIColor.white,
+                    ])
+                    let size = label.size()
+                    label.draw(at: CGPoint(x: (side - size.width) / 2, y: (side - size.height) / 2))
+                }
+                context.cgContext.restoreGState()
+                UIColor.white.setStroke()
+                circle.lineWidth = 6
+                circle.stroke()
+            }
         }
 
         // MARK: - Камера и выбор
@@ -499,6 +586,22 @@ struct TerrainView: UIViewRepresentable {
 
             // Значки: постоянный размер на экране; за горой и под более важным значком прячутся.
             var taken: [CGRect] = []
+
+            // Друзья: всегда видны, значки трасс под ними прячутся.
+            friendLock.lock()
+            let friendsNow = friendList
+            friendLock.unlock()
+            for node in friendsNow {
+                let dx = Double(node.position.x - eye.x)
+                let dy = Double(node.position.y - eye.y)
+                let dz = Double(node.position.z - eye.z)
+                let away = max((dx * dx + dy * dy + dz * dz).squareRoot(), 0.01)
+                let scale = Float(30 * away * spread / heightPoints)
+                node.scale = SCNVector3(scale, scale, scale)
+                let spot = renderer.projectPoint(node.position)
+                taken.append(CGRect(x: Double(spot.x) - 16, y: Double(spot.y) - 16, width: 32, height: 32))
+            }
+
             for badge in badges {
                 let dx = Double(badge.node.position.x - eye.x)
                 let dy = Double(badge.node.position.y - eye.y)

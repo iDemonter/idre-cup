@@ -16,6 +16,8 @@ final class Session: ObservableObject {
     @Published private(set) var cup: CupInfo?
     @Published private(set) var me: Person?
     @Published private(set) var people: [Person] = []
+    /// Где сейчас остальные участники (без меня).
+    @Published private(set) var friends: [LivePosition] = []
     /// Текст последней ошибки для показа человеку.
     @Published var problem: String?
     @Published private(set) var isBusy = false
@@ -154,6 +156,35 @@ final class Session: ObservableObject {
         }
     }
 
+    /// Вход с нового телефона по коду возврата: очки и место в кубке сохраняются.
+    func restore(code: String) async {
+        await attempt { api in
+            let entry: EntryReply = try await api.send("POST", "/v1/restore", body: ["code": code])
+            await enter(entry)
+        }
+    }
+
+    /// Одноразовый код возврата для участника (свой может получить каждый, чужой только админ).
+    func restoreCode(for person: Person) async -> RestoreCode? {
+        var result: RestoreCode?
+        await attempt { api in
+            result = try await api.send("POST", "/v1/participants/\(person.id)/restore")
+        }
+        return result
+    }
+
+    /// Где сейчас друзья. Вызывается раз в 15 секунд, пока открыта карта.
+    func loadFriends() async {
+        guard let api, phase == .signedIn else {
+            if !friends.isEmpty { friends = [] }
+            return
+        }
+        if let reply: LiveReply = try? await api.send("GET", "/v1/live") {
+            let others = reply.positions.filter { $0.id != me?.id }
+            if others != friends { friends = others }
+        }
+    }
+
     /// Обновить кубок и участников. Если сервер говорит, что меня удалили, выходим.
     func refresh() async {
         guard let api, token != nil else { return }
@@ -176,6 +207,7 @@ final class Session: ObservableObject {
         cup = nil
         me = nil
         people = []
+        friends = []
         uploadedUntil = nil
         phase = .signedOut
     }

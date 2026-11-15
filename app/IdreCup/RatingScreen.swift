@@ -298,8 +298,14 @@ private struct JoinView: View {
     @State private var cupName = "Idre Cup 2027"
     @State private var anywhere = false
 
+    /// Восемь знаков = код возврата от админа: имя вводить не нужно.
+    private var isRestore: Bool {
+        code.trimmingCharacters(in: .whitespaces).count == 8
+    }
+
     private var isReady: Bool {
         let hasName = !name.trimmingCharacters(in: .whitespaces).isEmpty
+        if way == .join, isRestore { return true }
         return hasName && (way == .join ? code.count >= 6 : !cupName.trimmingCharacters(in: .whitespaces).isEmpty)
     }
 
@@ -334,6 +340,9 @@ private struct JoinView: View {
                         .textInputAutocapitalization(.characters)
                         .autocorrectionDisabled()
                         .font(.system(size: 20, weight: .heavy, design: .monospaced))
+                    Text("Код кубка: 6 знаков. Если вы уже были в кубке и сменили телефон, введите код возврата из 8 знаков, его выдаёт админ.")
+                        .font(Theme.caption())
+                        .foregroundStyle(Theme.textSecondary)
                 } else {
                     field("Название кубка", text: $cupName)
                     Toggle(isOn: $anywhere) {
@@ -360,14 +369,16 @@ private struct JoinView: View {
                 Button {
                     Task {
                         let cleanName = name.trimmingCharacters(in: .whitespaces)
-                        if way == .join {
+                        if way == .join, isRestore {
+                            await session.restore(code: code.trimmingCharacters(in: .whitespaces))
+                        } else if way == .join {
                             await session.join(name: cleanName, code: code.trimmingCharacters(in: .whitespaces))
                         } else {
                             await session.createCup(name: cleanName, cupName: cupName.trimmingCharacters(in: .whitespaces), anywhere: anywhere)
                         }
                     }
                 } label: {
-                    Text(way == .join ? "Войти в кубок" : "Создать кубок")
+                    Text(way == .create ? "Создать кубок" : (isRestore ? "Вернуться в кубок" : "Войти в кубок"))
                         .font(Theme.headline())
                         .foregroundStyle(Theme.onAccent)
                         .frame(maxWidth: .infinity)

@@ -10,6 +10,9 @@ struct MapScreen: View {
 
     @EnvironmentObject private var tracker: Tracker
     @EnvironmentObject private var homeStore: HomeStore
+    @EnvironmentObject private var session: Session
+    /// Скачанные аватары друзей для кружков на карте: ключ «id-версия».
+    @State private var friendPhotos: [String: UIImage] = [:]
     @State private var position: MapCameraPosition
     @State private var look: MapLook
     @State private var modelCamera: ModelCamera
@@ -67,6 +70,36 @@ struct MapScreen: View {
     }
 
     private var showsModel: Bool { look == .model && terrain != nil }
+
+    private func person(for friend: LivePosition) -> Person {
+        session.people.first { $0.id == friend.id } ?? Person(id: friend.id, name: friend.name ?? "?", isAdmin: false, avatar: nil)
+    }
+
+    /// Друзья для 3D-модели: место, буква и фото, если оно уже скачано.
+    private var friendMarks: [FriendMark] {
+        session.friends.map { friend in
+            let who = person(for: friend)
+            let key = "\(who.id)-\(who.avatar ?? 0)"
+            let photo = friendPhotos[key]
+            return FriendMark(
+                id: friend.id,
+                coordinate: CLLocationCoordinate2D(latitude: friend.lat, longitude: friend.lon),
+                letter: String(who.name.prefix(1)).uppercased(),
+                photo: photo,
+                photoKey: photo == nil ? "буква-\(who.name.prefix(1))" : key
+            )
+        }
+    }
+
+    private func loadFriendPhotos() async {
+        for friend in session.friends {
+            let who = person(for: friend)
+            let key = "\(who.id)-\(who.avatar ?? 0)"
+            if who.avatar != nil, friendPhotos[key] == nil, let image = await session.avatarImage(for: who) {
+                friendPhotos[key] = image
+            }
+        }
+    }
 
     /// Звёздочка жилья для карты Apple: одна или ни одной.
     private var homeMarks: [HomeMark] {
@@ -138,6 +171,7 @@ struct MapScreen: View {
                     home: homeStore.home,
                     isPlacingHome: isPlacingHome,
                     onPlaceHome: placeHome,
+                    friends: friendMarks,
                     scenery: scenery,
                     selectedPlace: $selectedPlace,
                     selectedID: $selectedID
@@ -157,6 +191,14 @@ struct MapScreen: View {
         .onAppear {
             tracker.requestAccess()
             tracker.locateOnce()
+        }
+        .task(id: session.phase == .signedIn) {
+            // Пока карта жива, раз в 15 секунд узнаём, где друзья.
+            while !Task.isCancelled {
+                await session.loadFriends()
+                await loadFriendPhotos()
+                try? await Task.sleep(for: .seconds(15))
+            }
         }
     }
 
@@ -213,6 +255,14 @@ struct MapScreen: View {
 
             Annotation(Resort.name, coordinate: data.summitCoordinate) {
                 SummitMarker()
+            }
+
+            // Друзья.
+            ForEach(session.friends) { friend in
+                Annotation(friend.name ?? "", coordinate: CLLocationCoordinate2D(latitude: friend.lat, longitude: friend.lon)) {
+                    AvatarView(person: person(for: friend), size: 30)
+                        .environmentObject(session)
+                }
             }
 
             // Жильё.

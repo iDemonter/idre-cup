@@ -79,6 +79,27 @@ struct StandingsReply: Decodable {
     let rows: [StandingRow]
 }
 
+/// Где сейчас участник: его последняя точка за 15 минут.
+struct LivePosition: Decodable, Identifiable, Equatable {
+    let id: String
+    let name: String?
+    let t: Double
+    let lat: Double
+    let lon: Double
+}
+
+struct LiveReply: Decodable {
+    let positions: [LivePosition]
+}
+
+struct RestoreCode: Decodable, Identifiable {
+    let code: String
+    let name: String
+    let hours: Int
+
+    var id: String { code }
+}
+
 struct TracksReply: Decodable {
     let last: Double?
 }
