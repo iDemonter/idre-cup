@@ -16,6 +16,10 @@ final class Tracker: NSObject, ObservableObject, CLLocationManagerDelegate {
     /// Где телефон сейчас, если это известно. Обновляется и без записи трека.
     @Published private(set) var here: CLLocationCoordinate2D?
 
+    /// Вызывается, когда меняются запись или итоги: по нему обновляется Live Activity.
+    /// Работает и в фоне, в отличие от обновления экранов.
+    var onChange: (@MainActor () -> Void)?
+
     private let manager = CLLocationManager()
     private let store = TrackStore()
     private var points: [TrackPoint] = []
@@ -84,6 +88,14 @@ final class Tracker: NSObject, ObservableObject, CLLocationManagerDelegate {
         manager.showsBackgroundLocationIndicator = true
         manager.startUpdatingLocation()
         isRecording = true
+        notify()
+    }
+
+    /// Запись и итоги меняются только на главном потоке: и нажатия, и точки GPS приходят туда.
+    private func notify() {
+        MainActor.assumeIsolated {
+            onChange?()
+        }
     }
 
     /// Настоящие точки позже заданного времени (секунды с 1970): их Session отправляет на сервер.
@@ -187,5 +199,6 @@ final class Tracker: NSObject, ObservableObject, CLLocationManagerDelegate {
     private func refreshStats() {
         sinceStats = 0
         stats = TrackAnalyzer.analyze(points)
+        notify()
     }
 }

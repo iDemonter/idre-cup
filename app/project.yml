@@ -16,6 +16,9 @@ targets:
     platform: iOS
     sources:
       - path: IdreCup
+      - path: Shared
+    dependencies:
+      - target: IdreCupLive
     info:
       path: IdreCup/Info.plist
       properties:
@@ -32,6 +35,9 @@ targets:
         NSLocationAlwaysAndWhenInUseUsageDescription: "Idre Cup записывает ваш трек на склоне, даже когда телефон в кармане: по нему считаются скорость, спуски и рейтинг."
         UIBackgroundModes:
           - location
+        # Live Activity «запись идёт»; обновляется чаще обычного, пока пишется трек.
+        NSSupportsLiveActivities: true
+        NSSupportsLiveActivitiesFrequentUpdates: true
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
     settings:
@@ -43,6 +49,29 @@ targets:
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         CODE_SIGN_STYLE: Automatic
         GENERATE_INFOPLIST_FILE: false
+  # Расширение с Live Activity (экран блокировки, Dynamic Island). Общий код с приложением лежит в Shared.
+  IdreCupLive:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: IdreCupLive
+      - path: Shared
+    info:
+      path: IdreCupLive/Info.plist
+      properties:
+        CFBundleDisplayName: Idre Cup
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.idemonter.idrecup.live
+        PRODUCT_NAME: IdreCupLive
+        TARGETED_DEVICE_FAMILY: "1"
+        CODE_SIGN_STYLE: Automatic
+        GENERATE_INFOPLIST_FILE: false
+        SKIP_INSTALL: true
 schemes:
   IdreCup:
     build:

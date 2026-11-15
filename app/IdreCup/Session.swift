@@ -21,6 +21,13 @@ final class Session: ObservableObject {
     /// Текст последней ошибки для показа человеку.
     /// Сколько вызовов на дуэль ждут моего ответа.
     @Published private(set) var duelCalls = 0
+    /// Моё место и очки за сегодня и идущая дуэль (соперник, конец по часам телефона): для Live Activity.
+    private(set) var todayPlace: Int?
+    private(set) var todayPoints: Int?
+    private(set) var duelWith: String?
+    private(set) var duelEnds: Date?
+    private var askedNotifications = false
+    private let seenKey = "announcedDuels"
     @Published var problem: String?
     @Published private(set) var isBusy = false
 
@@ -211,6 +218,10 @@ final class Session: ObservableObject {
         people = []
         friends = []
         duelCalls = 0
+        todayPlace = nil
+        todayPoints = nil
+        duelWith = nil
+        duelEnds = nil
         uploadedUntil = nil
         phase = .signedOut
     }
@@ -292,7 +303,72 @@ final class Session: ObservableObject {
         guard let reply: DuelsReply = try? await api.send("GET", "/v1/duels") else { return nil }
         let waiting = reply.duels.filter { $0.status == "pending" && $0.opponent.id == me?.id }.count
         if waiting != duelCalls { duelCalls = waiting }
+
+        // Идущая дуэль со мной: время сервера переводим в часы телефона.
+        let offset = reply.now - Date().timeIntervalSince1970
+        if let mine = reply.duels.first(where: { $0.status == "active" && $0.involves(me?.id) }), let end = mine.endsAt {
+            duelWith = mine.challenger.id == me?.id ? mine.opponent.name : mine.challenger.name
+            duelEnds = Date(timeIntervalSince1970: end - offset)
+        } else {
+            duelWith = nil
+            duelEnds = nil
+        }
+
+        if !isTokenTemporary {
+            if !askedNotifications {
+                askedNotifications = true
+                Notifier.askPermission()
+            }
+            announce(reply)
+        }
         return reply
+    }
+
+    /// Уведомления о дуэлях: вызов мне, ответ на мой вызов, итог. Каждое показывается один раз,
+    /// старые новости (после переустановки или долгого перерыва) пропускаются.
+    private func announce(_ reply: DuelsReply) {
+        guard let myID = me?.id else { return }
+        var seen = Set(defaults.stringArray(forKey: seenKey) ?? [])
+        for duel in reply.duels where duel.involves(myID) {
+            let key = "\(duel.id):\(duel.status)"
+            if seen.contains(key) { continue }
+            seen.insert(key)
+            let iChallenged = duel.challenger.id == myID
+            let other = iChallenged ? duel.opponent.name : duel.challenger.name
+            let mine = iChallenged ? duel.challenger.value : duel.opponent.value
+            let theirs = iChallenged ? duel.opponent.value : duel.challenger.value
+            switch duel.status {
+            case "pending" where !iChallenged:
+                Notifier.post(id: key, title: "\(other) вызывает тебя на дуэль", body: "\(duel.title). \(duel.rule). Ответить можно в разделе «Дуэли».")
+            case "active" where iChallenged && reply.now - (duel.startsAt ?? 0) < 600:
+                Notifier.post(id: key, title: "Вызов принят: \(other)", body: "\(duel.title). Время пошло: \(duel.rule.lowercased()).")
+            case "declined" where iChallenged && reply.now - duel.createdAt < 2_400:
+                Notifier.post(id: key, title: "Дуэли не будет: \(other)", body: "\(duel.title): вызов отклонён, очки на месте.")
+            case "finished" where reply.now - (duel.endsAt ?? 0) < 2_400:
+                let score = "\(duel.title): \(duel.text(mine)) против \(duel.text(theirs))."
+                if duel.winner == nil {
+                    Notifier.post(id: key, title: "Дуэль с \(other): ничья", body: "\(score) Очки на месте.")
+                } else if duel.winner == myID {
+                    Notifier.post(id: key, title: "Дуэль с \(other): победа, +\(duel.stake)", body: score)
+                } else {
+                    Notifier.post(id: key, title: "Дуэль с \(other): поражение, −\(duel.stake)", body: score)
+                }
+            default:
+                break
+            }
+        }
+        // Помним только дуэли из свежего списка: он ограничен, список отметок тоже.
+        let listed = Set(reply.duels.map(\.id))
+        let kept = seen.filter { key in listed.contains(String(key.prefix { $0 != ":" })) }
+        defaults.set(Array(kept), forKey: seenKey)
+    }
+
+    /// Моё место и очки за сегодня: их показывает Live Activity. Вызывается раз в полминуты во время записи.
+    func refreshToday() async {
+        guard let reply = await day(), let index = reply.rows.firstIndex(where: { $0.id == me?.id }) else { return }
+        let row = reply.rows[index]
+        todayPoints = row.points
+        todayPlace = row.points > 0 ? index + 1 : nil
     }
 
     /// Вызвать на дуэль. Причина отказа сервера (соперник занят, предел на день) попадает в problem.

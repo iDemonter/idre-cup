@@ -33,6 +33,7 @@ struct RootView: View {
     @StateObject private var homeStore = HomeStore()
     @StateObject private var session = Session()
     @State private var section: Screen
+    @State private var live = LiveRide()
     private let data: PisteData
     private let terrain: TerrainData?
 
@@ -59,6 +60,9 @@ struct RootView: View {
             if section == .duels {
                 DuelsScreen()
             }
+            if UserDefaults.standard.bool(forKey: "livePreview") {
+                LivePreview()
+            }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             sectionBar
@@ -67,12 +71,27 @@ struct RootView: View {
         .environmentObject(homeStore)
         .environmentObject(session)
         .task {
+            // Live Activity следует за записью: трекер сообщает о каждом пересчёте, в том числе в фоне.
+            let tracker = self.tracker
+            let session = self.session
+            let live = self.live
+            if UserDefaults.standard.bool(forKey: "liveTest") {
+                live.startTest()
+            }
+            tracker.onChange = { [weak tracker, weak session] in
+                guard let tracker, let session else { return }
+                live.sync(tracker: tracker, session: session)
+            }
             await session.start()
             // Пока приложение живо (в том числе в фоне во время записи), трек уходит на сервер раз в полминуты.
             while !Task.isCancelled {
                 await session.sync(tracker)
                 // Заодно узнаём, не вызвал ли кто на дуэль: на вкладке загорится точка.
                 _ = await session.duels()
+                if tracker.isRecording {
+                    await session.refreshToday()
+                }
+                live.sync(tracker: tracker, session: session)
                 try? await Task.sleep(for: .seconds(30))
             }
         }

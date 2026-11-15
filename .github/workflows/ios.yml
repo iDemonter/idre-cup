@@ -124,6 +124,7 @@ jobs:
           plain = [d for d in phones if 'Pro' not in d['name'] and 'Plus' not in d['name'] and 'SE' not in d['name'] and 'e' != d['name'][-1]]
           print((plain or phones)[-1]['udid'])
           ")
+          echo "$DEVICE" > device.txt
           xcrun simctl boot "$DEVICE"
           xcrun simctl bootstatus "$DEVICE" -b
           xcrun simctl install "$DEVICE" "$APP"
@@ -160,6 +161,23 @@ jobs:
             shoot model-friends 25 -look Модель -preset Ost -serverURL $SERVER -token "$TOKEN"
             shoot satellite-friends 30 -look Спутник -preset Ost -serverURL $SERVER -token "$TOKEN"
           fi
+
+      # Live Activity: карточка экрана блокировки (та же вёрстка, показанная внутри приложения)
+      # и Dynamic Island: приложение запускает проверочную карточку, затем уходит в фон.
+      - name: Снимки Live Activity
+        continue-on-error: true
+        run: |
+          DEVICE=$(cat device.txt)
+          xcrun simctl launch "$DEVICE" com.idemonter.idrecup -livePreview YES
+          sleep 8
+          xcrun simctl io "$DEVICE" screenshot shots/live-card.png
+          xcrun simctl terminate "$DEVICE" com.idemonter.idrecup
+          xcrun simctl launch "$DEVICE" com.idemonter.idrecup -liveTest YES
+          sleep 8
+          xcrun simctl launch "$DEVICE" com.apple.Preferences
+          sleep 5
+          xcrun simctl io "$DEVICE" screenshot shots/live-island.png
+          xcrun simctl terminate "$DEVICE" com.idemonter.idrecup || true
 
       - name: Сохранить снимки в ветку screenshots
         run: |
@@ -224,6 +242,7 @@ jobs:
       - name: Архив
         if: steps.check.outputs.ready == 'true'
         run: |
+          set -o pipefail
           xcodebuild archive \
             -project app/IdreCup.xcodeproj \
             -scheme IdreCup \
@@ -233,12 +252,17 @@ jobs:
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
             CODE_SIGNING_ALLOWED=NO \
-            -quiet
+            -quiet 2>&1 | tee archive.log || {
+              # Причина сбоя дублируется аннотациями: журнал без входа в GitHub не открыть.
+              grep -E 'error: ' archive.log | sort -u | head -20 | sed -E 's#^.*error: #::error::Архив: #'
+              exit 1
+            }
 
       # Подпись облачным сертификатом Apple и отправка. Нужен ключ с ролью Admin.
       - name: Подпись и отправка в TestFlight
         if: steps.check.outputs.ready == 'true'
         run: |
+          set -o pipefail
           cat > "$RUNNER_TEMP/ExportOptions.plist" <<EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -260,7 +284,10 @@ jobs:
             -allowProvisioningUpdates \
             -authenticationKeyPath "$ASC_KEY_PATH" \
             -authenticationKeyID "$ASC_KEY_ID" \
-            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" 2>&1 | tee export.log || {
+              grep -iE 'error' export.log | sort -u | head -20 | sed -E 's#^#::error::Подпись и отправка: #'
+              exit 1
+            }
           echo "::notice::Сборка $BUILD_NUMBER отправлена в TestFlight. Обработка у Apple занимает 5–20 минут."
 
       - name: Удалить ключ
