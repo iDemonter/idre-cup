@@ -76,6 +76,29 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             -quiet
 
+      - name: Сервер с демо-кубком
+        continue-on-error: true
+        run: |
+          brew install postgresql@17 >/dev/null
+          export PATH="$(brew --prefix postgresql@17)/bin:$PATH"
+          brew services start postgresql@17
+          for attempt in $(seq 1 20); do pg_isready -q && break; sleep 1; done
+          createdb idrecup
+          cd server
+          npm ci --omit=dev >/dev/null
+          PORT=8080 DATABASE_URL="postgres://$(whoami)@127.0.0.1:5432/idrecup" nohup node src/index.js > ../server.log 2>&1 &
+          for attempt in $(seq 1 20); do curl -fsS http://127.0.0.1:8080/health | grep -q '"db":true' && break; sleep 1; done
+          node tools/seed-demo.js http://127.0.0.1:8080 > ../demo.json
+          cd ..
+          # Двум участникам ставим аватар из значка приложения, чтобы на снимках были и картинки, и буквы.
+          ICON=$(ls app/IdreCup/Assets.xcassets/AppIcon.appiconset/*.png | head -1)
+          sips -Z 256 -s format jpeg "$ICON" --out avatar.jpg >/dev/null
+          for NAME in Иван Анна; do
+            TOKEN=$(python3 -c "import json,sys; print(json.load(open('demo.json'))['tokens'][sys.argv[1]])" "$NAME")
+            curl -fsS -X PUT -H "Authorization: Bearer $TOKEN" -H "Content-Type: image/jpeg" --data-binary @avatar.jpg http://127.0.0.1:8080/v1/me/avatar
+          done
+          cat server.log | tail -5
+
       - name: Снимки экрана в симуляторе
         run: |
           APP=build/Build/Products/Debug-iphonesimulator/IdreCup.app
@@ -103,8 +126,17 @@ jobs:
           shoot model-nord-demo 12 -look Модель -preset Nord -demo YES
           shoot model-vast-home 12 -look Модель -preset Väst -homeLat 61.88634 -homeLon 12.83393
           shoot day-demo 10 -section day -demo YES
-          shoot day-empty 10 -section day
           shoot satellite-vast-home 25 -look Спутник -preset Väst -homeLat 61.88634 -homeLon 12.83393
+
+          # Связка с сервером: демо-кубок на сервере, запущенном прямо здесь.
+          if [ -f demo.json ]; then
+            SERVER=http://127.0.0.1:8080
+            TOKEN=$(python3 -c "import json; print(json.load(open('demo.json'))['tokens']['Иван'])")
+            shoot join 10 -section rating -serverURL $SERVER
+            shoot rating-day 12 -section rating -serverURL $SERVER -token "$TOKEN"
+            shoot rating-week 12 -section rating -ratingTab week -serverURL $SERVER -token "$TOKEN"
+            shoot profile 12 -section rating -showProfile YES -serverURL $SERVER -token "$TOKEN"
+          fi
 
       - name: Сохранить снимки в ветку screenshots
         run: |
