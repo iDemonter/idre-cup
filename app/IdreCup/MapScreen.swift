@@ -83,13 +83,15 @@ struct MapScreen: View {
 
     /// «Весь район»: оба курорта и Städjan.
     private static let areaName = "Весь район"
-    private static let modelArea = ModelCamera(id: 0, east: -2_300, north: 900, distance: 12_500, heading: 18, pitch: 52)
+    /// Смотрим с востока на запад: район вытянут с запада на восток и так целиком входит в высокий экран.
+    /// Idre Fjäll ближе к зрителю, Himmelfjäll дальше, Städjan справа.
+    private static let modelArea = ModelCamera(id: 0, east: -2_000, north: 1_350, distance: 16_000, heading: 270, pitch: 50)
 
     private static func areaCamera(for data: PisteData) -> MapCamera {
         MapCamera(
-            centerCoordinate: LocalFrame(origin: data.summitCoordinate).coordinate(east: -2_300, north: 900),
-            distance: 17_000,
-            heading: 0,
+            centerCoordinate: LocalFrame(origin: data.summitCoordinate).coordinate(east: -2_000, north: 1_350),
+            distance: 21_000,
+            heading: 270,
             pitch: 40
         )
     }
