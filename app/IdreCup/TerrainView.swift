@@ -64,6 +64,9 @@ struct TerrainView: UIViewRepresentable {
         view.addGestureRecognizer(tap)
 
         coordinator.apply(camera, to: view, animated: false)
+        if UserDefaults.standard.bool(forKey: "flipTest") {
+            coordinator.flipForTest()
+        }
         coordinator.select(selectedID)
         coordinator.showTrack(path, version: pathVersion)
         coordinator.showHome(home)
@@ -98,6 +101,8 @@ struct TerrainView: UIViewRepresentable {
         let scene = SCNScene()
         let cameraNode = SCNNode()
         private(set) var cameraID: Int?
+        /// Куда камеру направили последний раз: запасная точка поворота для keepUpright.
+        private var lookTarget = SCNVector3Zero
         private(set) var selectedID: Int?
         private(set) var trackVersion: Int?
         private(set) var home: CLLocationCoordinate2D?
@@ -463,6 +468,83 @@ struct TerrainView: UIViewRepresentable {
             viewpoint.look(at: target, up: SCNVector3(0, 1, 0), localFront: SCNVector3(0, 0, -1))
             SCNTransaction.commit()
             view.defaultCameraController.target = target
+            lookTarget = target
+        }
+
+        /// Проверка при сборке (-flipTest YES): ставит камеру за вершину вверх ногами.
+        /// На снимке экрана модель должна остаться неперевёрнутой: keepUpright возвращает камеру.
+        func flipForTest() {
+            let eye = cameraNode.worldPosition
+            let offsetX = eye.x - lookTarget.x
+            let offsetY = eye.y - lookTarget.y
+            let offsetZ = eye.z - lookTarget.z
+            let reach = (offsetX * offsetX + offsetY * offsetY + offsetZ * offsetZ).squareRoot()
+            let flat = max((offsetX * offsetX + offsetZ * offsetZ).squareRoot(), 0.001)
+            let lean = Float(sin(10 * Double.pi / 180)) * reach
+            let rise = Float(cos(10 * Double.pi / 180)) * reach
+            cameraNode.worldPosition = SCNVector3(
+                lookTarget.x - offsetX / flat * lean,
+                lookTarget.y + rise,
+                lookTarget.z - offsetZ / flat * lean
+            )
+            cameraNode.look(at: lookTarget, up: SCNVector3(0, -1, 0), localFront: SCNVector3(0, 0, -1))
+        }
+
+        /// Не даёт перевернуть модель. Камера всегда смотрит вниз под углом от 8° до 86° к горизонту,
+        /// не заваливается набок и не оказывается вверх ногами: штатные ограничения SCNCameraController
+        /// этого не гарантируют (жестом можно было перевалить через вершину). Вызывается перед каждым кадром.
+        private func keepUpright(_ viewpoint: SCNNode) {
+            let front = viewpoint.worldFront
+            let up = viewpoint.worldUp
+            let right = viewpoint.worldRight
+            let lowest = 8.0
+            let highest = 86.0
+            // Угол взгляда вниз от горизонта, градусы.
+            let down = Double(asin(max(-1, min(1, -front.y)))) * 180 / .pi
+            let isFlipped = up.y < 0
+            let isRolled = abs(right.y) > 0.03
+            guard isFlipped || isRolled || down < lowest - 0.5 || down > highest + 0.5 else { return }
+
+            // Куда камера смотрит по земле. Перевёрнутая смотрит назад; при взгляде отвесно вниз направление даёт верх кадра.
+            var aheadX = Double(isFlipped ? -front.x : front.x)
+            var aheadZ = Double(isFlipped ? -front.z : front.z)
+            var length = (aheadX * aheadX + aheadZ * aheadZ).squareRoot()
+            if length < 0.05 {
+                aheadX = Double(up.x)
+                aheadZ = Double(up.z)
+                length = (aheadX * aheadX + aheadZ * aheadZ).squareRoot()
+            }
+            guard length > 0.001 else { return }
+            aheadX /= length
+            aheadZ /= length
+
+            // Точка, вокруг которой поворачиваем: земля вдоль взгляда, а если взгляд выше горизонта, цель камеры.
+            let eye = viewpoint.worldPosition
+            let toTargetX = Double(eye.x - lookTarget.x)
+            let toTargetY = Double(eye.y - lookTarget.y)
+            let toTargetZ = Double(eye.z - lookTarget.z)
+            var reach = (toTargetX * toTargetX + toTargetY * toTargetY + toTargetZ * toTargetZ).squareRoot()
+            if front.y < -0.07 {
+                let alongView = Double((eye.y - 2) / -front.y)
+                if alongView > 1 { reach = min(alongView, 400) }
+            }
+            reach = max(reach, 1)
+            let pivot = SCNVector3(
+                eye.x + front.x * Float(reach),
+                eye.y + front.y * Float(reach),
+                eye.z + front.z * Float(reach)
+            )
+            let tilt = (isFlipped ? highest : min(max(down, lowest), highest)) * .pi / 180
+            let position = SCNVector3(
+                pivot.x - Float(aheadX * cos(tilt) * reach),
+                pivot.y + Float(sin(tilt) * reach),
+                pivot.z - Float(aheadZ * cos(tilt) * reach)
+            )
+            SCNTransaction.begin()
+            SCNTransaction.animationDuration = 0
+            viewpoint.worldPosition = position
+            viewpoint.look(at: pivot, up: SCNVector3(0, 1, 0), localFront: SCNVector3(0, 0, -1))
+            SCNTransaction.commit()
         }
 
         func select(_ id: Int?) {
@@ -565,6 +647,7 @@ struct TerrainView: UIViewRepresentable {
 
         func renderer(_ renderer: SCNSceneRenderer, updateAtTime time: TimeInterval) {
             guard let viewpoint = renderer.pointOfView, let lens = viewpoint.camera else { return }
+            keepUpright(viewpoint)
             let heightPoints = Double(renderer.currentViewport.height) / screenScale
             guard heightPoints > 0 else { return }
             let eye = viewpoint.presentation.worldPosition

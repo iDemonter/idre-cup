@@ -140,6 +140,8 @@ jobs:
           shoot model-overview 25 -look Модель
           shoot model-nord-demo 12 -look Модель -preset Nord -demo YES
           shoot model-vast-home 12 -look Модель -preset Väst -homeLat 61.88634 -homeLon 12.83393
+          # Камера нарочно поставлена вверх ногами: на снимке модель должна стоять как обычно.
+          shoot model-flip 12 -look Модель -preset Nord -flipTest YES
           shoot day-demo 10 -section day -demo YES
           shoot satellite-vast-home 25 -look Спутник -preset Väst -homeLat 61.88634 -homeLon 12.83393
 
