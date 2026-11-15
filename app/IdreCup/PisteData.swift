@@ -62,11 +62,22 @@ struct Piste: Decodable, Identifiable {
     /// Длина участка в метрах.
     let length: Int
     let label: Bool
+    /// Запасная ветка: идёт параллельно основной и в длину трассы не входит.
+    let alt: Bool?
+    /// Нарисована от руки по официальной карте, в OpenStreetMap её нет.
+    let approx: Bool?
     let mid: [Double]
     let coords: [[Double]]
 
     var coordinates: [CLLocationCoordinate2D] { coords.map(PisteData.coordinate) }
     var midCoordinate: CLLocationCoordinate2D { PisteData.coordinate(mid) }
+    var isAlternative: Bool { alt ?? false }
+    var isApproximate: Bool { approx ?? false }
+
+    /// Нарисованные от руки трассы показываем пунктиром.
+    var stroke: StrokeStyle {
+        StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round, dash: isApproximate ? [2, 7] : [])
+    }
 
     var color: Color {
         switch difficulty {

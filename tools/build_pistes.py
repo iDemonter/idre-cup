@@ -6,6 +6,12 @@
 
 Номера, зоны и сложность берутся из официальной карты трасс Idre Fjäll 2026/27,
 геометрия из OpenStreetMap. Соседний курорт Idre Himmelfjäll отсекается по расстоянию.
+
+Чего в OpenStreetMap нет, дополняется здесь же:
+  UNNAMED  - линии, которые в OpenStreetMap есть, но без названия: им назначен номер;
+  DRAWN    - трассы, которых в OpenStreetMap нет совсем: нарисованы от руки по официальной
+             карте и соседним подъёмникам. В данных у них "approx": true, на карте они
+             пунктирные. Точность примерно 30-50 м, для засечки времени не годятся.
 """
 
 import json
@@ -73,6 +79,11 @@ ALIASES = {
     "ravinen (skicross)": "ravinen",
     "västbacken self timer": "västbacken",
     "tunnelbacken (drömbacken)": "tunnelbacken",
+    # Сноупарк в OpenStreetMap записан двумя линиями по старой схеме. Линия с юго-восточной
+    # стороны парковых подъёмников = Snowpark (8), с северо-западной = Äventyret (7):
+    # так они стоят на официальной карте 2026/27.
+    "snowpark grön/blå": "snowpark",
+    "snowpark röd": "äventyret",
 }
 
 OSM_DIFFICULTY = {
@@ -82,6 +93,35 @@ OSM_DIFFICULTY = {
     "advanced": "black",
     "expert": "black",
     "freeride": "black",
+}
+
+# Безымянные линии OpenStreetMap, сопоставленные с официальной картой по положению.
+# id линии: (номер трассы, запасная ветка). Запасная ветка идёт параллельно основной
+# и не входит в длину трассы.
+UNNAMED = {
+    29350373: (39, False),    # от вершины к верху северных трасс = Glidaren
+    1244763833: (40, False),  # слева от гондолы, если смотреть снизу = Gondolsvängen
+    1244763831: (41, False),  # справа от гондолы: низ Pernillabacken до нижней станции
+    29504048: (9, True),      # вторая ветка Askestigen, верх
+    29504049: (9, True),      # вторая ветка Askestigen, низ до Väst 6:an
+}
+
+# Трассы, нарисованные от руки. Координаты: метры на восток и на север от вершины.
+# (свой id, номер, сложность, запасная ветка, точки сверху вниз)
+DRAWN = [
+    # Familjeparken: между зелёным участком Västbacken и подъёмником Familjeliften.
+    (-2, 2, "green", False, [(-1147, 274), (-1200, 290), (-1270, 293), (-1340, 286), (-1400, 272)]),
+    # Askes skidområde: вдоль Askeliften, между ним и детскими лентами.
+    (-3, 3, "green", False, [(-1575, 372), (-1632, 322), (-1690, 270)]),
+]
+
+# Подъёмники, которые в OpenStreetMap названы иначе, чем на официальной карте.
+LIFT_ALIASES = {
+    "askeliften 1": "Parkliften 1",        # пара бугелей у сноупарка
+    "askeliften 2": "Parkliften 2",
+    "skicenter syd": "Rävens rullband",    # единственная лента в Skicenter Syd
+    "skicenter syd 2": "Knatteknappen",    # короткий бугель; пара с Sydknappen по длине
+    "skicenter syd 1": "Sydknappen",
 }
 
 LIFT_CODES = {
@@ -128,6 +168,15 @@ def bearing(a, b):
     return (math.degrees(math.atan2(dx, dy)) + 360) % 360
 
 
+def from_local(point):
+    """Метры на восток и на север от вершины в широту и долготу."""
+    east, north = point
+    return (
+        SUMMIT[0] + north / 111320,
+        SUMMIT[1] + east / (111320 * math.cos(math.radians(SUMMIT[0]))),
+    )
+
+
 def rounded(points):
     return [[round(p[0], 5), round(p[1], 5)] for p in points]
 
@@ -135,6 +184,7 @@ def rounded(points):
 def main():
     data = json.loads(SOURCE.read_text(encoding="utf-8"))
     official_by_name = {name.lower(): (number, name, zone, difficulty, lit) for number, name, zone, difficulty, lit in OFFICIAL}
+    official_by_number = {entry[0]: entry for entry in official_by_name.values()}
 
     pistes, lifts = [], []
     seen_lifts = set()
@@ -149,10 +199,14 @@ def main():
             continue
         meters = length_m(points)
 
-        if "piste:type" in tags:
+        if tags.get("piste:type") in ("downhill", "snow_park"):
             raw_name = (tags.get("name") or "").strip()
             key = ALIASES.get(raw_name.lower(), raw_name.lower())
             official = official_by_name.get(key)
+            alt = False
+            if not official and element["id"] in UNNAMED:
+                number, alt = UNNAMED[element["id"]]
+                official = official_by_number[number]
             osm_difficulty = OSM_DIFFICULTY.get(tags.get("piste:difficulty", ""), "unknown")
             if official:
                 number, name, zone, difficulty, lit = official
@@ -174,11 +228,14 @@ def main():
                 "lit": lit,
                 "length": round(meters),
                 "label": False,
+                "alt": alt,
+                "approx": False,
                 "mid": [round(mid[0], 5), round(mid[1], 5)],
                 "coords": rounded(points),
             })
         elif "aerialway" in tags:
             name = (tags.get("name") or "").strip() or None
+            name = LIFT_ALIASES.get((name or "").lower(), name)
             key = (name or "").lower()
             if name and key in seen_lifts:
                 continue  # один подъёмник бывает записан дважды
@@ -192,10 +249,30 @@ def main():
                 "coords": rounded(points),
             })
 
-    # Значок с номером ставим на самый длинный участок каждой трассы.
+    for own_id, number, difficulty, alt, local in DRAWN:
+        _, name, zone, _, lit = official_by_number[number]
+        points = [from_local(p) for p in local]
+        mid = midpoint(points)
+        pistes.append({
+            "id": own_id,
+            "number": number,
+            "name": name,
+            "zone": zone,
+            "difficulty": difficulty,
+            "extreme": False,
+            "lit": lit,
+            "length": round(length_m(points)),
+            "label": False,
+            "alt": alt,
+            "approx": True,
+            "mid": [round(mid[0], 5), round(mid[1], 5)],
+            "coords": rounded(points),
+        })
+
+    # Значок с номером ставим на самый длинный основной участок каждой трассы.
     longest = {}
     for piste in pistes:
-        if piste["number"] is None:
+        if piste["number"] is None or piste["alt"]:
             continue
         best = longest.get(piste["number"])
         if best is None or piste["length"] > best["length"]:
@@ -219,7 +296,7 @@ def main():
     pistes.sort(key=lambda p: (p["number"] is None, p["number"] or 0, -p["length"]))
     lifts.sort(key=lambda l: (l["code"] is None, l["code"] or "", l["name"] or ""))
     result = {
-        "source": "Геометрия: © участники OpenStreetMap (ODbL). Номера и сложность: карта трасс Idre Fjäll 2026/27.",
+        "source": "Геометрия: © участники OpenStreetMap (ODbL). Номера и сложность: карта трасс Idre Fjäll 2026/27. Трассы с approx нарисованы от руки.",
         "summit": [round(SUMMIT[0], 5), round(SUMMIT[1], 5)],
         "zones": zones,
         "pistes": pistes,
@@ -231,7 +308,8 @@ def main():
     found = sorted({p["number"] for p in pistes if p["number"] is not None})
     missing = [f"{n} {name}" for n, name, *_ in OFFICIAL if n not in found]
     print(f"Трасс с номером: {len(found)} из {len(OFFICIAL)}; участков всего: {len(pistes)}; подъёмников: {len(lifts)}")
-    print("Нет в OpenStreetMap:", ", ".join(missing) or "нет")
+    print("Не хватает:", ", ".join(missing) or "нет")
+    print("Нарисованы от руки:", sorted({p["number"] for p in pistes if p["approx"]}))
     print("Без номера:", [(p["name"], p["length"]) for p in pistes if p["number"] is None])
     print("Подъёмники:", [(l["code"], l["name"]) for l in lifts])
     print("Зоны:", zones)

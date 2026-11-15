@@ -68,7 +68,7 @@ struct MapScreen: View {
 
             ForEach(data.pistes) { piste in
                 MapPolyline(coordinates: piste.coordinates)
-                    .stroke(piste.color, style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
+                    .stroke(piste.color, style: piste.stroke)
             }
 
             ForEach(showLiftBadges ? data.codedLifts : []) { lift in
@@ -257,9 +257,10 @@ struct MapScreen: View {
         var parts: [String] = []
         if let zone = piste.zone { parts.append(zone) }
         parts.append(piste.difficultyName)
-        let total = selectedSegments.reduce(0) { $0 + $1.length }
-        if total > 0 { parts.append("\(total) м") }
+        let total = selectedSegments.filter { !$0.isAlternative }.reduce(0) { $0 + $1.length }
+        if total > 0 { parts.append(piste.isApproximate ? "около \(total) м" : "\(total) м") }
         if piste.lit { parts.append("освещена") }
+        if piste.isApproximate { parts.append("линия примерная") }
         return parts.joined(separator: " · ")
     }
 

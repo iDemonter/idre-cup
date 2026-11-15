@@ -48,7 +48,13 @@ Settings → Secrets and variables → Actions → New repository secret.
 - `data/osm-idre.json` — сырые данные OpenStreetMap. Обновляет workflow «Данные трасс» (`tools/fetch_osm.py`).
 - `tools/build_pistes.py` — собирает из них `app/IdreCup/Resources/pistes.json`, который читает приложение.
 
-В OpenStreetMap сейчас есть 35 трасс из 41. Нет линий для 2 Familjeparken, 3 Askes skidområde, 7 Äventyret, 8 Snowpark, 39 Glidaren и 40 Gondolsvängen.
+На карте все 41 трасса. По названию в OpenStreetMap находятся 35, остальные сопоставлены вручную в `tools/build_pistes.py`:
+
+- 39 Glidaren, 40 Gondolsvängen и низ 41 Pernillabacken: в OpenStreetMap это линии без названия, номер назначен по положению (таблица `UNNAMED`).
+- 7 Äventyret и 8 Snowpark: в OpenStreetMap записаны как «Snowpark röd» и «Snowpark grön/blå» (таблица `ALIASES`).
+- 2 Familjeparken и 3 Askes skidområde: в OpenStreetMap их нет, нарисованы от руки (таблица `DRAWN`). На карте они пунктирные, точность 30–50 м.
+
+Сопоставление по положению стоит проверить на месте.
 
 Данные карты: © участники OpenStreetMap, лицензия ODbL.
 
