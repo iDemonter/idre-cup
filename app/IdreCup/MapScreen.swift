@@ -131,7 +131,7 @@ struct MapScreen: View {
 
             ForEach(visibleLiftBadges) { lift in
                 Annotation("", coordinate: lift.midCoordinate) {
-                    LiftBadge(code: lift.code ?? "")
+                    LiftBadge(kind: LiftKind(osm: lift.kind))
                 }
             }
 
@@ -261,13 +261,13 @@ struct MapScreen: View {
                     legendItem(Theme.pisteBlue, "лёгкая")
                     legendItem(Theme.pisteRed, "средняя")
                     legendItem(Theme.pisteBlack, "сложная", outlined: true)
-                    HStack(spacing: 5) {
-                        Text("┄┄")
-                            .font(Theme.caption(11))
-                            .foregroundStyle(Color.white.opacity(0.8))
-                        Text("подъёмник")
-                            .font(Theme.caption(11))
-                            .foregroundStyle(Theme.textSecondary)
+                    ForEach(LiftKind.allCases, id: \.self) { kind in
+                        HStack(spacing: 5) {
+                            LiftBadge(kind: kind, size: 16)
+                            Text(kind.title)
+                                .font(Theme.caption(11))
+                                .foregroundStyle(Theme.textSecondary)
+                        }
                     }
                 }
                 .padding(.horizontal, 20)
@@ -391,17 +391,15 @@ private struct PisteBadge: View {
     }
 }
 
-/// Значок подъёмника: буква с официальной карты.
+/// Значок подъёмника: рисунок по типу (гондола, кресельный, бугель, якорный, лента).
 private struct LiftBadge: View {
-    let code: String
+    let kind: LiftKind
+    var size: CGFloat = 22
 
     var body: some View {
-        Text(code)
-            .font(.system(size: 10, weight: .heavy, design: .rounded))
-            .foregroundStyle(Theme.textPrimary)
-            .frame(width: 18, height: 18)
-            .background(Theme.raised, in: Circle())
-            .overlay(Circle().stroke(Color.white.opacity(0.7), lineWidth: 1))
+        Image(uiImage: LiftIcon.badge(kind))
+            .resizable()
+            .frame(width: size, height: size)
     }
 }
 

@@ -141,9 +141,9 @@ struct TerrainView: UIViewRepresentable {
             }
 
             for lift in data.codedLifts {
-                guard let mid = lift.mid, let code = lift.code else { continue }
-                let image = Self.badgeImage(text: code, fill: UIColor(Theme.raised), outline: UIColor.white.withAlphaComponent(0.8), isRound: true, fontScale: 0.5)
-                addBadge(image: image, at: frame.local(mid), above: 16, name: nil, size: 17, rank: lift.show ?? 0, number: nil)
+                guard let mid = lift.mid else { continue }
+                let image = LiftIcon.badge(LiftKind(osm: lift.kind))
+                addBadge(image: image, at: frame.local(mid), above: 16, name: nil, size: 22, rank: lift.show ?? 0, number: nil)
             }
 
             // Важные значки занимают место первыми.

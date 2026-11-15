@@ -123,7 +123,7 @@ struct Lift: Decodable, Identifiable {
 
     var coordinates: [CLLocationCoordinate2D] { coords.map(PisteData.coordinate) }
 
-    /// Место значка с буквой на линии подъёмника.
+    /// Место значка на линии подъёмника.
     var midCoordinate: CLLocationCoordinate2D {
         if let mid { return PisteData.coordinate(mid) }
         guard let first = coords.first, let last = coords.last, first.count == 2, last.count == 2 else {
