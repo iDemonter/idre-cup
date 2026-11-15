@@ -107,6 +107,33 @@ test("кубок: права админа, жильё, удаление", option
   assert.equal((await call("DELETE", "/v1/participants/не-uuid", { token: admin.token })).status, 404);
 });
 
+test("аватар: загрузить, увидеть у других, убрать", options, async () => {
+  const admin = (await call("POST", "/v1/cups", { body: { cupName: "Аватары", name: "Иван" } })).body;
+  const guest = (await call("POST", "/v1/join", { body: { code: admin.cup.code, name: "Олег" } })).body;
+  const stranger = (await call("POST", "/v1/cups", { body: { cupName: "Чужой", name: "Чужой" } })).body;
+  assert.equal(admin.me.avatar, null);
+
+  const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4, 0xff, 0xd9]);
+  const put = (token, bytes, type) =>
+    fetch(`${base}/v1/me/avatar`, { method: "PUT", headers: { authorization: `Bearer ${token}`, "content-type": type }, body: bytes });
+  const saved = await put(admin.token, jpeg, "image/jpeg");
+  assert.equal(saved.status, 200);
+  assert.equal((await saved.json()).avatar, 1);
+  assert.equal((await put(admin.token, Buffer.from("не картинка"), "image/jpeg")).status, 400);
+
+  const people = (await call("GET", "/v1/me", { token: guest.token })).body.participants;
+  assert.equal(people.find((person) => person.name === "Иван").avatar, 1);
+  const seen = await fetch(`${base}/v1/participants/${admin.me.id}/avatar?v=1`, { headers: { authorization: `Bearer ${guest.token}` } });
+  assert.equal(seen.status, 200);
+  assert.equal(seen.headers.get("content-type"), "image/jpeg");
+  assert.deepEqual(Buffer.from(await seen.arrayBuffer()), jpeg);
+  const hidden = await fetch(`${base}/v1/participants/${admin.me.id}/avatar`, { headers: { authorization: `Bearer ${stranger.token}` } });
+  assert.equal(hidden.status, 404, "чужой кубок аватар не видит");
+
+  assert.equal((await call("DELETE", "/v1/me/avatar", { token: admin.token })).body.avatar, null);
+  assert.equal((await call("GET", "/v1/me", { token: admin.token })).body.me.avatar, null);
+});
+
 test("кубок: не больше восьми участников", options, async () => {
   const admin = (await call("POST", "/v1/cups", { body: { cupName: "Полный", name: "Первый" } })).body;
   for (let index = 2; index <= 8; index += 1) {

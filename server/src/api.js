@@ -3,6 +3,7 @@
 // В базе лежит только хеш токена.
 
 import { createHash, randomBytes, randomInt } from "node:crypto";
+import express from "express";
 import { analyze, meters } from "./analyzer.js";
 import { scoreDay } from "./scoring.js";
 
@@ -50,7 +51,9 @@ function cupJson(row) {
   };
 }
 
-const personJson = (row) => ({ id: row.id, name: row.name, isAdmin: row.is_admin });
+// avatar: номер версии картинки или null, если аватара нет. Сама картинка: GET /v1/participants/:id/avatar.
+const personJson = (row) => ({ id: row.id, name: row.name, isAdmin: row.is_admin, avatar: row.avatar ?? null });
+const PERSON_COLUMNS = "id, name, is_admin, case when avatar is null then null else avatar_version end as avatar";
 
 // Даты из Postgres приходят строками 2027-01-03, а не объектами Date: так не съезжает часовой пояс.
 const CUP_COLUMNS =
@@ -89,7 +92,7 @@ export function mountApi(app, { db, rules }) {
     const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
     if (!token) throw new ApiError(401, "no_token", "Нужен токен устройства");
     const found = await db.query(
-      "select id, cup_id, name, is_admin from participants where device_token_hash = $1 and removed_at is null",
+      `select cup_id, ${PERSON_COLUMNS} from participants where device_token_hash = $1 and removed_at is null`,
       [hashToken(token)],
     );
     if (found.rows.length === 0) throw new ApiError(401, "bad_token", "Участник не найден или удалён");
@@ -108,7 +111,7 @@ export function mountApi(app, { db, rules }) {
 
   async function loadPeople(cupId) {
     const people = await db.query(
-      "select id, name, is_admin from participants where cup_id = $1 and removed_at is null order by joined_at",
+      `select ${PERSON_COLUMNS} from participants where cup_id = $1 and removed_at is null order by joined_at`,
       [cupId],
     );
     return people.rows;
@@ -142,7 +145,7 @@ export function mountApi(app, { db, rules }) {
         [cupName, code, startsOn, rules.days, prize, geofence],
       );
       const me = await client.query(
-        "insert into participants (cup_id, name, is_admin, device_token_hash) values ($1, $2, true, $3) returning id, name, is_admin",
+        `insert into participants (cup_id, name, is_admin, device_token_hash) values ($1, $2, true, $3) returning ${PERSON_COLUMNS}`,
         [cup.rows[0].id, name, hashToken(token)],
       );
       await client.query("commit");
@@ -170,7 +173,7 @@ export function mountApi(app, { db, rules }) {
     }
     const token = newToken();
     const me = await db.query(
-      "insert into participants (cup_id, name, device_token_hash) values ($1, $2, $3) returning id, name, is_admin",
+      `insert into participants (cup_id, name, device_token_hash) values ($1, $2, $3) returning ${PERSON_COLUMNS}`,
       [cup.rows[0].id, name, hashToken(token)],
     );
     res.status(201).json({ cup: cupJson(cup.rows[0]), me: personJson(me.rows[0]), token });
@@ -229,7 +232,7 @@ export function mountApi(app, { db, rules }) {
 
   async function findPerson(req) {
     const person = await db.query(
-      "select id, name, is_admin from participants where id = $1 and cup_id = $2 and removed_at is null",
+      `select ${PERSON_COLUMNS} from participants where id = $1 and cup_id = $2 and removed_at is null`,
       [req.params.id, req.me.cup_id],
     );
     if (person.rows.length === 0) throw new ApiError(404, "no_participant", "Такого участника в кубке нет");
@@ -250,7 +253,7 @@ export function mountApi(app, { db, rules }) {
     if (people.some((other) => other.id !== person.id && other.name.toLowerCase() === name.toLowerCase())) {
       throw new ApiError(409, "name_taken", "Такое имя в кубке уже есть");
     }
-    const updated = await db.query("update participants set name = $1 where id = $2 returning id, name, is_admin", [name, person.id]);
+    const updated = await db.query(`update participants set name = $1 where id = $2 returning ${PERSON_COLUMNS}`, [name, person.id]);
     res.json({ participant: personJson(updated.rows[0]) });
   });
 
@@ -280,6 +283,40 @@ export function mountApi(app, { db, rules }) {
       client.release();
     }
     res.json({ ok: true });
+  });
+
+  // --- Аватар: телефон присылает готовую маленькую картинку (JPEG или PNG, до 300 КБ).
+  const imageType = (bytes) => {
+    if (bytes.length > 3 && bytes[0] === 0xff && bytes[1] === 0xd8) return "image/jpeg";
+    if (bytes.length > 8 && bytes.subarray(0, 4).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47]))) return "image/png";
+    return null;
+  };
+
+  app.put("/v1/me/avatar", auth, express.raw({ type: ["image/jpeg", "image/png"], limit: "300kb" }), async (req, res) => {
+    if (!Buffer.isBuffer(req.body) || !imageType(req.body)) throw new ApiError(400, "bad_image", "Нужна картинка JPEG или PNG");
+    const updated = await db.query(
+      "update participants set avatar = $1, avatar_version = avatar_version + 1 where id = $2 returning avatar_version",
+      [req.body, req.me.id],
+    );
+    res.json({ avatar: updated.rows[0].avatar_version });
+  });
+
+  app.delete("/v1/me/avatar", auth, async (req, res) => {
+    await db.query("update participants set avatar = null, avatar_version = avatar_version + 1 where id = $1", [req.me.id]);
+    res.json({ avatar: null });
+  });
+
+  // Картинку видят только участники того же кубка. Адрес с ?v=версия можно кешировать навсегда.
+  app.get("/v1/participants/:id/avatar", auth, async (req, res) => {
+    const found = await db.query(
+      "select avatar from participants where id = $1 and cup_id = $2 and removed_at is null and avatar is not null",
+      [req.params.id, req.me.cup_id],
+    );
+    if (found.rows.length === 0) throw new ApiError(404, "no_avatar", "Аватара нет");
+    const bytes = found.rows[0].avatar;
+    res.set("Content-Type", imageType(bytes) ?? "application/octet-stream");
+    res.set("Cache-Control", "private, max-age=31536000, immutable");
+    res.send(bytes);
   });
 
   // --- Треки: телефон присылает точки пачками. Повторная отправка тех же точек безвредна.
