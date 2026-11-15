@@ -134,6 +134,27 @@ test("аватар: загрузить, увидеть у других, убра
   assert.equal((await call("GET", "/v1/me", { token: admin.token })).body.me.avatar, null);
 });
 
+test("возврат: по коду участник входит с нового телефона, старый отключается", options, async () => {
+  const admin = (await call("POST", "/v1/cups", { body: { cupName: "Возврат", name: "Иван" } })).body;
+  const guest = (await call("POST", "/v1/join", { body: { code: admin.cup.code, name: "Олег" } })).body;
+
+  assert.equal((await call("POST", `/v1/participants/${admin.me.id}/restore`, { token: guest.token })).status, 403);
+  const issued = await call("POST", `/v1/participants/${guest.me.id}/restore`, { token: admin.token });
+  assert.match(issued.body.code, /^[A-Z2-9]{8}$/);
+  assert.equal((await call("POST", "/v1/restore", { body: { code: "AAAAAAAA" } })).status, 404);
+
+  const back = await call("POST", "/v1/restore", { body: { code: issued.body.code.toLowerCase() } });
+  assert.equal(back.status, 200);
+  assert.equal(back.body.me.id, guest.me.id);
+  assert.equal(back.body.cup.id, admin.cup.id);
+  assert.equal((await call("GET", "/v1/me", { token: guest.token })).status, 401, "старый телефон отключён");
+  assert.equal((await call("GET", "/v1/me", { token: back.body.token })).status, 200);
+  assert.equal((await call("POST", "/v1/restore", { body: { code: issued.body.code } })).status, 404, "код одноразовый");
+
+  const own = await call("POST", `/v1/participants/${guest.me.id}/restore`, { token: back.body.token });
+  assert.equal(own.status, 200, "свой код может получить и сам участник");
+});
+
 test("кубок: не больше восьми участников", options, async () => {
   const admin = (await call("POST", "/v1/cups", { body: { cupName: "Полный", name: "Первый" } })).body;
   for (let index = 2; index <= 8; index += 1) {

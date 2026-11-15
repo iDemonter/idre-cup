@@ -179,6 +179,34 @@ export function mountApi(app, { db, rules }) {
     res.status(201).json({ cup: cupJson(cup.rows[0]), me: personJson(me.rows[0]), token });
   });
 
+  // --- Код возврата: участник (или админ за него) получает одноразовый код на сутки.
+  app.post("/v1/participants/:id/restore", auth, async (req, res) => {
+    const person = await findPerson(req);
+    if (person.id !== req.me.id) adminOnly(req);
+    const code = Array.from({ length: 8 }, () => CODE_ALPHABET[randomInt(CODE_ALPHABET.length)]).join("");
+    await db.query(
+      "update participants set restore_code_hash = $1, restore_expires = now() + interval '24 hours' where id = $2",
+      [hashToken(code), person.id],
+    );
+    res.json({ code, name: person.name, hours: 24 });
+  });
+
+  // --- Вход по коду возврата: новый телефон получает токен, старый перестаёт работать.
+  app.post("/v1/restore", async (req, res) => {
+    limit(req);
+    const code = typeof req.body?.code === "string" ? req.body.code.trim().toUpperCase() : "";
+    const token = newToken();
+    const restored = await db.query(
+      `update participants set device_token_hash = $1, restore_code_hash = null, restore_expires = null
+       where restore_code_hash = $2 and restore_expires > now() and removed_at is null
+       returning cup_id, ${PERSON_COLUMNS}`,
+      [hashToken(token), code.length === 8 ? hashToken(code) : ""],
+    );
+    if (restored.rows.length === 0) throw new ApiError(404, "no_restore", "Код возврата не подошёл или истёк");
+    const cup = await loadCup(restored.rows[0].cup_id);
+    res.json({ cup: cupJson(cup), me: personJson(restored.rows[0]), token });
+  });
+
   // --- Я, мой кубок и участники.
   app.get("/v1/me", auth, async (req, res) => {
     const [cup, people] = await Promise.all([loadCup(req.me.cup_id), loadPeople(req.me.cup_id)]);
