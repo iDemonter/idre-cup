@@ -86,6 +86,17 @@ final class Tracker: NSObject, ObservableObject, CLLocationManagerDelegate {
         isRecording = true
     }
 
+    /// Настоящие точки позже заданного времени (секунды с 1970): их Session отправляет на сервер.
+    func points(after time: Double, limit: Int) -> [TrackPoint] {
+        let source = isDemo ? savedPoints : points
+        // Точки идут по возрастанию времени: ищем с конца, где кончается уже отправленное.
+        var first = source.count
+        while first > 0 && source[first - 1].time.timeIntervalSince1970 > time {
+            first -= 1
+        }
+        return Array(source[first..<min(first + limit, source.count)])
+    }
+
     // MARK: - Демо-день
 
     /// Показывает готовый трек вместо настоящего. Настоящая запись при этом не теряется.

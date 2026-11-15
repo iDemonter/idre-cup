@@ -1,14 +1,17 @@
+import CoreLocation
 import SwiftUI
 
-/// Корень приложения: разделы и нижняя панель. Остальные разделы из макета
-/// (Рейтинг, Дуэли, Вечер) добавятся вместе с сервером.
+/// Корень приложения: разделы и нижняя панель. Разделы «Дуэли» и «Вечер» из макета
+/// добавятся вместе с этими механиками.
 struct RootView: View {
     enum Screen: String, CaseIterable {
+        case rating
         case map
         case day
 
         var title: String {
             switch self {
+            case .rating: return "Рейтинг"
             case .map: return "Карта"
             case .day: return "Мой день"
             }
@@ -16,6 +19,7 @@ struct RootView: View {
 
         var symbol: String {
             switch self {
+            case .rating: return "trophy.fill"
             case .map: return "mountain.2.fill"
             case .day: return "chart.bar.fill"
             }
@@ -24,6 +28,7 @@ struct RootView: View {
 
     @StateObject private var tracker = Tracker()
     @StateObject private var homeStore = HomeStore()
+    @StateObject private var session = Session()
     @State private var section: Screen
     private let data: PisteData
     private let terrain: TerrainData?
@@ -45,17 +50,46 @@ struct RootView: View {
             if section == .day {
                 MyDayScreen(startDemo: showDemo)
             }
+            if section == .rating {
+                RatingScreen()
+            }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             sectionBar
         }
         .environmentObject(tracker)
         .environmentObject(homeStore)
+        .environmentObject(session)
+        .task {
+            await session.start()
+            // Пока приложение живо (в том числе в фоне во время записи), трек уходит на сервер раз в полминуты.
+            while !Task.isCancelled {
+                await session.sync(tracker)
+                try? await Task.sleep(for: .seconds(30))
+            }
+        }
+        // Жильё общее на кубок: что поставил один, видят все.
+        .onChange(of: session.cup?.home) { _, shared in
+            if let shared {
+                homeStore.set(CLLocationCoordinate2D(latitude: shared.lat, longitude: shared.lon))
+            } else if session.phase == .signedIn, let mine = homeStore.home {
+                Task { await session.shareHome(HomePoint(lat: mine.latitude, lon: mine.longitude)) }
+            }
+        }
+        .onChange(of: homeKey) { _, _ in
+            let mine = homeStore.home.map { HomePoint(lat: $0.latitude, lon: $0.longitude) }
+            Task { await session.shareHome(mine) }
+        }
         .onAppear {
             if UserDefaults.standard.bool(forKey: "demo") {
                 showDemo()
             }
         }
+    }
+
+    /// Меняется, когда человек ставит, двигает или убирает жильё.
+    private var homeKey: String {
+        homeStore.home.map { "\($0.latitude),\($0.longitude)" } ?? "нет"
     }
 
     private func showDemo() {

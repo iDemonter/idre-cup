@@ -2,7 +2,7 @@ name: IdreCup
 options:
   bundleIdPrefix: com.idemonter
   deploymentTarget:
-    iOS: "18.0"
+    iOS: "18.1"
   createIntermediateGroups: true
   developmentLanguage: ru
 settings:
@@ -32,6 +32,8 @@ targets:
         NSLocationAlwaysAndWhenInUseUsageDescription: "Idre Cup записывает ваш трек на склоне, даже когда телефон в кармане: по нему считаются скорость, спуски и рейтинг."
         UIBackgroundModes:
           - location
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.idemonter.idrecup
