@@ -28,7 +28,10 @@ targets:
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
-        NSLocationWhenInUseUsageDescription: "Idre Cup показывает вашу точку на карте трасс."
+        NSLocationWhenInUseUsageDescription: "Idre Cup записывает ваш трек на склоне: по нему считаются скорость, спуски и рейтинг."
+        NSLocationAlwaysAndWhenInUseUsageDescription: "Idre Cup записывает ваш трек на склоне, даже когда телефон в кармане: по нему считаются скорость, спуски и рейтинг."
+        UIBackgroundModes:
+          - location
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.idemonter.idrecup

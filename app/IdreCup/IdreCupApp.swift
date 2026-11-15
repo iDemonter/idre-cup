@@ -4,7 +4,7 @@ import SwiftUI
 struct IdreCupApp: App {
     var body: some Scene {
         WindowGroup {
-            MapScreen()
+            RootView()
                 .preferredColorScheme(.dark)
                 .tint(Theme.accent)
         }

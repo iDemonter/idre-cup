@@ -1,3 +1,4 @@
+import CoreLocation
 import SceneKit
 import SwiftUI
 import UIKit
@@ -9,6 +10,9 @@ struct TerrainView: UIViewRepresentable {
     let data: PisteData
     let terrain: TerrainData
     let camera: ModelCamera
+    /// Свой трек за день и его номер версии: линия перестраивается, когда номер меняется.
+    let path: [CLLocationCoordinate2D]
+    let pathVersion: Int
     @Binding var selectedID: Int?
 
     func makeCoordinator() -> Coordinator {
@@ -37,6 +41,7 @@ struct TerrainView: UIViewRepresentable {
 
         coordinator.apply(camera, to: view, animated: false)
         coordinator.select(selectedID)
+        coordinator.showTrack(path, version: pathVersion)
         return view
     }
 
@@ -49,6 +54,9 @@ struct TerrainView: UIViewRepresentable {
         if selectedID != coordinator.selectedID {
             coordinator.select(selectedID)
         }
+        if pathVersion != coordinator.trackVersion {
+            coordinator.showTrack(path, version: pathVersion)
+        }
     }
 
     // MARK: - Сцена
@@ -59,6 +67,7 @@ struct TerrainView: UIViewRepresentable {
         let cameraNode = SCNNode()
         private(set) var cameraID: Int?
         private(set) var selectedID: Int?
+        private(set) var trackVersion: Int?
 
         /// Одна единица сцены = 100 м.
         private let unit: Double = 100
@@ -66,8 +75,11 @@ struct TerrainView: UIViewRepresentable {
         private let terrain: TerrainData
         private let data: PisteData
         private let highlightNode = SCNNode()
+        private let trackNode = SCNNode()
+        private var meNode: SCNNode?
         private var badges: [Badge] = []
         private var selectedNumber: Int?
+        private var isMeShown = false
         private let screenScale = Double(UIScreen.main.scale)
 
         /// Ленты трасс трёх ширин: чем дальше камера, тем шире лента, иначе издалека её не видно.
@@ -82,6 +94,8 @@ struct TerrainView: UIViewRepresentable {
             let rank: Double
             /// Номер трассы: значок выбранной трассы виден всегда.
             let number: Int?
+            /// Виден всегда и поверх всего: своя точка.
+            let always: Bool
             /// Место значка: метры от вершины и высота в единицах сцены.
             let east: Double
             let north: Double
@@ -109,6 +123,7 @@ struct TerrainView: UIViewRepresentable {
 
             scene.rootNode.addChildNode(SCNNode(geometry: terrainGeometry()))
             scene.rootNode.addChildNode(highlightNode)
+            scene.rootNode.addChildNode(trackNode)
 
             for lift in data.lifts {
                 let line = lift.coords.map { frame.local($0) }
@@ -145,6 +160,11 @@ struct TerrainView: UIViewRepresentable {
                 let image = LiftIcon.badge(LiftKind(osm: lift.kind))
                 addBadge(image: image, at: frame.local(mid), above: 16, name: nil, size: 22, rank: lift.show ?? 0, number: nil)
             }
+
+            // Своя точка: появляется вместе с треком.
+            let me = addBadge(image: Self.dotImage(), at: (0, 0), above: 12, name: nil, size: 18, rank: 2_000_000, number: nil, always: true)
+            me.isHidden = true
+            meNode = me
 
             // Важные значки занимают место первыми.
             badges.sort { $0.rank > $1.rank }
@@ -265,7 +285,8 @@ struct TerrainView: UIViewRepresentable {
             return geometry
         }
 
-        private func addBadge(image: UIImage, at place: (east: Double, north: Double), above: Double, name: String?, size: Double, rank: Double, number: Int?) {
+        @discardableResult
+        private func addBadge(image: UIImage, at place: (east: Double, north: Double), above: Double, name: String?, size: Double, rank: Double, number: Int?, always: Bool = false) -> SCNNode {
             let plane = SCNPlane(width: 1, height: 1)
             let material = SCNMaterial()
             material.lightingModel = .constant
@@ -281,7 +302,8 @@ struct TerrainView: UIViewRepresentable {
             node.constraints = [SCNBillboardConstraint()]
             node.renderingOrder = 100
             scene.rootNode.addChildNode(node)
-            badges.append(Badge(node: node, size: size, rank: rank, number: number, east: place.east, north: place.north, up: Double(node.position.y)))
+            badges.append(Badge(node: node, size: size, rank: rank, number: number, always: always, east: place.east, north: place.north, up: Double(node.position.y)))
+            return node
         }
 
         // MARK: - Камера и выбор
@@ -318,6 +340,43 @@ struct TerrainView: UIViewRepresentable {
                 let geometry = ribbon(line, width: 64, lift: 3.4, color: UIColor(Theme.accent))
                 highlightNode.addChildNode(SCNNode(geometry: geometry))
             }
+        }
+
+        /// Свой трек: лента акцентного цвета и точка в его конце. Куски вне модели не рисуются.
+        func showTrack(_ path: [CLLocationCoordinate2D], version: Int) {
+            trackVersion = version
+            trackNode.childNodes.forEach { $0.removeFromParentNode() }
+
+            var pieces: [[(east: Double, north: Double)]] = []
+            var piece: [(east: Double, north: Double)] = []
+            for coordinate in path {
+                let place = frame.local(coordinate)
+                let jumped = piece.last.map { hypot($0.east - place.east, $0.north - place.north) > 400 } ?? false
+                if !terrain.contains(east: place.east, north: place.north) || jumped {
+                    if piece.count > 1 { pieces.append(piece) }
+                    piece = []
+                }
+                if terrain.contains(east: place.east, north: place.north) {
+                    piece.append(place)
+                }
+            }
+            if piece.count > 1 { pieces.append(piece) }
+
+            for line in pieces {
+                trackNode.addChildNode(SCNNode(geometry: ribbon(line, width: 14, lift: 9, color: UIColor(Theme.accent))))
+            }
+
+            if let last = path.last {
+                let place = frame.local(last)
+                if terrain.contains(east: place.east, north: place.north) {
+                    meNode?.position = point(place.east, place.north, lift: 12)
+                    meNode?.isHidden = false
+                    isMeShown = true
+                    return
+                }
+            }
+            isMeShown = false
+            meNode?.isHidden = true
         }
 
         @objc func handleTap(_ gesture: UITapGestureRecognizer) {
@@ -364,6 +423,12 @@ struct TerrainView: UIViewRepresentable {
                 let away = max((dx * dx + dy * dy + dz * dz).squareRoot(), 0.01)
                 let scale = Float(badge.size * away * spread / heightPoints)
                 badge.node.scale = SCNVector3(scale, scale, scale)
+
+                if badge.always {
+                    // Своя точка: ничем не заслоняется и никого не вытесняет.
+                    badge.node.isHidden = !isMeShown
+                    continue
+                }
 
                 let isSelected = badge.number != nil && badge.number == selectedNumber
                 let spot = renderer.projectPoint(badge.node.position)
@@ -440,6 +505,20 @@ struct TerrainView: UIViewRepresentable {
                 if let symbol = UIImage(systemName: name, withConfiguration: setup)?.withTintColor(tint, renderingMode: .alwaysOriginal) {
                     symbol.draw(at: CGPoint(x: (side - symbol.size.width) / 2, y: (side - symbol.size.height) / 2))
                 }
+            }
+        }
+
+        /// Своя точка: акцентный кружок в светлой обводке.
+        private static func dotImage() -> UIImage {
+            let side: CGFloat = 64
+            return UIGraphicsImageRenderer(size: CGSize(width: side, height: side)).image { _ in
+                let box = CGRect(x: 6, y: 6, width: side - 12, height: side - 12)
+                let path = UIBezierPath(ovalIn: box)
+                UIColor(Theme.accent).setFill()
+                path.fill()
+                UIColor.white.setStroke()
+                path.lineWidth = 8
+                path.stroke()
             }
         }
 

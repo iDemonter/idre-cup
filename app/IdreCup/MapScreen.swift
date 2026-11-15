@@ -7,7 +7,7 @@ struct MapScreen: View {
     private let data: PisteData
     private let terrain: TerrainData?
 
-    @StateObject private var location = LocationManager()
+    @EnvironmentObject private var tracker: Tracker
     @State private var position: MapCameraPosition
     @State private var look: MapLook
     @State private var modelCamera: ModelCamera
@@ -18,9 +18,7 @@ struct MapScreen: View {
     private static let overviewName = "Обзор"
     private static let overviewDistance: Double = 9_500
 
-    init() {
-        let loaded = PisteData.load()
-        let loadedTerrain = TerrainData.load()
+    init(data loaded: PisteData, terrain loadedTerrain: TerrainData?) {
         data = loaded
         terrain = loadedTerrain
 
@@ -64,6 +62,11 @@ struct MapScreen: View {
 
     private var showsModel: Bool { look == .model && terrain != nil }
 
+    /// Линия своего трека для карты Apple: одна или ни одной.
+    private var trackLines: [TrackLine] {
+        tracker.path.count > 1 ? [TrackLine(id: tracker.pathVersion, coordinates: tracker.path)] : []
+    }
+
     private var selected: Piste? {
         guard let selectedID else { return nil }
         return data.pistes.first { $0.id == selectedID }
@@ -89,7 +92,7 @@ struct MapScreen: View {
     var body: some View {
         Group {
             if showsModel, let terrain {
-                TerrainView(data: data, terrain: terrain, camera: modelCamera, selectedID: $selectedID)
+                TerrainView(data: data, terrain: terrain, camera: modelCamera, path: tracker.path, pathVersion: tracker.pathVersion, selectedID: $selectedID)
                     .ignoresSafeArea()
             } else {
                 appleMap
@@ -103,7 +106,7 @@ struct MapScreen: View {
             bottomPanel
         }
         .onAppear {
-            location.requestAccess()
+            tracker.requestAccess()
         }
     }
 
@@ -148,6 +151,12 @@ struct MapScreen: View {
 
             Annotation(Resort.name, coordinate: data.summitCoordinate) {
                 SummitMarker()
+            }
+
+            // Свой трек за день.
+            ForEach(trackLines) { line in
+                MapPolyline(coordinates: line.coordinates)
+                    .stroke(Theme.accent, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
             }
 
             UserAnnotation()
@@ -366,6 +375,12 @@ struct MapScreen: View {
         let build = info?["CFBundleVersion"] as? String ?? "?"
         return "v\(version) (\(build))"
     }
+}
+
+/// Линия трека как элемент списка для карты.
+private struct TrackLine: Identifiable {
+    let id: Int
+    let coordinates: [CLLocationCoordinate2D]
 }
 
 /// Значок трассы: номер на цвете сложности, как на официальной карте.

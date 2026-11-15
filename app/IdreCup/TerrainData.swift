@@ -46,6 +46,11 @@ struct TerrainData: Decodable {
     private func value(_ row: Int, _ column: Int) -> Double {
         Double(heights[row * cols + column]) / 10
     }
+
+    /// Попадает ли точка на модель.
+    func contains(east: Double, north northing: Double) -> Bool {
+        east >= west && east <= west + Double(cols - 1) * step && northing <= north && northing >= north - Double(rows - 1) * step
+    }
 }
 
 /// Перевод широты и долготы в метры от вершины. Те же формулы, что в tools/build_pistes.py.
@@ -57,6 +62,18 @@ struct LocalFrame {
         let north = (pair[0] - origin.latitude) * 111_320
         let east = (pair[1] - origin.longitude) * 111_320 * cos(origin.latitude * .pi / 180)
         return (east, north)
+    }
+
+    func local(_ coordinate: CLLocationCoordinate2D) -> (east: Double, north: Double) {
+        local([coordinate.latitude, coordinate.longitude])
+    }
+
+    /// Обратно: метры от вершины в широту и долготу.
+    func coordinate(east: Double, north: Double) -> CLLocationCoordinate2D {
+        CLLocationCoordinate2D(
+            latitude: origin.latitude + north / 111_320,
+            longitude: origin.longitude + east / (111_320 * cos(origin.latitude * .pi / 180))
+        )
     }
 }
 

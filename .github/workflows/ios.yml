@@ -92,19 +92,19 @@ jobs:
           xcrun simctl privacy "$DEVICE" grant location com.idemonter.idrecup
           mkdir -p shots
           shoot() {
-            # $1 = имя файла, остальное = параметры запуска
-            name="$1"; shift
+            # $1 = имя файла, $2 = сколько секунд ждать, остальное = параметры запуска
+            name="$1"; pause="$2"; shift 2
             xcrun simctl launch "$DEVICE" com.idemonter.idrecup "$@"
-            sleep 25
+            sleep "$pause"
             xcrun simctl io "$DEVICE" screenshot "shots/$name.png"
             xcrun simctl terminate "$DEVICE" com.idemonter.idrecup
           }
-          shoot model-overview -look Модель
-          shoot model-nord -look Модель -preset Nord
-          shoot model-vast -look Модель -preset Väst
-          shoot model-ost -look Модель -preset Ost
-          shoot model-syd -look Модель -preset Syd
-          shoot satellite-nord -look Спутник -preset Nord
+          shoot model-overview 25 -look Модель
+          shoot model-nord-demo 12 -look Модель -preset Nord -demo YES
+          shoot model-vast 12 -look Модель -preset Väst
+          shoot day-demo 10 -section day -demo YES
+          shoot day-empty 10 -section day
+          shoot satellite-nord-demo 25 -look Спутник -preset Nord -demo YES
 
       - name: Сохранить снимки в ветку screenshots
         run: |
