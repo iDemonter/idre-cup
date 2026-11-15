@@ -24,6 +24,14 @@ struct MyDayScreen: View {
                 if tracker.isDenied {
                     deniedNote
                 }
+                if let note = tracker.autoStopNote, !tracker.isRecording {
+                    Text(note)
+                        .font(Theme.caption())
+                        .foregroundStyle(Theme.accent)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(12)
+                        .background(Theme.accent.opacity(0.18), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
                 recordingCard
                 segmentList
                 if !tracker.isDemo {

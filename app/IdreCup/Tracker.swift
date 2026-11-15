@@ -27,6 +27,11 @@ final class Tracker: NSObject, ObservableObject, CLLocationManagerDelegate {
     private var day = TrackStore.dayName(Date())
     private var sinceStats = 0
     private let recordingKey = "recording"
+    /// Последнее место, где телефон двигался: если час стоит на месте, запись выключается сама.
+    private var anchor: TrackPoint?
+    static let idleLimit: TimeInterval = 60 * 60
+    /// Почему запись остановилась сама (показывается в «Моём дне»), или nil.
+    @Published private(set) var autoStopNote: String?
 
     var isDenied: Bool { status == .denied || status == .restricted }
 
@@ -69,6 +74,8 @@ final class Tracker: NSObject, ObservableObject, CLLocationManagerDelegate {
         }
         guard isAllowed else { return }
         UserDefaults.standard.set(true, forKey: recordingKey)
+        autoStopNote = nil
+        anchor = nil
         begin()
     }
 
@@ -162,10 +169,28 @@ final class Tracker: NSObject, ObservableObject, CLLocationManagerDelegate {
             store.append(point)
             extendPath(with: point)
             sinceStats += 1
+
+            // Час без движения (обед, вечер в домике): запись выключается, чтобы не сажать батарею.
+            if let still = anchor, still.meters(to: point) < 60 {
+                if point.time.timeIntervalSince(still.time) > Self.idleLimit {
+                    stopIdle(since: still.time)
+                    return
+                }
+            } else {
+                anchor = point
+            }
         }
         if sinceStats >= 5 {
             refreshStats()
         }
+    }
+
+    private func stopIdle(since: Date) {
+        stop()
+        anchor = nil
+        let note = "Запись выключилась сама в \(Format.clock(Date())): час без движения с \(Format.clock(since))."
+        autoStopNote = note
+        Notifier.postRecordPrompt(id: "idle-\(Int(Date().timeIntervalSince1970))", title: "Запись трека выключена", body: "Час без движения. Снова на склоне? Нажми, чтобы включить.")
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {

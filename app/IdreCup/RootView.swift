@@ -78,6 +78,16 @@ struct RootView: View {
             if UserDefaults.standard.bool(forKey: "liveTest") {
                 live.startTest()
             }
+            // Кнопка «Начать запись» в уведомлении: включаем запись и открываем «Мой день».
+            Notifier.shared.onStartRecording = { [weak tracker] in
+                tracker?.start()
+                section = .day
+            }
+            if Notifier.shared.pendingStart {
+                Notifier.shared.pendingStart = false
+                tracker.start()
+                section = .day
+            }
             tracker.onChange = { [weak tracker, weak session] in
                 guard let tracker, let session else { return }
                 live.sync(tracker: tracker, session: session)
@@ -94,6 +104,12 @@ struct RootView: View {
                 }
                 live.sync(tracker: tracker, session: session)
                 try? await Task.sleep(for: .seconds(30))
+            }
+        }
+        // Утренние напоминания включить запись: по датам кубка.
+        .onChange(of: "\(session.cup?.startsOn ?? "")|\(session.cup?.days ?? 0)") { _, _ in
+            if session.phase == .signedIn {
+                Notifier.scheduleMornings(startsOn: session.cup?.startsOn, days: session.cup?.days ?? 0)
             }
         }
         // Жильё общее на кубок: что поставил один, видят все.
