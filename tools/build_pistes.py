@@ -26,6 +26,13 @@ SUMMIT = (61.8881353, 12.8587081)  # Gränjåsvålen, 891 м
 RADIUS_KM = 2.6                    # всё дальше относится к Idre Himmelfjäll
 MIN_UNNAMED_M = 150                # короткие безымянные обрезки не показываем
 
+# Значки на карте. Экран телефона вмещает примерно 1/24 высоты камеры на один значок
+# (замер по скриншоту: 0,19-0,28 pt на метр при камере на 4200 м). Значок появляется,
+# когда до соседних уже видимых значков есть место.
+BADGE_ROOM = 24
+ALWAYS = 30000                     # высота камеры, с которой виден самый важный значок
+LIFT_BADGE_MAX = 5000              # буквы подъёмников только вблизи
+
 # Официальная карта: номер, название, зона, сложность, освещение.
 # Сложность: green, blue, red, black; mixed = участки разной сложности (берём из OSM).
 OFFICIAL = [
@@ -161,6 +168,59 @@ def midpoint(points):
     return points[len(points) // 2]
 
 
+def point_at(points, fraction):
+    """Точка на линии на заданной доле длины от начала."""
+    target = length_m(points) * fraction
+    walked = 0.0
+    for i in range(len(points) - 1):
+        step = km(points[i], points[i + 1]) * 1000
+        if step > 0 and walked + step >= target:
+            t = (target - walked) / step
+            return (
+                points[i][0] + (points[i + 1][0] - points[i][0]) * t,
+                points[i][1] + (points[i + 1][1] - points[i][1]) * t,
+            )
+        walked += step
+    return points[-1]
+
+
+def place_badges(items):
+    """Расставляет значки вдоль линий так, чтобы они не слипались.
+
+    items: словари с ключами points, importance, limit. Функция добавляет pos (где стоит
+    значок) и show (с какой высоты камеры он виден). Порядок важности: importance по убыванию.
+    """
+    fractions = [f / 20 for f in range(4, 17)]  # от 20 до 80 % длины
+    for item in items:
+        item["length"] = length_m(item["points"])
+        item["options"] = [(f, point_at(item["points"], f)) for f in fractions]
+        item["pos"] = point_at(item["points"], 0.5)
+
+    # Несколько проходов: каждый значок сдвигается туда, где до соседей дальше всего.
+    for _ in range(8):
+        for item in items:
+            others = [o["pos"] for o in items if o is not item]
+
+            def score(option):
+                fraction, pos = option
+                room = min(km(pos, o) * 1000 for o in others) if others else 1000
+                return min(room, 450) - abs(fraction - 0.5) * item["length"] * 0.12
+
+            item["pos"] = max(item["options"], key=score)[1]
+
+    # Чем важнее значок, тем с большей высоты он виден. Менее важный появляется,
+    # когда перестаёт задевать уже видимые.
+    placed = []
+    for item in sorted(items, key=lambda i: -i["importance"]):
+        show = item["limit"]
+        for other in placed:
+            fits_from = km(item["pos"], other["pos"]) * 1000 * BADGE_ROOM
+            if fits_from < other["show"]:
+                show = min(show, fits_from)
+        item["show"] = round(show)
+        placed.append(item)
+
+
 def bearing(a, b):
     """Курс из точки a в точку b, градусы от севера по часовой стрелке."""
     dy = b[0] - a[0]
@@ -270,15 +330,29 @@ def main():
         })
 
     # Значок с номером ставим на самый длинный основной участок каждой трассы.
-    longest = {}
+    longest, total = {}, {}
     for piste in pistes:
         if piste["number"] is None or piste["alt"]:
             continue
+        total[piste["number"]] = total.get(piste["number"], 0) + piste["length"]
         best = longest.get(piste["number"])
         if best is None or piste["length"] > best["length"]:
             longest[piste["number"]] = piste
     for piste in longest.values():
         piste["label"] = True
+
+    # Значки трасс важнее букв подъёмников, длинные трассы важнее коротких.
+    badges = [
+        {"target": piste, "points": piste["coords"], "importance": 100000 + total[number], "limit": ALWAYS}
+        for number, piste in longest.items()
+    ] + [
+        {"target": lift, "points": lift["coords"], "importance": lift["length"], "limit": LIFT_BADGE_MAX}
+        for lift in lifts if lift["code"]
+    ]
+    place_badges(badges)
+    for badge in badges:
+        badge["target"]["mid"] = [round(badge["pos"][0], 5), round(badge["pos"][1], 5)]
+        badge["target"]["show"] = badge["show"]
 
     # Зоны: центр по трассам и курс камеры снизу вверх, на вершину.
     zones = []
@@ -312,6 +386,8 @@ def main():
     print("Нарисованы от руки:", sorted({p["number"] for p in pistes if p["approx"]}))
     print("Без номера:", [(p["name"], p["length"]) for p in pistes if p["number"] is None])
     print("Подъёмники:", [(l["code"], l["name"]) for l in lifts])
+    print("Значки трасс, высота камеры:", sorted(((p["show"], p["number"]) for p in longest.values()), reverse=True))
+    print("Значки подъёмников:", sorted(((l["show"], l["code"]) for l in lifts if l["code"]), reverse=True))
     print("Зоны:", zones)
     print("Размер файла:", OUT.stat().st_size, "байт")
 

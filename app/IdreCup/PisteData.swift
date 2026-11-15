@@ -28,8 +28,8 @@ struct PisteData: Decodable {
     /// Трассы, на которых стоит значок с номером: по одной на номер.
     var labelled: [Piste] { pistes.filter { $0.label } }
 
-    /// Чёрные трассы рисуются со светлой подложкой, иначе на тёмном фоне их не видно.
-    var blackPistes: [Piste] { pistes.filter { $0.difficulty == "black" } }
+    /// Трассы со светлой обводкой: все, кроме нарисованных пунктиром.
+    var outlinedPistes: [Piste] { pistes.filter { !$0.isApproximate } }
 
     /// Подъёмники с буквой из официальной карты.
     var codedLifts: [Lift] { lifts.filter { $0.code != nil } }
@@ -66,6 +66,8 @@ struct Piste: Decodable, Identifiable {
     let alt: Bool?
     /// Нарисована от руки по официальной карте, в OpenStreetMap её нет.
     let approx: Bool?
+    /// Высота камеры в метрах, с которой значок виден: ближе значки не слипаются.
+    let show: Double?
     let mid: [Double]
     let coords: [[Double]]
 
@@ -77,6 +79,11 @@ struct Piste: Decodable, Identifiable {
     /// Нарисованные от руки трассы показываем пунктиром.
     var stroke: StrokeStyle {
         StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round, dash: isApproximate ? [2, 7] : [])
+    }
+
+    /// Светлая обводка отделяет линию от леса на снимке. У чёрных трасс она шире.
+    var outline: StrokeStyle {
+        StrokeStyle(lineWidth: difficulty == "black" ? 7 : 6, lineCap: .round, lineJoin: .round)
     }
 
     var color: Color {
@@ -108,12 +115,17 @@ struct Lift: Decodable, Identifiable {
     let name: String?
     let kind: String
     let length: Int
+    /// Высота камеры в метрах, с которой буква видна.
+    let show: Double?
+    /// Где стоит буква. Нет в данных: берётся середина линии.
+    let mid: [Double]?
     let coords: [[Double]]
 
     var coordinates: [CLLocationCoordinate2D] { coords.map(PisteData.coordinate) }
 
-    /// Середина линии подъёмника: туда ставится значок с буквой.
+    /// Место значка с буквой на линии подъёмника.
     var midCoordinate: CLLocationCoordinate2D {
+        if let mid { return PisteData.coordinate(mid) }
         guard let first = coords.first, let last = coords.last, first.count == 2, last.count == 2 else {
             return CLLocationCoordinate2D(latitude: 0, longitude: 0)
         }

@@ -5,7 +5,6 @@ import SwiftUI
 /// подъёмники и значки с номерами. Нажатие на значок открывает карточку трассы.
 struct MapScreen: View {
     private let data: PisteData
-    private let dimAreas: [DimArea]
 
     @StateObject private var location = LocationManager()
     @State private var position: MapCameraPosition
@@ -20,7 +19,6 @@ struct MapScreen: View {
     init() {
         let loaded = PisteData.load()
         data = loaded
-        dimAreas = [DimArea(center: loaded.summitCoordinate)]
         _position = State(initialValue: .camera(MapScreen.overviewCamera(for: loaded)))
     }
 
@@ -40,17 +38,18 @@ struct MapScreen: View {
         return data.pistes.filter { $0.number == number }
     }
 
-    /// Значки с номерами появляются при приближении, иначе они закрывают всю гору.
-    private var showPisteBadges: Bool { distance < 8_000 }
-    private var showLiftBadges: Bool { distance < 4_500 }
+    /// Значки появляются по мере приближения: у каждого своя высота камеры, с которой
+    /// он не задевает соседние. Значок выбранной трассы виден всегда.
+    private var visiblePisteBadges: [Piste] {
+        data.labelled.filter { $0.number == selected?.number || distance <= ($0.show ?? 8_000) }
+    }
+
+    private var visibleLiftBadges: [Lift] {
+        data.codedLifts.filter { distance <= ($0.show ?? 4_500) }
+    }
 
     var body: some View {
         Map(position: $position) {
-            ForEach(look.dimmed ? dimAreas : []) { area in
-                MapPolygon(coordinates: area.coordinates)
-                    .foregroundStyle(Theme.base.opacity(0.45))
-            }
-
             ForEach(data.lifts) { lift in
                 MapPolyline(coordinates: lift.coordinates)
                     .stroke(Color.white.opacity(0.75), style: StrokeStyle(lineWidth: 1.5, lineCap: .round, dash: [5, 5]))
@@ -58,12 +57,12 @@ struct MapScreen: View {
 
             ForEach(selectedSegments) { piste in
                 MapPolyline(coordinates: piste.coordinates)
-                    .stroke(Theme.accent.opacity(0.55), style: StrokeStyle(lineWidth: 12, lineCap: .round, lineJoin: .round))
+                    .stroke(Theme.accent.opacity(0.7), style: StrokeStyle(lineWidth: 14, lineCap: .round, lineJoin: .round))
             }
 
-            ForEach(data.blackPistes) { piste in
+            ForEach(data.outlinedPistes) { piste in
                 MapPolyline(coordinates: piste.coordinates)
-                    .stroke(Color.white.opacity(0.85), style: StrokeStyle(lineWidth: 6.5, lineCap: .round, lineJoin: .round))
+                    .stroke(Color.white.opacity(0.9), style: piste.outline)
             }
 
             ForEach(data.pistes) { piste in
@@ -71,13 +70,13 @@ struct MapScreen: View {
                     .stroke(piste.color, style: piste.stroke)
             }
 
-            ForEach(showLiftBadges ? data.codedLifts : []) { lift in
+            ForEach(visibleLiftBadges) { lift in
                 Annotation("", coordinate: lift.midCoordinate) {
                     LiftBadge(code: lift.code ?? "")
                 }
             }
 
-            ForEach(showPisteBadges ? data.labelled : []) { piste in
+            ForEach(visiblePisteBadges) { piste in
                 Annotation("", coordinate: piste.midCoordinate) {
                     Button {
                         selectedID = piste.id
@@ -120,7 +119,7 @@ struct MapScreen: View {
     private var header: some View {
         HStack(alignment: .center) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("IDRE FJÄLL · \(data.labelled.count) ТРАСС НА КАРТЕ")
+                Text("IDRE FJÄLL · \(pisteCountTitle) НА КАРТЕ")
                     .font(Theme.overline())
                     .foregroundStyle(Theme.textSecondary)
                 Text("Карта трасс")
@@ -141,6 +140,20 @@ struct MapScreen: View {
             )
             .ignoresSafeArea(edges: .top)
         )
+    }
+
+    /// «41 трасса», «32 трассы», «35 трасс».
+    private var pisteCountTitle: String {
+        let count = data.labelled.count
+        let word: String
+        if count % 10 == 1 && count % 100 != 11 {
+            word = "ТРАССА"
+        } else if (2...4).contains(count % 10) && !(12...14).contains(count % 100) {
+            word = "ТРАССЫ"
+        } else {
+            word = "ТРАСС"
+        }
+        return "\(count) \(word)"
     }
 
     private var lookMenu: some View {
@@ -185,7 +198,7 @@ struct MapScreen: View {
                     }
                     ForEach(data.zones) { zone in
                         presetChip(zone.name) {
-                            MapCamera(centerCoordinate: zone.coordinate, distance: 4_200, heading: zone.heading, pitch: 58)
+                            MapCamera(centerCoordinate: zone.coordinate, distance: 3_300, heading: zone.heading, pitch: 58)
                         }
                     }
                 }
