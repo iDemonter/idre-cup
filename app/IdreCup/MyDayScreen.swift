@@ -78,10 +78,11 @@ struct MyDayScreen: View {
             Text("МАКС. СКОРОСТЬ · ДЕРЖАЛ 3 СЕКУНДЫ")
                 .font(Theme.overline())
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(tracker.stats.runs > 0 ? Format.kmh(tracker.stats.topSpeed) : "—")
+                Text(Format.kmh(tracker.stats.runs > 0 ? tracker.stats.topSpeed : 0))
                     .font(.system(size: 68, weight: .heavy, design: .rounded))
                     .minimumScaleFactor(0.6)
                     .lineLimit(1)
+                    .opacity(tracker.stats.runs > 0 ? 1 : 0.35)
                 Text("км/ч")
                     .font(Theme.title(22))
             }
@@ -190,7 +191,7 @@ struct MyDayScreen: View {
             Text("ЗАПИСАНО ЗА ДЕНЬ")
                 .font(Theme.overline())
                 .foregroundStyle(Theme.textSecondary)
-            Text("\(Format.km(tracker.stats.totalDistance)) км · в движении \(Format.duration(tracker.stats.movingTime)) · \(tracker.stats.pointCount) \(Format.plural(tracker.stats.pointCount, "точка", "точки", "точек"))")
+            Text("\(Format.km(tracker.stats.totalDistance)) км · в движении \(Format.duration(tracker.stats.movingTime)) · \(Format.count(tracker.stats.pointCount)) \(Format.plural(tracker.stats.pointCount, "точка", "точки", "точек"))")
                 .font(Theme.caption(13))
                 .foregroundStyle(Theme.textPrimary)
         }

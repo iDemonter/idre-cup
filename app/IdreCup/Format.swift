@@ -13,6 +13,11 @@ enum Format {
         Int(value.rounded()).formatted(.number.locale(russian))
     }
 
+    /// Целое число с пробелом между тысячами: «1 461».
+    static func count(_ value: Int) -> String {
+        value.formatted(.number.locale(russian))
+    }
+
     static func km(_ meters: Double) -> String {
         (meters / 1000).formatted(.number.precision(.fractionLength(1)).locale(russian))
     }
