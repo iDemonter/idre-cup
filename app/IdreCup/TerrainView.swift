@@ -200,11 +200,19 @@ struct TerrainView: UIViewRepresentable {
                 ribbonLevels.append((level, width, upTo))
             }
 
-            let summit = Self.symbolImage("mountain.2.fill", fill: UIColor(Theme.accent), tint: UIColor(Theme.onAccent))
-            addBadge(image: summit, at: (0, 0), above: 10, name: nil, size: 24, rank: 1_000_000, number: nil)
+            // Вершины с высотой. Если в данных их нет, остаётся значок на вершине курорта.
+            let peaks = data.peaks ?? []
+            if peaks.isEmpty {
+                let summit = Self.symbolImage("mountain.2.fill", fill: UIColor(Theme.accent), tint: UIColor(Theme.onAccent))
+                addBadge(image: summit, at: (0, 0), above: 10, name: nil, size: 24, rank: 1_000_000, number: nil)
+            }
+            for (index, peak) in peaks.enumerated() {
+                let label = Self.labelImage("▲ \(peak.title)")
+                addBadge(image: label.image, at: frame.local(peak.at), above: 30, name: nil, size: 17, rank: 1_500_000 - Double(index), number: nil, aspect: label.aspect)
+            }
 
             for piste in data.labelled {
-                let title = piste.number.map { String($0) } ?? "•"
+                let title = piste.badgeText
                 let outline = piste.difficulty == "black" ? UIColor.white : UIColor.white.withAlphaComponent(0.75)
                 let image = Self.badgeImage(text: title, fill: UIColor(piste.color), outline: outline, isRound: piste.difficulty == "green", fontScale: 0.46)
                 addBadge(image: image, at: frame.local(piste.mid), above: 10, name: "piste-\(piste.id)", size: 26, rank: 100_000 + (piste.show ?? 0), number: piste.number)

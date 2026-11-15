@@ -31,8 +31,10 @@ OUT_SCENERY = ROOT / "app" / "IdreCup" / "Resources" / "scenery.json"
 
 SUMMIT = (61.8881353, 12.8587081)
 LON_M = 111320 * math.cos(math.radians(SUMMIT[0]))
-WEST, EAST = -2800, 1500           # границы модели, метры от вершины
-SOUTH, NORTH = -1800, 1700
+# Границы модели, метры от вершины Idre Fjäll. На западе в неё входит соседний Idre Himmelfjäll,
+# на севере вершина Städjan: рельеф общий, без шва.
+WEST, EAST = -6700, 2700
+SOUTH, NORTH = -1800, 4500
 GRID_STEP = 25                     # шаг сетки высот в приложении, м
 PIXEL = 2.5                        # размер точки раскраски, м
 EXAGGERATION = 2.6                 # во сколько раз вытянута высота: гора пологая

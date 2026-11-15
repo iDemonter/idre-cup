@@ -145,6 +145,8 @@ jobs:
           echo "::notice::Симулятор запущен, приложение установлено"
           shoot model-overview 25 -look Модель
           shoot model-nord-demo 12 -look Модель -preset Nord -demo YES
+          shoot model-area 20 -look Модель -preset "Весь район"
+          shoot model-himmel 20 -look Модель -preset Himmelfjäll
           shoot model-vast-home 12 -look Модель -preset Väst -homeLat 61.88634 -homeLon 12.83393
           # Камера нарочно поставлена вверх ногами: на снимке модель должна стоять как обычно.
           shoot model-flip 12 -look Модель -preset Nord -flipTest YES

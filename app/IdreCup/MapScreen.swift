@@ -51,6 +51,10 @@ struct MapScreen: View {
             _activePreset = State(initialValue: zone.name)
             _modelCamera = State(initialValue: MapScreen.modelCamera(for: zone, in: loaded))
             _position = State(initialValue: .camera(MapScreen.mapCamera(for: zone)))
+        } else if defaults.string(forKey: "preset") == MapScreen.areaName {
+            _activePreset = State(initialValue: MapScreen.areaName)
+            _modelCamera = State(initialValue: MapScreen.modelArea)
+            _position = State(initialValue: .camera(MapScreen.areaCamera(for: loaded)))
         } else {
             _activePreset = State(initialValue: MapScreen.overviewName)
             _modelCamera = State(initialValue: MapScreen.modelOverview(id: 0))
@@ -75,6 +79,19 @@ struct MapScreen: View {
     /// Общий вид модели: с юго-запада, как на официальной карте курорта.
     private static func modelOverview(id: Int) -> ModelCamera {
         ModelCamera(id: id, east: -900, north: -350, distance: 6_400, heading: 55, pitch: 54)
+    }
+
+    /// «Весь район»: оба курорта и Städjan.
+    private static let areaName = "Весь район"
+    private static let modelArea = ModelCamera(id: 0, east: -2_300, north: 900, distance: 12_500, heading: 18, pitch: 52)
+
+    private static func areaCamera(for data: PisteData) -> MapCamera {
+        MapCamera(
+            centerCoordinate: LocalFrame(origin: data.summitCoordinate).coordinate(east: -2_300, north: 900),
+            distance: 17_000,
+            heading: 0,
+            pitch: 40
+        )
     }
 
     private var showsModel: Bool { look == .model && terrain != nil }
@@ -261,8 +278,16 @@ struct MapScreen: View {
                 }
             }
 
-            Annotation(Resort.name, coordinate: data.summitCoordinate) {
-                SummitMarker()
+            if let peaks = data.peaks, !peaks.isEmpty {
+                ForEach(peaks) { peak in
+                    Annotation(peak.title, coordinate: peak.coordinate) {
+                        SummitMarker()
+                    }
+                }
+            } else {
+                Annotation(Resort.name, coordinate: data.summitCoordinate) {
+                    SummitMarker()
+                }
             }
 
             // Друзья.
@@ -305,7 +330,9 @@ struct MapScreen: View {
     private var header: some View {
         HStack(alignment: .center) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("IDRE FJÄLL · \(pisteCountTitle) НА КАРТЕ")
+                Text(mapOverline)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                     .font(Theme.overline())
                     .foregroundStyle(Theme.textSecondary)
                 Text("Карта трасс")
@@ -328,9 +355,16 @@ struct MapScreen: View {
         )
     }
 
-    /// «41 трасса», «32 трассы», «35 трасс».
+    /// «IDRE FJÄLL · 41 ТРАССА · HIMMELFJÄLL · 25».
+    private var mapOverline: String {
+        let neighbour = data.labelled.filter { $0.resort == "himmel" }.count
+        let own = "IDRE FJÄLL · \(pisteCountTitle)"
+        return neighbour > 0 ? "\(own) · HIMMELFJÄLL · \(neighbour)" : "\(own) НА КАРТЕ"
+    }
+
+    /// «41 трасса», «32 трассы», «35 трасс»: трассы самого Idre Fjäll.
     private var pisteCountTitle: String {
-        let count = data.labelled.count
+        let count = data.labelled.filter { $0.resort != "himmel" }.count
         let word: String
         if count % 10 == 1 && count % 100 != 11 {
             word = "ТРАССА"
@@ -393,6 +427,10 @@ struct MapScreen: View {
                         presetChip(zone.name, model: MapScreen.modelCamera(for: zone, in: data)) {
                             MapScreen.mapCamera(for: zone)
                         }
+                    }
+                    // Оба курорта и Städjan разом: видно, как они стоят относительно друг друга.
+                    presetChip(MapScreen.areaName, model: MapScreen.modelArea) {
+                        MapScreen.areaCamera(for: data)
                     }
                 }
                 .padding(.horizontal, 20)
@@ -701,7 +739,7 @@ private struct PisteBadge: View {
         let isRound = piste.difficulty == "green"
         let radius = isRound ? size / 2 : size * 0.3
         let needsOutline = piste.difficulty == "black"
-        let title = piste.number.map { String($0) } ?? "•"
+        let title = piste.badgeText
         return Text(title)
             .font(.system(size: size * 0.46, weight: .heavy, design: .rounded))
             .foregroundStyle(Color.white)

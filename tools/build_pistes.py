@@ -29,6 +29,22 @@ NO_CROWN = {2, 3, 4, 9, 12, 36}
 
 SUMMIT = (61.8881353, 12.8587081)  # Gränjåsvålen, 891 м
 RADIUS_KM = 2.6                    # всё дальше относится к Idre Himmelfjäll
+
+# Соседний курорт Idre Himmelfjäll: на карте он есть, в зачёт кубка его трассы пока не идут.
+HIMMEL = (61.8990, 12.7700)        # середина его трасс
+HIMMEL_SUMMIT = (61.9087842, 12.7803565)   # Hemmeråsen, 869 м
+HIMMEL_RADIUS_KM = 3.2
+HIMMEL_ZONE = "Himmelfjäll"
+# Номера трасс у курортов свои и совпадают. В файле у Himmelfjäll номер = 100 + номер с его карты,
+# а на значке показывается настоящий (поле display).
+HIMMEL_OFFSET = 100
+DEM = ROOT / "data" / "dem-idre.json"
+
+# Вершины, которые подписываются на карте. Имя из OpenStreetMap → подпись.
+PEAK_NAMES = {
+    "Gränjåsvålen": "Idre Fjäll",
+    "Hemmeråsen": "Himmelfjäll",
+}
 MIN_UNNAMED_M = 150                # короткие безымянные обрезки не показываем
 
 # Значки на карте. Экран телефона вмещает примерно 1/24 высоты камеры на один значок
@@ -261,7 +277,7 @@ def write_trails(longest):
 
     trails = []
     for number, piste in sorted(longest.items()):
-        if number in NO_CROWN:
+        if number in NO_CROWN or number >= HIMMEL_OFFSET:
             continue
         coords = piste["coords"]
         if height(coords[0]) < height(coords[-1]):
@@ -285,9 +301,55 @@ def main():
             continue
         points = [(p["lat"], p["lon"]) for p in geometry]
         center = (sum(p[0] for p in points) / len(points), sum(p[1] for p in points) / len(points))
-        if km(center, SUMMIT) > RADIUS_KM:
+        if km(center, SUMMIT) <= RADIUS_KM:
+            resort = "idre"
+        elif km(center, HIMMEL) <= HIMMEL_RADIUS_KM:
+            resort = "himmel"
+        else:
             continue
         meters = length_m(points)
+
+        if resort == "himmel":
+            # Соседний курорт: номер, название и сложность берём из OpenStreetMap как есть.
+            ref = (tags.get("ref") or tags.get("piste:ref") or "").strip()
+            name = (tags.get("name") or "").strip() or None
+            if tags.get("piste:type") in ("downhill", "snow_park"):
+                number = HIMMEL_OFFSET + int(ref) if ref.isdigit() else None
+                if number is None and (name is None or meters < MIN_UNNAMED_M):
+                    continue
+                mid = midpoint(points)
+                pistes.append({
+                    "id": element["id"],
+                    "number": number,
+                    "display": ref if number else None,
+                    "resort": resort,
+                    "name": name,
+                    "zone": HIMMEL_ZONE,
+                    "difficulty": OSM_DIFFICULTY.get(tags.get("piste:difficulty", ""), "unknown"),
+                    "extreme": False,
+                    "lit": tags.get("piste:lit") == "yes" or tags.get("lit") == "yes",
+                    "length": round(meters),
+                    "label": False,
+                    "alt": False,
+                    "approx": False,
+                    "mid": [round(mid[0], 5), round(mid[1], 5)],
+                    "coords": rounded(points),
+                })
+            elif "aerialway" in tags:
+                key = "himmel:" + (name or str(element["id"])).lower()
+                if key in seen_lifts:
+                    continue
+                seen_lifts.add(key)
+                lifts.append({
+                    "id": element["id"],
+                    "code": f"H{ref}" if ref else f"H{len(lifts)}",
+                    "resort": resort,
+                    "name": name,
+                    "kind": tags["aerialway"],
+                    "length": round(meters),
+                    "coords": rounded(points),
+                })
+            continue
 
         if tags.get("piste:type") in ("downhill", "snow_park"):
             raw_name = (tags.get("name") or "").strip()
@@ -386,7 +448,7 @@ def main():
 
     # Зоны: центр по трассам и курс камеры снизу вверх, на вершину.
     zones = []
-    for zone in ["Väst", "Nord", "Ost", "Syd"]:
+    for zone in ["Väst", "Nord", "Ost", "Syd", HIMMEL_ZONE]:
         points = [tuple(c) for p in pistes if p["zone"] == zone for c in p["coords"]]
         if not points:
             continue
@@ -394,8 +456,32 @@ def main():
         zones.append({
             "name": zone,
             "center": [round(center[0], 5), round(center[1], 5)],
-            "heading": round(bearing(center, SUMMIT)),
+            "heading": round(bearing(center, HIMMEL_SUMMIT if zone == HIMMEL_ZONE else SUMMIT)),
         })
+
+    # Вершины с высотой: имя и высота из OpenStreetMap, без высоты там берём её из модели высот.
+    dem = json.loads(DEM.read_text(encoding="utf-8"))
+
+    def dem_height(lat, lon):
+        row = min(max(int(round((dem["north"] - lat) / dem["dlat"])), 0), dem["rows"] - 1)
+        column = min(max(int(round((lon - dem["west"]) / dem["dlon"])), 0), dem["cols"] - 1)
+        return dem["heights"][row * dem["cols"] + column]
+
+    peaks = []
+    for element in data["elements"]:
+        tags = element.get("tags", {})
+        if element.get("type") != "node" or tags.get("natural") != "peak" or not tags.get("name"):
+            continue
+        try:
+            height = float(tags["ele"].replace(",", "."))
+        except (KeyError, ValueError):
+            height = dem_height(element["lat"], element["lon"])
+        peaks.append({
+            "name": PEAK_NAMES.get(tags["name"], tags["name"]),
+            "height": round(height),
+            "at": [round(element["lat"], 5), round(element["lon"], 5)],
+        })
+    peaks.sort(key=lambda peak: -peak["height"])
 
     pistes.sort(key=lambda p: (p["number"] is None, p["number"] or 0, -p["length"]))
     lifts.sort(key=lambda l: (l["code"] is None, l["code"] or "", l["name"] or ""))
@@ -403,6 +489,7 @@ def main():
         "source": "Геометрия: © участники OpenStreetMap (ODbL). Номера и сложность: карта трасс Idre Fjäll 2026/27. Трассы с approx нарисованы от руки.",
         "summit": [round(SUMMIT[0], 5), round(SUMMIT[1], 5)],
         "zones": zones,
+        "peaks": peaks,
         "pistes": pistes,
         "lifts": lifts,
     }
@@ -411,7 +498,10 @@ def main():
 
     write_trails(longest)
 
-    found = sorted({p["number"] for p in pistes if p["number"] is not None})
+    found = sorted({p["number"] for p in pistes if p["number"] is not None and p["number"] < HIMMEL_OFFSET})
+    himmel = sorted({p["display"] for p in pistes if p.get("resort") == "himmel" and p["number"]}, key=int)
+    print("Himmelfjäll, трассы:", himmel, "подъёмники:", [(l["code"], l["name"], l["kind"]) for l in lifts if l.get("resort") == "himmel"])
+    print("Вершины:", [(p["name"], p["height"]) for p in peaks])
     missing = [f"{n} {name}" for n, name, *_ in OFFICIAL if n not in found]
     print(f"Трасс с номером: {len(found)} из {len(OFFICIAL)}; участков всего: {len(pistes)}; подъёмников: {len(lifts)}")
     print("Не хватает:", ", ".join(missing) or "нет")

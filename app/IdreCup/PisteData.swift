@@ -10,7 +10,10 @@ struct PisteData: Decodable {
     let pistes: [Piste]
     let lifts: [Lift]
 
-    static let empty = PisteData(source: "", summit: [61.88814, 12.85871], zones: [], pistes: [], lifts: [])
+    /// Вершины с высотой: подписываются на карте.
+    let peaks: [Peak]?
+
+    static let empty = PisteData(source: "", summit: [61.88814, 12.85871], zones: [], pistes: [], lifts: [], peaks: nil)
 
     static func load() -> PisteData {
         guard
@@ -50,9 +53,26 @@ struct Zone: Decodable, Identifiable {
     var coordinate: CLLocationCoordinate2D { PisteData.coordinate(center) }
 }
 
+/// Вершина: имя, высота над морем в метрах и место.
+struct Peak: Decodable, Identifiable {
+    let name: String
+    let height: Int
+    let at: [Double]
+
+    var id: String { name }
+    var coordinate: CLLocationCoordinate2D { PisteData.coordinate(at) }
+    /// «Städjan · 1131 м».
+    var title: String { "\(name) · \(height) м" }
+}
+
 struct Piste: Decodable, Identifiable {
     let id: Int
+    /// Номер трассы. У соседнего Idre Himmelfjäll это 100 + номер с его карты: номера курортов совпадают.
     let number: Int?
+    /// Что написано на значке, если это не number (трассы Himmelfjäll).
+    let display: String?
+    /// idre (или пусто) либо himmel.
+    let resort: String?
     let name: String?
     let zone: String?
     /// green, blue, red, black или unknown.
@@ -74,6 +94,7 @@ struct Piste: Decodable, Identifiable {
     var coordinates: [CLLocationCoordinate2D] { coords.map(PisteData.coordinate) }
     var midCoordinate: CLLocationCoordinate2D { PisteData.coordinate(mid) }
     var isAlternative: Bool { alt ?? false }
+    var badgeText: String { display ?? number.map { String($0) } ?? "•" }
     var isApproximate: Bool { approx ?? false }
 
     /// Нарисованные от руки трассы показываем пунктиром.
