@@ -14,8 +14,8 @@ import pathlib
 import rasterio
 from rasterio.windows import from_bounds
 
-# Рамка вокруг курорта: запад, юг, восток, север.
-WEST, SOUTH, EAST, NORTH = 12.765, 61.855, 12.945, 61.925
+# Рамка вокруг Idre Fjäll, Idre Himmelfjäll и вершины Städjan: запад, юг, восток, север.
+WEST, SOUTH, EAST, NORTH = 12.715, 61.855, 12.945, 61.945
 
 URL = (
     "https://copernicus-dem-30m.s3.amazonaws.com/"

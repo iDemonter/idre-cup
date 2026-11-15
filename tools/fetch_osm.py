@@ -12,8 +12,8 @@ import time
 import urllib.parse
 import urllib.request
 
-# Рамка вокруг курорта: юг, запад, север, восток.
-BBOX = "61.85,12.76,61.93,12.95"
+# Рамка вокруг Idre Fjäll, соседнего Idre Himmelfjäll и вершины Städjan: юг, запад, север, восток.
+BBOX = "61.85,12.715,61.945,12.95"
 
 QUERY = f"""
 [out:json][timeout:60];
@@ -27,7 +27,7 @@ out tags geom;
 """
 
 # Окружение для 3D-модели: лес, вода, дома, дороги и полезные места в границах модели.
-LAND_BBOX = "61.869,12.799,61.906,12.894"
+LAND_BBOX = "61.869,12.730,61.931,12.894"
 
 LAND_QUERY = f"""
 [out:json][timeout:120];
