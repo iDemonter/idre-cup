@@ -70,15 +70,22 @@ struct TerrainView: UIViewRepresentable {
         private var selectedNumber: Int?
         private let screenScale = Double(UIScreen.main.scale)
 
+        /// Ленты трасс трёх ширин: чем дальше камера, тем шире лента, иначе издалека её не видно.
+        private var ribbonLevels: [(node: SCNNode, width: Double, upTo: Double)] = []
+
         /// Значок, который держит постоянный размер на экране.
         private struct Badge {
             let node: SCNNode
             /// Размер на экране в пунктах.
             let size: Double
-            /// Сколько метров свободного места вокруг: значок виден, пока оно не меньше его размера.
-            let room: Double
+            /// Важность: при нехватке места остаётся более важный значок.
+            let rank: Double
             /// Номер трассы: значок выбранной трассы виден всегда.
             let number: Int?
+            /// Место значка: метры от вершины и высота в единицах сцены.
+            let east: Double
+            let north: Double
+            let up: Double
         }
 
         init(parent: TerrainView) {
@@ -109,28 +116,38 @@ struct TerrainView: UIViewRepresentable {
                 scene.rootNode.addChildNode(SCNNode(geometry: geometry))
             }
 
-            for piste in data.pistes {
-                let line = piste.coords.map { frame.local($0) }
-                let node = SCNNode(geometry: ribbon(line, width: piste.isApproximate ? 14 : 24, lift: lift(for: piste), color: UIColor(piste.color)))
-                node.name = "piste-\(piste.id)"
-                scene.rootNode.addChildNode(node)
+            let lines = data.pistes.map { piste in piste.coords.map { frame.local($0) } }
+            for (width, upTo) in [(22.0, 4_200.0), (34.0, 6_800.0), (52.0, Double.infinity)] {
+                let level = SCNNode()
+                for (piste, line) in zip(data.pistes, lines) {
+                    let own = piste.isApproximate ? width * 0.6 : width
+                    let node = SCNNode(geometry: ribbon(line, width: own, lift: lift(for: piste), color: UIColor(piste.color)))
+                    node.name = "piste-\(piste.id)"
+                    level.addChildNode(node)
+                }
+                level.isHidden = !ribbonLevels.isEmpty
+                scene.rootNode.addChildNode(level)
+                ribbonLevels.append((level, width, upTo))
             }
 
-            for lift in data.codedLifts {
-                guard let mid = lift.mid, let code = lift.code else { continue }
-                let image = Self.badgeImage(text: code, fill: UIColor(Theme.raised), outline: UIColor.white.withAlphaComponent(0.8), isRound: true, fontScale: 0.5)
-                addBadge(image: image, at: frame.local(mid), above: 16, name: nil, size: 17, room: (lift.show ?? 4_500) / 24, number: nil)
-            }
+            let summit = Self.symbolImage("mountain.2.fill", fill: UIColor(Theme.accent), tint: UIColor(Theme.onAccent))
+            addBadge(image: summit, at: (0, 0), above: 10, name: nil, size: 24, rank: 1_000_000, number: nil)
 
             for piste in data.labelled {
                 let title = piste.number.map { String($0) } ?? "•"
                 let outline = piste.difficulty == "black" ? UIColor.white : UIColor.white.withAlphaComponent(0.75)
                 let image = Self.badgeImage(text: title, fill: UIColor(piste.color), outline: outline, isRound: piste.difficulty == "green", fontScale: 0.46)
-                addBadge(image: image, at: frame.local(piste.mid), above: 10, name: "piste-\(piste.id)", size: 26, room: (piste.show ?? 8_000) / 24, number: piste.number)
+                addBadge(image: image, at: frame.local(piste.mid), above: 10, name: "piste-\(piste.id)", size: 26, rank: 100_000 + (piste.show ?? 0), number: piste.number)
             }
 
-            let summit = Self.symbolImage("mountain.2.fill", fill: UIColor(Theme.accent), tint: UIColor(Theme.onAccent))
-            addBadge(image: summit, at: (0, 0), above: 10, name: nil, size: 24, room: 100_000, number: nil)
+            for lift in data.codedLifts {
+                guard let mid = lift.mid, let code = lift.code else { continue }
+                let image = Self.badgeImage(text: code, fill: UIColor(Theme.raised), outline: UIColor.white.withAlphaComponent(0.8), isRound: true, fontScale: 0.5)
+                addBadge(image: image, at: frame.local(mid), above: 16, name: nil, size: 17, rank: lift.show ?? 0, number: nil)
+            }
+
+            // Важные значки занимают место первыми.
+            badges.sort { $0.rank > $1.rank }
         }
 
         /// Трассы разной сложности лежат на чуть разной высоте, чтобы не мерцать на пересечениях.
@@ -248,7 +265,7 @@ struct TerrainView: UIViewRepresentable {
             return geometry
         }
 
-        private func addBadge(image: UIImage, at place: (east: Double, north: Double), above: Double, name: String?, size: Double, room: Double, number: Int?) {
+        private func addBadge(image: UIImage, at place: (east: Double, north: Double), above: Double, name: String?, size: Double, rank: Double, number: Int?) {
             let plane = SCNPlane(width: 1, height: 1)
             let material = SCNMaterial()
             material.lightingModel = .constant
@@ -264,7 +281,7 @@ struct TerrainView: UIViewRepresentable {
             node.constraints = [SCNBillboardConstraint()]
             node.renderingOrder = 100
             scene.rootNode.addChildNode(node)
-            badges.append(Badge(node: node, size: size, room: room, number: number))
+            badges.append(Badge(node: node, size: size, rank: rank, number: number, east: place.east, north: place.north, up: Double(node.position.y)))
         }
 
         // MARK: - Камера и выбор
@@ -323,21 +340,67 @@ struct TerrainView: UIViewRepresentable {
             let heightPoints = Double(renderer.currentViewport.height) / screenScale
             guard heightPoints > 0 else { return }
             let eye = viewpoint.presentation.worldPosition
+            let front = viewpoint.presentation.worldFront
             let spread = 2 * tan(Double(lens.fieldOfView) * .pi / 360)
-            for badge in badges {
-                let place = badge.node.worldPosition
-                let dx = Double(place.x - eye.x)
-                let dy = Double(place.y - eye.y)
-                let dz = Double(place.z - eye.z)
-                let away = max((dx * dx + dy * dy + dz * dz).squareRoot(), 0.01)
-                // Сколько единиц сцены приходится на один пункт экрана на этом расстоянии.
-                let perPoint = away * spread / heightPoints
-                let scale = Float(badge.size * perPoint)
-                badge.node.scale = SCNVector3(scale, scale, scale)
-                let roomPoints = badge.room / unit / perPoint
-                let isSelected = badge.number != nil && badge.number == selectedNumber
-                badge.node.isHidden = !isSelected && roomPoints < badge.size
+
+            // Ширина лент по расстоянию от камеры до земли вдоль взгляда.
+            var ground = Double.infinity
+            if front.y < -0.01 {
+                ground = Double((eye.y - 2) / -front.y) * unit
             }
+            var chosen = false
+            for level in ribbonLevels {
+                let fits = !chosen && ground <= level.upTo
+                level.node.isHidden = !fits
+                chosen = chosen || fits
+            }
+
+            // Значки: постоянный размер на экране; за горой и под более важным значком прячутся.
+            var taken: [CGRect] = []
+            for badge in badges {
+                let dx = Double(badge.node.position.x - eye.x)
+                let dy = Double(badge.node.position.y - eye.y)
+                let dz = Double(badge.node.position.z - eye.z)
+                let away = max((dx * dx + dy * dy + dz * dz).squareRoot(), 0.01)
+                let scale = Float(badge.size * away * spread / heightPoints)
+                badge.node.scale = SCNVector3(scale, scale, scale)
+
+                let isSelected = badge.number != nil && badge.number == selectedNumber
+                let spot = renderer.projectPoint(badge.node.position)
+                let half = badge.size / 2 + 1.5
+                let box = CGRect(x: Double(spot.x) - half, y: Double(spot.y) - half, width: half * 2, height: half * 2)
+                var visible = spot.z > 0 && spot.z < 1
+                if visible && !isSelected {
+                    visible = !isBehindTerrain(badge, eye: eye) && !taken.contains { $0.intersects(box) }
+                }
+                badge.node.isHidden = !visible
+                if visible {
+                    taken.append(box)
+                }
+            }
+        }
+
+        /// Закрыт ли значок склоном: идём от значка к камере и сравниваем высоту луча с рельефом.
+        private func isBehindTerrain(_ badge: Badge, eye: SCNVector3) -> Bool {
+            let eyeEast = Double(eye.x) * unit
+            let eyeNorth = -Double(eye.z) * unit
+            let eyeUp = Double(eye.y)
+            let flat = hypot(eyeEast - badge.east, eyeNorth - badge.north)
+            guard flat > 120 else { return false }
+            let reach = min(flat, 5_000)
+            var walked = 80.0
+            while walked < reach {
+                let t = walked / flat
+                let east = badge.east + (eyeEast - badge.east) * t
+                let north = badge.north + (eyeNorth - badge.north) * t
+                let ray = badge.up + (eyeUp - badge.up) * t
+                let land = terrain.height(east: east, north: north) * terrain.exaggeration / unit
+                if land > ray + 0.06 {
+                    return true
+                }
+                walked += 40
+            }
+            return false
         }
 
         // MARK: - Картинки значков
