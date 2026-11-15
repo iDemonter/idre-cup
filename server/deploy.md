@@ -36,4 +36,20 @@ docker compose exec db pg_dump -U idrecup idrecup | gzip > ~/idre-cup-$(date +%F
 
 ## Адрес в интернете
 
-Телефонам нужен постоянный HTTPS-адрес, который ведёт на `http://127.0.0.1:8080`. Подходят Cloudflare Tunnel (нужен домен) и Tailscale Funnel. Адрес приложение берёт из настроек, поэтому сервер можно переносить без новой сборки.
+Телефонам нужен постоянный HTTPS-адрес. Его даёт свой туннель Cloudflare: контейнер `cloudflared` в этом же стеке ходит к API по сети стека (`http://api:8080`). С другими туннелями на машине он не пересекается. Адрес приложение берёт из настроек, поэтому сервер можно переносить без новой сборки.
+
+1. Cloudflare Zero Trust → Networks → Tunnels → Create a tunnel, тип Cloudflared, имя `idre-cup`.
+2. На шаге установки скопируйте токен (длинная строка после `--token`). Команду установки не запускайте: cloudflared уже есть в compose.
+3. Public hostname: свой поддомен, Service `HTTP`, URL `api:8080`.
+4. На сервере допишите в `.env` профиль и токен. Токен вводится без эха и не попадает в историю shell:
+
+   ```bash
+   cd ~/idre-cup/server
+   read -rsp "Токен туннеля: " T && echo && printf 'COMPOSE_PROFILES=tunnel\nCLOUDFLARE_TUNNEL_TOKEN=%s\n' "$T" >> .env && unset T
+   chmod 600 .env
+   docker compose up -d
+   docker compose logs cloudflared | grep -i registered   # четыре строки Registered tunnel connection
+   curl https://<ваш поддомен>/health
+   ```
+
+С `COMPOSE_PROFILES=tunnel` в `.env` обычное обновление (`docker compose up -d --build`) поднимает и туннель. Отключить туннель: удалить строку `COMPOSE_PROFILES` и выполнить `docker compose stop cloudflared`.
