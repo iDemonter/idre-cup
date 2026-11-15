@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "maxParticipants": 8,
   "days": 6,
   "pairDays": 2,
@@ -60,7 +60,30 @@
     "pointsMin": 3,
     "pointsMax": 8,
     "windowFrom": "09:30",
-    "windowTo": "15:00"
+    "windowTo": "15:00",
+    "minGapMinutes": 60,
+    "minRiders": 2,
+    "riderFreshMinutes": 10,
+    "postponeMinutes": 15,
+    "settleDelaySeconds": 90,
+    "waitForTracksMinutes": 15,
+    "kinds": {
+      "double": {
+        "minutes": 30
+      },
+      "best": {
+        "minutes": 30,
+        "points": 3
+      },
+      "explore": {
+        "minutes": 45,
+        "points": 3
+      },
+      "hunt": {
+        "minutes": 30,
+        "points": 4
+      }
+    }
   },
   "evening": {
     "gamePoints": [

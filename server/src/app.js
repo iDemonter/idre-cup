@@ -10,8 +10,9 @@ const rulesPath = fileURLToPath(new URL("../config/rules.json", import.meta.url)
  * Без базы работают только /health и /v1/config.
  * @param {{ db?: import("pg").Pool | null, version?: string, attemptLimit?: number }} options
  * attemptLimit: сколько раз за 10 минут с одного адреса можно создать кубок или войти по коду.
+ * autoEvents: сервер сам назначает события дня по расписанию.
  */
-export function createApp({ db = null, version = "dev", attemptLimit = 30 } = {}) {
+export function createApp({ db = null, version = "dev", attemptLimit = 30, autoEvents = true } = {}) {
   // Правила и очки. Меняются правкой config/rules.json и перезапуском сервера, без новой сборки приложения.
   const rules = JSON.parse(readFileSync(rulesPath, "utf8"));
 
@@ -38,7 +39,7 @@ export function createApp({ db = null, version = "dev", attemptLimit = 30 } = {}
   });
 
   if (db && typeof db.connect === "function") {
-    mountApi(app, { db, rules, attemptLimit });
+    mountApi(app, { db, rules, attemptLimit, autoEvents });
   }
 
   app.use((_req, res) => {

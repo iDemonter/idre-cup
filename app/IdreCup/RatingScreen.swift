@@ -45,6 +45,9 @@ struct RatingScreen: View {
     @State private var day: DayReply?
     @State private var standings: StandingsReply?
     @State private var crowns: CrownsReply?
+    @State private var events: EventsReply?
+    /// Насколько часы сервера впереди часов телефона на момент загрузки событий, секунды.
+    @State private var eventsOffset: Double = 0
     @State private var showsProfile: Bool
 
     init() {
@@ -148,6 +151,10 @@ struct RatingScreen: View {
         if let reply = await freshDay { day = reply }
         if let reply = await freshStandings { standings = reply }
         if let reply = await session.crowns() { crowns = reply }
+        if let reply = await session.events() {
+            events = reply
+            eventsOffset = reply.now - Date().timeIntervalSince1970
+        }
     }
 
     private var header: some View {
@@ -190,6 +197,9 @@ struct RatingScreen: View {
         if let day {
             if day.multiplier > 1 {
                 note("Последний день кубка: очки ×\(day.multiplier)")
+            }
+            if let events, !events.events.isEmpty {
+                EventsCard(reply: events, clockOffset: eventsOffset, myID: session.me?.id)
             }
             if day.rows.allSatisfy({ $0.runs == 0 }) {
                 note("Сегодня ещё никто не катался. Включите запись в «Моём дне» и сделайте первый спуск.")
@@ -265,6 +275,9 @@ struct RatingScreen: View {
         }
         if let duels = row.duelPoints, duels != 0 {
             parts.append("дуэли \(signed(duels))")
+        }
+        if let events = row.eventPoints, events != 0 {
+            parts.append("события \(signed(events))")
         }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }

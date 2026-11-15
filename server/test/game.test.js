@@ -74,9 +74,9 @@ function trailRide(number, start, speed) {
 before(async () => {
   if (!url) return;
   db = new pg.Pool({ connectionString: url, max: 5 });
-  await db.query("drop table if exists duels, track_points, participants, cups, schema_migrations cascade");
+  await db.query("drop table if exists events, duels, track_points, participants, cups, schema_migrations cascade");
   await migrate(db, () => {});
-  const app = createApp({ db, version: "test", attemptLimit: 1000 });
+  const app = createApp({ db, version: "test", attemptLimit: 1000, autoEvents: false });
   await new Promise((resolve) => {
     server = app.listen(0, resolve);
   });
@@ -353,6 +353,91 @@ test("дуэли: вызов, ответ, итог по трекам, 5 очко
   assert.equal(row("Анна").points, -5);
   const standings = (await call("GET", "/v1/standings", { token: anna.token })).body.rows;
   assert.equal(standings.find((item) => item.name === "Анна").points, -5);
+});
+
+test("события: новая трасса, побей себя, охота на лидера, двойной счёт", options, async () => {
+  const today = new Date().toISOString().slice(0, 10);
+  const ivan = (await call("POST", "/v1/cups", { body: { cupName: "События", name: "Иван", startsOn: today } })).body;
+  const oleg = (await call("POST", "/v1/join", { body: { code: ivan.cup.code, name: "Олег" } })).body;
+  const anna = (await call("POST", "/v1/join", { body: { code: ivan.cup.code, name: "Анна" } })).body;
+  const shift = (id, from, to) =>
+    db.query("update events set starts_at = now() - make_interval(secs => $2), ends_at = now() - make_interval(secs => $3) where id = $1", [id, from, to]);
+  const start = (kind) => call("POST", "/v1/events", { token: ivan.token, body: { kind } });
+  const events = async (token = ivan.token) => (await call("GET", "/v1/events", { token })).body;
+  const entry = (event, person) => event.entries.find((item) => item.id === person.me.id);
+  const row = async (name) => (await call("GET", "/v1/day", { token: ivan.token })).body.rows.find((item) => item.name === name);
+  const now = Math.floor(Date.now() / 1000);
+
+  assert.equal((await call("POST", "/v1/events", { token: oleg.token, body: { kind: "explore" } })).status, 403, "только админ");
+  assert.equal((await start("jump")).status, 400);
+  assert.equal((await start("best")).body.error, "event_impossible", "никто ещё не катался");
+  assert.equal((await start("hunt")).body.error, "event_impossible", "лидера ещё нет");
+
+  // 50 минут назад: Иван прошёл 28-ю (12 м/с), Олег тоже (11 м/с).
+  await call("POST", "/v1/tracks", { token: ivan.token, body: { points: trailRide(28, now - 3000, 12) } });
+  await call("POST", "/v1/tracks", { token: oleg.token, body: { points: trailRide(28, now - 2800, 11) } });
+  // 25 минут назад: Иван снова 28-я, но быстрее (15 м/с); Олег впервые 20-я (10 м/с, медленнее своего утра).
+  await call("POST", "/v1/tracks", { token: ivan.token, body: { points: trailRide(28, now - 1500, 15) } });
+  await call("POST", "/v1/tracks", { token: oleg.token, body: { points: trailRide(20, now - 1500, 10) } });
+
+  // Новая трасса: окно накрывает вторые спуски. У Олега 20-я новая, у Ивана 28-я уже была.
+  const explore = await start("explore");
+  assert.equal(explore.status, 201);
+  assert.equal(explore.body.event.status, "active");
+  assert.equal((await start("double")).body.error, "event_busy");
+  await shift(explore.body.event.id, 2000, -300);
+  let list = await events(anna.token);
+  assert.equal(list.events[0].kind, "explore");
+  assert.equal(entry(list.events[0], oleg).done, true);
+  assert.equal(entry(list.events[0], oleg).value, 20);
+  assert.equal(entry(list.events[0], ivan).done, false);
+  await shift(explore.body.event.id, 2000, 1000);
+  list = await events();
+  assert.equal(list.events[0].status, "finished");
+  assert.deepEqual(list.events[0].awards.map((award) => [award.name, award.points]), [["Олег", 3]]);
+  assert.equal((await row("Олег")).eventPoints, 3);
+  assert.equal((await row("Иван")).eventPoints, 0);
+
+  // Побей себя: Иван в окне быстрее своего утра (15 против 12), Олег медленнее (10 против 11).
+  const best = await start("best");
+  await shift(best.body.event.id, 2000, 1000);
+  list = await events();
+  const bestEvent = list.events.find((item) => item.id === best.body.event.id);
+  assert.equal(bestEvent.status, "finished");
+  assert.ok(Math.abs(entry(bestEvent, ivan).goal - 12) < 0.5 && Math.abs(entry(bestEvent, ivan).value - 15) < 0.5);
+  assert.deepEqual(bestEvent.awards.map((award) => award.name), ["Иван"]);
+  assert.equal(entry(bestEvent, anna).goal, null);
+
+  // Охота на лидера: лидер общего зачёта Иван; в окне он быстрее всех, значит очки ему.
+  const hunt = await start("hunt");
+  assert.equal(hunt.body.event.leader, ivan.me.id);
+  await shift(hunt.body.event.id, 2000, 1000);
+  list = await events();
+  const huntEvent = list.events.find((item) => item.id === hunt.body.event.id);
+  assert.deepEqual(huntEvent.awards.map((award) => [award.name, award.points]), [["Иван", 4]]);
+  assert.equal(entry(huntEvent, oleg).done, false);
+  assert.equal((await row("Иван")).eventPoints, 7);
+
+  // Двойной счёт: спуск внутри окна идёт в объём дважды, цифры в строке остаются настоящими.
+  const before = await row("Олег");
+  const double = await start("double");
+  await shift(double.body.event.id, 2000, 1000);
+  const after = await row("Олег");
+  assert.equal(after.vertical, before.vertical);
+  assert.ok(after.bonusVertical > 100, `прибавка Олега ${after.bonusVertical}`);
+  assert.ok(after.volumeScore >= before.volumeScore);
+  assert.equal(after.points, after.speedPoints + after.volumePoints + after.crownPoints + after.racePoints + after.duelPoints + after.eventPoints);
+
+  // Расписание: сервер с включёнными событиями сам назначает 2–3 события на день кубка.
+  const auto = createApp({ db, version: "test", attemptLimit: 1000 });
+  const listener = await new Promise((resolve) => {
+    const started = auto.listen(0, () => resolve(started));
+  });
+  const reply = await fetch(`http://127.0.0.1:${listener.address().port}/v1/events`, { headers: { authorization: `Bearer ${ivan.token}` } });
+  assert.equal(reply.status, 200);
+  listener.close();
+  const planned = await db.query("select count(*)::int as count from events where cup_id = $1 and slot is not null", [ivan.cup.id]);
+  assert.ok(planned.rows[0].count >= 2 && planned.rows[0].count <= 3, `запланировано ${planned.rows[0].count}`);
 });
 
 test("территория: трек вдали от курорта в зачёт не идёт, пока её не выключить", options, async () => {

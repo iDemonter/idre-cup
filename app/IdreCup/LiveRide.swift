@@ -22,7 +22,9 @@ final class LiveRide {
             place: session.todayPlace,
             points: session.todayPoints,
             duelWith: session.duelWith,
-            duelEnds: session.duelEnds
+            duelEnds: session.duelEnds,
+            eventTitle: session.eventTitle,
+            eventEnds: session.eventEnds
         )
         apply(isRecording: tracker.isRecording && !tracker.isDemo, cupName: session.cup?.name ?? "Idre Cup", state: state)
     }
@@ -87,7 +89,9 @@ struct LivePreview: View {
         place: 2,
         points: 19,
         duelWith: "Олег",
-        duelEnds: Date().addingTimeInterval(1_500)
+        duelEnds: Date().addingTimeInterval(1_500),
+        eventTitle: "Охота на лидера",
+        eventEnds: Date().addingTimeInterval(760)
     )
 
     var body: some View {
@@ -96,7 +100,7 @@ struct LivePreview: View {
                 .font(Theme.overline())
                 .foregroundStyle(Theme.textSecondary)
             card(LivePreview.sample, isStale: false)
-            card(RideAttributes.ContentState(topSpeed: 0, vertical: 0, runs: 0, place: nil, points: nil, duelWith: nil, duelEnds: nil), isStale: false)
+            card(RideAttributes.ContentState(topSpeed: 0, vertical: 0, runs: 0), isStale: false)
             card(LivePreview.sample, isStale: true)
         }
         .padding(.horizontal, 14)

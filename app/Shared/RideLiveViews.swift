@@ -44,24 +44,34 @@ struct RideLockScreenView: View {
                 Text("Откройте Idre Cup: запись могла остановиться.")
                     .font(Theme.caption(11))
                     .foregroundStyle(Theme.textSecondary)
-            } else if let rival = state.duelWith, let end = state.duelEnds, end > Date() {
-                HStack(spacing: 6) {
-                    Image(systemName: "flag.checkered.2.crossed")
-                    Text("Дуэль: \(rival)")
-                        .lineLimit(1)
-                    Spacer(minLength: 8)
-                    Text("осталось")
-                        .foregroundStyle(Theme.textSecondary)
-                    Text(end, style: .timer)
-                        .monospacedDigit()
-                        .multilineTextAlignment(.trailing)
-                        .frame(width: 66, alignment: .trailing)
+            } else {
+                if let title = state.eventTitle, let end = state.eventEnds, end > Date() {
+                    countdown("bolt.fill", "Событие: \(title)", until: end)
                 }
-                .font(Theme.caption(12))
-                .foregroundStyle(Theme.accent)
+                if let rival = state.duelWith, let end = state.duelEnds, end > Date() {
+                    countdown("flag.checkered.2.crossed", "Дуэль: \(rival)", until: end)
+                }
             }
         }
         .padding(16)
+    }
+
+    /// Строка «что идёт · осталось 12:40».
+    private func countdown(_ symbol: String, _ text: String, until end: Date) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: symbol)
+            Text(text)
+                .lineLimit(1)
+            Spacer(minLength: 8)
+            Text("осталось")
+                .foregroundStyle(Theme.textSecondary)
+            Text(end, style: .timer)
+                .monospacedDigit()
+                .multilineTextAlignment(.trailing)
+                .frame(width: 66, alignment: .trailing)
+        }
+        .font(Theme.caption(12))
+        .foregroundStyle(Theme.accent)
     }
 
     private func metric(_ value: String, _ label: String, isMain: Bool = false) -> some View {

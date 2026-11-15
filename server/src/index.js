@@ -24,7 +24,8 @@ if (db) {
   }
 }
 
-const app = createApp({ db, version });
+// AUTO_EVENTS=0 выключает события по расписанию (для демо и проверок); вручную админ запускает их всегда.
+const app = createApp({ db, version, autoEvents: process.env.AUTO_EVENTS !== "0" });
 
 const server = app.listen(port, () => {
   console.log(`Idre Cup server ${version} слушает порт ${port}`);

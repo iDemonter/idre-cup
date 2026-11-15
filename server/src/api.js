@@ -64,7 +64,7 @@ const CUP_COLUMNS =
  * @param {import("express").Express} app
  * @param {{ db: import("pg").Pool, rules: object, attemptLimit?: number }} options
  */
-export function mountApi(app, { db, rules, attemptLimit = 30 }) {
+export function mountApi(app, { db, rules, attemptLimit = 30, autoEvents = true }) {
   const trackRules = {
     holdSeconds: rules.day.speedHoldSeconds,
     reversal: rules.track.reversalMeters,
@@ -781,6 +781,310 @@ export function mountApi(app, { db, rules, attemptLimit = 30 }) {
     return result;
   }
 
+  // --- События дня: короткие задания для всего кубка. Сервер сам выбирает время и вид.
+  const eventRules = rules.events;
+  const EVENT_KINDS = Object.keys(eventRules.kinds);
+  const EVENT_COLUMNS = `id, cup_id, to_char(day, 'YYYY-MM-DD') as day, slot, kind, status,
+    extract(epoch from starts_at)::float8 as starts_at, extract(epoch from ends_at)::float8 as ends_at, leader_id, results`;
+  const clockMinutes = (text) => {
+    const [hours, minutes] = text.split(":").map(Number);
+    return hours * 60 + minutes;
+  };
+  const roundSpeed = (speed) => Math.round(speed * 36) / 36;
+
+  /** Идёт ли день в зачёт: у кубка с датами только его дни, без дат любой день. */
+  const isCupDay = (cup, date) => !cup.starts_on || dayInfo(cup, date).dayNumber !== null;
+
+  /** Начало дня кубка, секунды с 1970. */
+  async function dayStart(cup, date) {
+    const found = await db.query("select extract(epoch from ($1::date::timestamp at time zone $2))::float8 as t", [date, cup.timezone]);
+    return found.rows[0].t;
+  }
+
+  /** Расписание событий на день: 2–3 случайных момента в светлое окно, не ближе часа друг к другу. */
+  async function planEvents(cup, date) {
+    const planned = await db.query("select 1 from events where cup_id = $1 and day = $2 and slot is not null limit 1", [cup.id, date]);
+    if (planned.rows.length > 0) return;
+    const from = clockMinutes(eventRules.windowFrom);
+    const longest = Math.max(...EVENT_KINDS.map((kind) => eventRules.kinds[kind].minutes));
+    const to = clockMinutes(eventRules.windowTo) - longest;
+    const count = eventRules.perDayMin + randomInt(eventRules.perDayMax - eventRules.perDayMin + 1);
+    const spaced = (times) => times.every((time, index) => index === 0 || time - times[index - 1] >= eventRules.minGapMinutes);
+    let times = [];
+    for (let attempt = 0; attempt < 200 && (times.length === 0 || !spaced(times)); attempt += 1) {
+      times = Array.from({ length: count }, () => from + randomInt(to - from + 1)).sort((a, b) => a - b);
+    }
+    if (!spaced(times)) times = Array.from({ length: count }, (_, index) => Math.round(from + ((to - from) * (index + 0.5)) / count));
+    for (const [index, minutes] of times.entries()) {
+      await db.query(
+        `insert into events (cup_id, day, slot, starts_at)
+         values ($1, $2::date, $3, ($2::date::timestamp + make_interval(mins => $4)) at time zone $5)
+         on conflict do nothing`,
+        [cup.id, date, index + 1, minutes, cup.timezone],
+      );
+    }
+  }
+
+  /** Что было у участников до начала события: лучшая скорость дня и уже пройденные трассы. */
+  async function eventBaseline(cup, people, event) {
+    const start = await dayStart(cup, event.day);
+    const earlierDays = await bestTimes(cup, people, addDays(event.day, -1));
+    const speed = new Map();
+    const visited = new Map();
+    for (const person of people) {
+      const earlier = await rangeStats(person.id, start, event.starts_at - 0.001, cup);
+      speed.set(person.id, earlier.runs > 0 ? earlier.topSpeed : 0);
+      const seen = new Set(earlierDays.personal.get(person.id)?.keys() ?? []);
+      for (const run of earlier.trailRuns) seen.add(run.number);
+      visited.set(person.id, seen);
+    }
+    return { speed, visited };
+  }
+
+  /**
+   * Ход события по каждому участнику. value: что показал за время события, goal: что надо превзойти, done: задание выполнено.
+   * double: метры перепада, которые пошли в объём дважды. best и hunt: скорость, м/с. explore: номер новой трассы.
+   */
+  async function eventEntries(cup, people, event) {
+    const windows = await Promise.all(people.map((person) => rangeStats(person.id, event.starts_at, event.ends_at, cup)));
+    const speedOf = (stats) => (stats.runs > 0 ? roundSpeed(stats.topSpeed) : null);
+    if (event.kind === "double") {
+      return people.map((person, index) => ({
+        id: person.id,
+        name: person.name,
+        value: windows[index].runs > 0 ? windows[index].vertical : null,
+        goal: null,
+        done: false,
+      }));
+    }
+    if (event.kind === "hunt") {
+      const leaderIndex = people.findIndex((person) => person.id === event.leader_id);
+      const leaderSpeed = leaderIndex >= 0 ? speedOf(windows[leaderIndex]) : null;
+      return people.map((person, index) => {
+        const value = speedOf(windows[index]);
+        const leader = person.id === event.leader_id;
+        return {
+          id: person.id,
+          name: person.name,
+          value,
+          goal: leader ? null : leaderSpeed,
+          // Лидер без результата проигрывает всем, кто проехал.
+          done: !leader && value !== null && (leaderSpeed === null || value > leaderSpeed),
+          leader,
+        };
+      });
+    }
+    const before = await eventBaseline(cup, people, event);
+    if (event.kind === "best") {
+      return people.map((person, index) => {
+        const value = speedOf(windows[index]);
+        const goal = before.speed.get(person.id) > 0 ? roundSpeed(before.speed.get(person.id)) : null;
+        return { id: person.id, name: person.name, value, goal, done: goal !== null && value !== null && value > goal };
+      });
+    }
+    return people.map((person, index) => {
+      const fresh = windows[index].trailRuns.find((run) => !before.visited.get(person.id).has(run.number));
+      return { id: person.id, name: person.name, value: fresh ? fresh.number : null, goal: null, done: Boolean(fresh) };
+    });
+  }
+
+  /** Кому и сколько очков. Охота: если лидера никто не обогнал, очки получает он сам. */
+  function eventAwards(event, entries) {
+    const points = eventRules.kinds[event.kind].points ?? 0;
+    if (points === 0) return [];
+    const winners = entries.filter((entry) => entry.done);
+    if (event.kind === "hunt" && winners.length === 0) {
+      const leader = entries.find((entry) => entry.leader && entry.value !== null);
+      return leader ? [{ id: leader.id, points }] : [];
+    }
+    return winners.map((entry) => ({ id: entry.id, points }));
+  }
+
+  async function standingRows(cup, people, until) {
+    const dates = await countedDates(cup, people, until);
+    const days = await Promise.all(dates.map((date) => scoredDay(cup, people, date)));
+    const rows = people
+      .map((person) => {
+        const perDay = days.map((day) => day.rows.find((row) => row.id === person.id)?.points ?? 0);
+        return { id: person.id, name: person.name, points: perDay.reduce((sum, value) => sum + value, 0), days: perDay };
+      })
+      .sort((a, b) => b.points - a.points || a.name.localeCompare(b.name, "ru"));
+    let place = 0;
+    rows.forEach((row, index) => {
+      if (index === 0 || row.points < rows[index - 1].points) place = index + 1;
+      row.place = place;
+    });
+    return { dates, rows };
+  }
+
+  /** Событие начинается: выбирается вид (тот, что возможен и сегодня ещё не был) и идёт время. */
+  async function startEvent(cup, people, event, wanted = null) {
+    const standing = await standingRows(cup, people, event.day);
+    const leader = standing.rows[0] && standing.rows[0].points > 0 ? standing.rows[0].id : null;
+    const ridden = await Promise.all(people.map((person) => dayStats(person.id, event.day, cup)));
+    const anyRuns = ridden.some((stats) => stats.runs > 0);
+    // Охоте нужен лидер, «побей себя» нужен хотя бы один спуск за сегодня.
+    const possible = EVENT_KINDS.filter((kind) => (kind !== "hunt" || leader) && (kind !== "best" || anyRuns));
+    let kind = wanted;
+    if (wanted) {
+      if (!possible.includes(wanted)) throw new ApiError(409, "event_impossible", "Сейчас это событие не запустить: нет лидера или никто ещё не катался");
+    } else {
+      const used = await db.query("select kind from events where cup_id = $1 and day = $2 and kind is not null", [cup.id, event.day]);
+      const usedKinds = new Set(used.rows.map((row) => row.kind));
+      const fresh = possible.filter((item) => !usedKinds.has(item));
+      const pool = fresh.length > 0 ? fresh : possible;
+      kind = pool[randomInt(pool.length)];
+    }
+    await db.query(
+      `update events set kind = $2, status = 'active', starts_at = now(), ends_at = now() + make_interval(mins => $3), leader_id = $4
+       where id = $1`,
+      [event.id, kind, eventRules.kinds[kind].minutes, kind === "hunt" ? leader : null],
+    );
+  }
+
+  /** Двигает события кубка: расписание на сегодня, начало (только когда люди катаются), итоги. */
+  async function refreshEvents(cup, people) {
+    const date = await today(cup);
+    if (autoEvents && isCupDay(cup, date)) await planEvents(cup, date);
+    const ids = people.map((person) => person.id);
+
+    const due = await db.query(
+      `select ${EVENT_COLUMNS} from events where cup_id = $1 and status = 'active' and ends_at < now() - make_interval(secs => $2)`,
+      [cup.id, eventRules.settleDelaySeconds],
+    );
+    const ready = await db.query(
+      `select ${EVENT_COLUMNS} from events where cup_id = $1 and status = 'scheduled' and starts_at <= now() order by starts_at`,
+      [cup.id],
+    );
+    if (due.rows.length === 0 && ready.rows.length === 0) return;
+    const now = await serverNow();
+
+    for (const event of due.rows) {
+      // Кто катался во время события, тот должен успеть прислать трек до его конца; ждём не дольше waitForTracksMinutes.
+      const lasts = await db.query(
+        `select participant_id, extract(epoch from max(ts))::float8 as last, bool_or(ts <= to_timestamp($3)) as inside
+         from track_points where participant_id = any($1::uuid[]) and ts >= to_timestamp($2) group by participant_id`,
+        [ids, event.starts_at, event.ends_at],
+      );
+      const complete = lasts.rows.every((row) => !row.inside || row.last >= event.ends_at);
+      if (!complete && now < event.ends_at + eventRules.waitForTracksMinutes * 60) continue;
+      const entries = await eventEntries(cup, people, event);
+      await db.query("update events set status = 'finished', results = $2, settled_at = now() where id = $1 and status = 'active'", [
+        event.id,
+        JSON.stringify({ awards: eventAwards(event, entries), entries }),
+      ]);
+    }
+
+    if (ready.rows.length === 0) return;
+    const running = await db.query("select 1 from events where cup_id = $1 and status = 'active' limit 1", [cup.id]);
+    let busy = running.rows.length > 0;
+    const riders = await db.query(
+      `select count(distinct participant_id)::int as count from track_points
+       where participant_id = any($1::uuid[]) and ts > now() - make_interval(mins => $2)`,
+      [ids, eventRules.riderFreshMinutes],
+    );
+    const enoughRiders = riders.rows[0].count >= Math.min(eventRules.minRiders, people.length);
+    for (const event of ready.rows) {
+      const closes = (await dayStart(cup, event.day)) + clockMinutes(eventRules.windowTo) * 60;
+      if (now > closes) {
+        // Светлое окно кончилось: событие не состоялось.
+        await db.query("update events set status = 'skipped' where id = $1", [event.id]);
+      } else if (busy || !enoughRiders) {
+        // Честно только когда люди на склоне: без катающихся (или пока идёт другое событие) откладываем.
+        await db.query("update events set starts_at = now() + make_interval(mins => $2) where id = $1", [event.id, eventRules.postponeMinutes]);
+      } else {
+        await startEvent(cup, people, event);
+        busy = true;
+      }
+    }
+  }
+
+  async function eventJson(cup, people, event, now) {
+    const finished = event.status === "finished";
+    const entries = finished ? (event.results?.entries ?? []) : await eventEntries(cup, people, event);
+    const names = new Map(people.map((person) => [person.id, person.name]));
+    return {
+      id: event.id,
+      kind: event.kind,
+      // counting: время вышло, сервер ждёт остаток треков и считает итог.
+      status: event.status === "active" && now > event.ends_at ? "counting" : event.status,
+      startsAt: event.starts_at,
+      endsAt: event.ends_at,
+      minutes: eventRules.kinds[event.kind].minutes,
+      points: eventRules.kinds[event.kind].points ?? null,
+      leader: event.leader_id,
+      entries,
+      awards: finished ? (event.results?.awards ?? []).map((award) => ({ ...award, name: names.get(award.id) ?? "?" })) : [],
+    };
+  }
+
+  // --- События сегодня: идущее и законченные. Расписание будущих не раскрывается, только их число.
+  app.get("/v1/events", auth, async (req, res) => {
+    const cup = await loadCup(req.me.cup_id);
+    const people = await loadPeople(cup.id);
+    await refreshEvents(cup, people);
+    const date = await today(cup);
+    const [found, upcoming, now] = await Promise.all([
+      db.query(
+        `select ${EVENT_COLUMNS} from events where cup_id = $1 and day = $2 and status in ('active', 'finished') order by starts_at desc`,
+        [cup.id, date],
+      ),
+      db.query("select count(*)::int as count from events where cup_id = $1 and day = $2 and status = 'scheduled'", [cup.id, date]),
+      serverNow(),
+    ]);
+    const events = [];
+    for (const event of found.rows) events.push(await eventJson(cup, people, event, now));
+    res.json({ now, upcoming: upcoming.rows[0].count, events });
+  });
+
+  // --- Запустить событие прямо сейчас: для проверки и для настроения. Только админ.
+  app.post("/v1/events", auth, async (req, res) => {
+    adminOnly(req);
+    const cup = await loadCup(req.me.cup_id);
+    const people = await loadPeople(cup.id);
+    await refreshEvents(cup, people);
+    const kind = req.body?.kind ?? null;
+    if (kind !== null && !EVENT_KINDS.includes(kind)) throw new ApiError(400, "bad_event", `Вид события: ${EVENT_KINDS.join(", ")}`);
+    const running = await db.query("select 1 from events where cup_id = $1 and status = 'active' limit 1", [cup.id]);
+    if (running.rows.length > 0) throw new ApiError(409, "event_busy", "Одно событие уже идёт");
+    const created = await db.query(
+      `insert into events (cup_id, day, starts_at) values ($1, $2::date, now()) returning ${EVENT_COLUMNS}`,
+      [cup.id, await today(cup)],
+    );
+    try {
+      await startEvent(cup, people, created.rows[0], kind);
+    } catch (error) {
+      await db.query("delete from events where id = $1", [created.rows[0].id]);
+      throw error;
+    }
+    const started = await db.query(`select ${EVENT_COLUMNS} from events where id = $1`, [created.rows[0].id]);
+    res.status(201).json({ event: await eventJson(cup, people, started.rows[0], await serverNow()) });
+  });
+
+  /** Очки событий за день и прибавка к объёму от «двойного счёта». */
+  async function eventEffects(cup, people, date) {
+    const found = await db.query(
+      `select kind, status, results, extract(epoch from starts_at)::float8 as starts_at, extract(epoch from ends_at)::float8 as ends_at
+       from events where cup_id = $1 and day = $2 and status in ('active', 'finished')`,
+      [cup.id, date],
+    );
+    const points = new Map();
+    const bonus = new Map();
+    for (const event of found.rows) {
+      if (event.status === "finished") {
+        for (const award of event.results?.awards ?? []) points.set(award.id, (points.get(award.id) ?? 0) + award.points);
+      }
+      if (event.kind !== "double") continue;
+      // Двойной счёт: всё, что проехал за время события, идёт в объём дня ещё раз.
+      for (const person of people) {
+        const extra = await rangeStats(person.id, event.starts_at, event.ends_at, cup);
+        const sum = bonus.get(person.id) ?? { vertical: 0, runs: 0, distance: 0 };
+        bonus.set(person.id, { vertical: sum.vertical + extra.vertical, runs: sum.runs + extra.runs, distance: sum.distance + extra.distance });
+      }
+    }
+    return { points, bonus };
+  }
+
   async function scoredDay(cup, people, date) {
     const { dayNumber, multiplier } = dayInfo(cup, date);
     const stats = await Promise.all(people.map((person) => dayStats(person.id, date, cup)));
@@ -811,7 +1115,18 @@ export function mountApi(app, { db, rules, attemptLimit = 30 }) {
     // Дуэли: ставка переходит от проигравшего к победителю и на последнем дне не удваивается.
     const duels = await duelPoints(cup, people, date);
 
-    const scored = scoreDay(rows, rules, multiplier).map((row) => {
+    // События: очки за задания и «двойной счёт» в объёме. Места считаются с прибавкой, цифры в строке остаются настоящими.
+    const effects = await eventEffects(cup, people, date);
+    const boosted = rows.map((row) => {
+      const extra = effects.bonus.get(row.id);
+      return extra ? { ...row, vertical: row.vertical + extra.vertical, runs: row.runs + extra.runs, distance: row.distance + extra.distance } : row;
+    });
+    const raw = new Map(rows.map((row) => [row.id, row]));
+
+    const scored = scoreDay(boosted, rules, multiplier).map((row) => {
+      const { vertical, runs, distance } = raw.get(row.id);
+      const eventPoints = (effects.points.get(row.id) ?? 0) * multiplier;
+      row = { ...row, vertical, runs, distance, bonusVertical: effects.bonus.get(row.id)?.vertical ?? 0, eventPoints, points: row.points + eventPoints };
       const crownCount = crowns.get(row.id) ?? 0;
       const raceWins = wins.get(row.id) ?? 0;
       const crownPoints = crownCount * rules.crowns.pointsPerCrownAtDayEnd * multiplier;
@@ -839,6 +1154,7 @@ export function mountApi(app, { db, rules, attemptLimit = 30 }) {
     const date = cleanDate(req.query.date) ?? (await today(cup));
     const people = await loadPeople(cup.id);
     await refreshDuels(cup);
+    await refreshEvents(cup, people);
     res.json(await scoredDay(cup, people, date));
   });
 
@@ -848,21 +1164,8 @@ export function mountApi(app, { db, rules, attemptLimit = 30 }) {
     const people = await loadPeople(cup.id);
     const now = await today(cup);
     await refreshDuels(cup);
-
-    const dates = await countedDates(cup, people, now);
-
-    const days = await Promise.all(dates.map((date) => scoredDay(cup, people, date)));
-    const rows = people
-      .map((person) => {
-        const perDay = days.map((day) => day.rows.find((row) => row.id === person.id)?.points ?? 0);
-        return { id: person.id, name: person.name, points: perDay.reduce((sum, value) => sum + value, 0), days: perDay };
-      })
-      .sort((a, b) => b.points - a.points || a.name.localeCompare(b.name, "ru"));
-    let place = 0;
-    rows.forEach((row, index) => {
-      if (index === 0 || row.points < rows[index - 1].points) place = index + 1;
-      row.place = place;
-    });
+    await refreshEvents(cup, people);
+    const { dates, rows } = await standingRows(cup, people, now);
     res.json({ today: now, dates, rows });
   });
 

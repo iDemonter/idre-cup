@@ -373,6 +373,17 @@ struct ProfileScreen: View {
                 chip("Новый код приглашения", symbol: "arrow.triangle.2.circlepath")
             }
             .buttonStyle(.plain)
+
+            // События сервер запускает сам, 2–3 в день. Здесь можно запустить ещё одно прямо сейчас.
+            Menu {
+                Button("Случайное") { Task { await session.startEvent(kind: nil) } }
+                Button("Новая трасса") { Task { await session.startEvent(kind: "explore") } }
+                Button("Побей себя") { Task { await session.startEvent(kind: "best") } }
+                Button("Охота на лидера") { Task { await session.startEvent(kind: "hunt") } }
+                Button("Двойной счёт") { Task { await session.startEvent(kind: "double") } }
+            } label: {
+                chip("Запустить событие сейчас", symbol: "bolt.fill")
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(18)

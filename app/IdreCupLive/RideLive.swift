@@ -74,7 +74,9 @@ struct RideLiveActivity: Widget {
             let score = points < 0 ? "−\(-points)" : "+\(points)"
             parts.append(state.place.map { "\($0)-е место, \(score)" } ?? score)
         }
-        if let rival = state.duelWith {
+        if let title = state.eventTitle {
+            parts.append("событие: \(title)")
+        } else if let rival = state.duelWith {
             parts.append("дуэль: \(rival)")
         }
         return parts.joined(separator: " · ")

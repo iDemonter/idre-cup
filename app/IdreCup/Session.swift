@@ -26,6 +26,10 @@ final class Session: ObservableObject {
     private(set) var todayPoints: Int?
     private(set) var duelWith: String?
     private(set) var duelEnds: Date?
+    /// Идущее событие дня: название и конец по часам телефона.
+    private(set) var eventTitle: String?
+    private(set) var eventEnds: Date?
+    private let seenEventsKey = "announcedEvents"
     private var askedNotifications = false
     private let seenKey = "announcedDuels"
     @Published var problem: String?
@@ -222,6 +226,8 @@ final class Session: ObservableObject {
         todayPoints = nil
         duelWith = nil
         duelEnds = nil
+        eventTitle = nil
+        eventEnds = nil
         uploadedUntil = nil
         phase = .signedOut
     }
@@ -361,6 +367,55 @@ final class Session: ObservableObject {
         let listed = Set(reply.duels.map(\.id))
         let kept = seen.filter { key in listed.contains(String(key.prefix { $0 != ":" })) }
         defaults.set(Array(kept), forKey: seenKey)
+    }
+
+    // MARK: - События дня
+
+    /// События сегодня. Заодно запоминает идущее (для Live Activity) и показывает уведомления о начале и итоге.
+    func events() async -> EventsReply? {
+        guard let api, phase == .signedIn else { return nil }
+        guard let reply: EventsReply = try? await api.send("GET", "/v1/events") else { return nil }
+        let offset = reply.now - Date().timeIntervalSince1970
+        if let running = reply.events.first(where: { $0.status == "active" }) {
+            eventTitle = running.title
+            eventEnds = Date(timeIntervalSince1970: running.endsAt - offset)
+        } else {
+            eventTitle = nil
+            eventEnds = nil
+        }
+        if !isTokenTemporary {
+            announce(reply)
+        }
+        return reply
+    }
+
+    private func announce(_ reply: EventsReply) {
+        var seen = Set(defaults.stringArray(forKey: seenEventsKey) ?? [])
+        for event in reply.events {
+            let key = "\(event.id):\(event.status == "finished" ? "finished" : "started")"
+            if seen.contains(key) { continue }
+            seen.insert(key)
+            if event.status == "finished" {
+                guard reply.now - event.endsAt < 2_400 else { continue }
+                let mine = event.awards.first { $0.id == me?.id }
+                let body = mine.map { "Тебе +\($0.points). Итог: \(event.outcome)." } ?? "Итог: \(event.outcome)."
+                Notifier.post(id: key, title: "Событие окончено: \(event.title)", body: body)
+            } else if event.status == "active" {
+                let leaderName = event.entries.first { $0.leader == true }?.name
+                Notifier.post(id: key, title: "Событие: \(event.title)", body: "\(event.rule(leaderName: leaderName)) Время: \(Duel.span(event.minutes)).")
+            }
+        }
+        let listed = Set(reply.events.map(\.id))
+        let kept = seen.filter { key in listed.contains(String(key.prefix { $0 != ":" })) }
+        defaults.set(Array(kept), forKey: seenEventsKey)
+    }
+
+    /// Запустить событие прямо сейчас (только админ). kind: double, best, explore, hunt или nil для случайного.
+    func startEvent(kind: String?) async {
+        let body: [String: Any] = kind.map { ["kind": $0] } ?? [:]
+        await attempt { api in
+            let _: EventReply = try await api.send("POST", "/v1/events", body: body)
+        }
     }
 
     /// Моё место и очки за сегодня: их показывает Live Activity. Вызывается раз в полминуты во время записи.

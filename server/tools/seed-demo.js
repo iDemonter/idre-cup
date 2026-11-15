@@ -129,4 +129,20 @@ if (process.env.DATABASE_URL) {
 }
 await duel("Юля", "Иван", { kind: "speed", minutes: 30 });
 
+// События: утром была «Новая трасса» (закончена), сейчас идёт «Охота на лидера».
+// Как и дуэлям, время им сдвигается в базе, поэтому нужен DATABASE_URL.
+if (process.env.DATABASE_URL) {
+  const { default: pg } = await import("pg");
+  const db = new pg.Client({ connectionString: process.env.DATABASE_URL });
+  await db.connect();
+  const shift = (id, from, to) =>
+    db.query("update events set starts_at = now() - make_interval(secs => $2), ends_at = now() - make_interval(secs => $3) where id = $1", [id, from, to]);
+  const explore = await call("POST", "/v1/events", { token: created.token, body: { kind: "explore" } });
+  await shift(explore.event.id, 3 * 3600 + 60, 3 * 3600 - 45 * 60);
+  await call("GET", "/v1/events", { token: created.token }); // сервер подводит итог
+  const hunt = await call("POST", "/v1/events", { token: created.token, body: { kind: "hunt" } });
+  await shift(hunt.event.id, 18 * 60, -12 * 60);
+  await db.end();
+}
+
 console.log(JSON.stringify({ server, code: created.cup.code, tokens }, null, 2));

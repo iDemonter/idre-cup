@@ -61,6 +61,9 @@ struct DayRow: Decodable, Identifiable {
     let raceWins: Int?
     /// Очки дуэлей за день: плюс за победы, минус за поражения.
     let duelPoints: Int?
+    /// Очки за события дня и метры, которые «двойной счёт» добавил в объём.
+    let eventPoints: Int?
+    let bonusVertical: Double?
 }
 
 struct CrownRow: Decodable, Identifiable {
@@ -161,6 +164,49 @@ struct DuelsReply: Decodable {
 
 struct DuelReply: Decodable {
     let duel: Duel
+}
+
+/// Событие дня: короткое задание для всего кубка. Виды: double, best, explore, hunt.
+struct GameEvent: Decodable, Identifiable, Equatable {
+    struct Entry: Decodable, Equatable {
+        let id: String
+        let name: String
+        /// Что показал за время события: метры (double), м/с (best, hunt) или номер трассы (explore).
+        let value: Double?
+        /// Что надо превзойти, м/с.
+        let goal: Double?
+        let done: Bool
+        let leader: Bool?
+    }
+
+    struct Award: Decodable, Equatable {
+        let id: String
+        let name: String
+        let points: Int
+    }
+
+    let id: String
+    let kind: String
+    /// active, counting или finished.
+    let status: String
+    let startsAt: Double
+    let endsAt: Double
+    let minutes: Int
+    let points: Int?
+    let leader: String?
+    let entries: [Entry]
+    let awards: [Award]
+}
+
+struct EventsReply: Decodable {
+    let now: Double
+    /// Сколько событий ещё будет сегодня. Их время сервер не раскрывает.
+    let upcoming: Int
+    let events: [GameEvent]
+}
+
+struct EventReply: Decodable {
+    let event: GameEvent
 }
 
 struct RestoreCode: Decodable, Identifiable {

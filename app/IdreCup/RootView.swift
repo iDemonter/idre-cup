@@ -88,6 +88,7 @@ struct RootView: View {
                 await session.sync(tracker)
                 // Заодно узнаём, не вызвал ли кто на дуэль: на вкладке загорится точка.
                 _ = await session.duels()
+                _ = await session.events()
                 if tracker.isRecording {
                     await session.refreshToday()
                 }
