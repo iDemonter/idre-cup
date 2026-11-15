@@ -195,6 +195,7 @@ struct MapScreen: View {
                     camera: modelCamera,
                     path: tracker.path,
                     pathVersion: tracker.pathVersion,
+                    here: tracker.here,
                     home: homeStore.home,
                     isPlacingHome: isPlacingHome,
                     onPlaceHome: placeHome,
@@ -224,6 +225,8 @@ struct MapScreen: View {
             while !Task.isCancelled {
                 await session.loadFriends()
                 await loadFriendPhotos()
+                // Своя точка на карте: без записи трека место узнаём раз в 15 секунд.
+                tracker.locateOnce()
                 try? await Task.sleep(for: .seconds(15))
             }
         }

@@ -233,9 +233,9 @@ struct RatingScreen: View {
                     rowCard(
                         place: row.place,
                         person: person(row.id, row.name),
-                        detail: row.days.isEmpty ? "пока без очков" : daySum(row.days),
+                        detail: row.days.isEmpty ? "пока без очков" : daySum(row.days, joker: row.joker),
                         points: String(row.points),
-                        footnote: nil
+                        footnote: weekFootnote(row, standings.jerseys)
                     )
                 }
             }
@@ -244,17 +244,28 @@ struct RatingScreen: View {
         }
     }
 
-    /// «10 + 17 − 5»: очки по дням.
-    private func daySum(_ days: [Int]) -> String {
+    /// «10 + 🃏8 + 19»: очки по дням, день под джокером отмечен картой.
+    private func daySum(_ days: [Int], joker: Int? = nil) -> String {
         var text = ""
         for (index, value) in days.enumerated() {
+            let mark = index == joker ? "🃏" : ""
             if index == 0 {
-                text = value < 0 ? "−\(-value)" : String(value)
+                text = mark + (value < 0 ? "−\(-value)" : String(value))
             } else {
-                text += value < 0 ? " − \(-value)" : " + \(value)"
+                text += value < 0 ? " − \(mark)\(-value)" : " + \(mark)\(value)"
             }
         }
         return text
+    }
+
+    /// Майки и джокер под строкой недели.
+    private func weekFootnote(_ row: StandingRow, _ jerseys: Jerseys?) -> String? {
+        var parts: [String] = []
+        if jerseys?.leader == row.id { parts.append("🟡 майка лидера") }
+        if jerseys?.crowns == row.id { parts.append("👑 майка корон") }
+        if jerseys?.volume == row.id { parts.append("⛰ майка объёма") }
+        if row.joker != nil { parts.append("🃏 джокер сыгран") }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
     /// «+19», «−5»: в день можно уйти в минус, проиграв дуэль.

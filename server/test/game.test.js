@@ -440,6 +440,30 @@ test("события: новая трасса, побей себя, охота �
   assert.ok(planned.rows[0].count >= 2 && planned.rows[0].count <= 3, `запланировано ${planned.rows[0].count}`);
 });
 
+test("джокер и майки: пропущенный день закрывается худшим, майки у единоличных лидеров", options, async () => {
+  const start = new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10);
+  const ivan = (await call("POST", "/v1/cups", { body: { cupName: "Джокер", name: "Иван", startsOn: start } })).body;
+  const oleg = (await call("POST", "/v1/join", { body: { code: ivan.cup.code, name: "Олег" } })).body;
+  const now = Math.floor(Date.now() / 1000);
+  // Позавчера катались оба, вчера только Олег, сегодня оба. Середина дня, чтобы не задеть границы суток.
+  const noon = (daysAgo) => now - daysAgo * 86_400;
+  await call("POST", "/v1/tracks", { token: ivan.token, body: { points: lap(noon(2) - 900, { peakSpeed: 20 }) } });
+  await call("POST", "/v1/tracks", { token: oleg.token, body: { points: lap(noon(2) - 900, { peakSpeed: 15, east: 200 }) } });
+  await call("POST", "/v1/tracks", { token: oleg.token, body: { points: lap(noon(1) - 900, { peakSpeed: 15, east: 200 }) } });
+  await call("POST", "/v1/tracks", { token: ivan.token, body: { points: lap(now - 1000, { peakSpeed: 20 }) } });
+  await call("POST", "/v1/tracks", { token: oleg.token, body: { points: lap(now - 1000, { peakSpeed: 15, east: 200 }) } });
+
+  const standings = (await call("GET", "/v1/standings", { token: ivan.token })).body;
+  const row = (name) => standings.rows.find((item) => item.name === name);
+  assert.equal(standings.dates.length, 3);
+  assert.equal(row("Иван").joker, 1, "вчерашний пропуск закрыт джокером");
+  assert.equal(row("Иван").days[1], Math.min(row("Иван").days[0], row("Иван").days[2]));
+  assert.equal(row("Олег").joker, null);
+  assert.equal(standings.jerseys.leader, ivan.me.id);
+  assert.equal(standings.jerseys.volume, oleg.me.id, "Олег проехал на один круг больше");
+  assert.equal(standings.jerseys.crowns, null, "корон ни у кого нет");
+});
+
 test("территория: трек вдали от курорта в зачёт не идёт, пока её не выключить", options, async () => {
   const today = new Date().toISOString().slice(0, 10);
   const admin = (await call("POST", "/v1/cups", { body: { cupName: "Дома", name: "Иван", startsOn: today } })).body;

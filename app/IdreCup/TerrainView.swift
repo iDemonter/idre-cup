@@ -28,6 +28,8 @@ struct TerrainView: UIViewRepresentable {
     /// Свой трек за день и его номер версии: линия перестраивается, когда номер меняется.
     let path: [CLLocationCoordinate2D]
     let pathVersion: Int
+    /// Где телефон сейчас: своя точка на модели. Без неё точка стоит на конце трека.
+    let here: CLLocationCoordinate2D?
     /// Жильё: звёздочка на модели. В режиме isPlacingHome нажатие на гору ставит её.
     let home: CLLocationCoordinate2D?
     let isPlacingHome: Bool
@@ -69,6 +71,7 @@ struct TerrainView: UIViewRepresentable {
         }
         coordinator.select(selectedID)
         coordinator.showTrack(path, version: pathVersion)
+        coordinator.showMe(here ?? path.last)
         coordinator.showHome(home)
         coordinator.showFriends(friends)
         return view
@@ -85,6 +88,10 @@ struct TerrainView: UIViewRepresentable {
         }
         if pathVersion != coordinator.trackVersion {
             coordinator.showTrack(path, version: pathVersion)
+        }
+        let mine = here ?? path.last
+        if mine?.latitude != coordinator.me?.latitude || mine?.longitude != coordinator.me?.longitude {
+            coordinator.showMe(mine)
         }
         if home?.latitude != coordinator.home?.latitude || home?.longitude != coordinator.home?.longitude {
             coordinator.showHome(home)
@@ -106,6 +113,7 @@ struct TerrainView: UIViewRepresentable {
         private(set) var selectedID: Int?
         private(set) var trackVersion: Int?
         private(set) var home: CLLocationCoordinate2D?
+        private(set) var me: CLLocationCoordinate2D?
         private(set) var friends: [FriendMark] = []
         /// Кружки друзей. Меняются с главного потока, читаются при отрисовке: отсюда замок.
         private var friendNodes: [String: (node: SCNNode, photoKey: String)] = [:]
@@ -250,7 +258,7 @@ struct TerrainView: UIViewRepresentable {
             homeMark.isHidden = true
             homeNode = homeMark
 
-            // Своя точка: появляется вместе с треком.
+            // Своя точка: где телефон сейчас.
             let me = addBadge(image: Self.dotImage(), at: (0, 0), above: 12, name: nil, size: 18, rank: 2_000_000, number: nil, always: true)
             me.isHidden = true
             meNode = me
@@ -593,8 +601,13 @@ struct TerrainView: UIViewRepresentable {
                 trackNode.addChildNode(SCNNode(geometry: ribbon(line, width: 14, lift: 9, color: UIColor(Theme.accent))))
             }
 
-            if let last = path.last {
-                let place = frame.local(last)
+        }
+
+        /// Своя точка: где телефон сейчас (или конец трека). За пределами модели её не видно.
+        func showMe(_ spot: CLLocationCoordinate2D?) {
+            me = spot
+            if let spot {
+                let place = frame.local(spot)
                 if terrain.contains(east: place.east, north: place.north) {
                     meNode?.position = point(place.east, place.north, lift: 12)
                     meNode?.isHidden = false

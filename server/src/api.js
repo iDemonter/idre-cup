@@ -900,13 +900,30 @@ export function mountApi(app, { db, rules, attemptLimit = 30, autoEvents = true 
     return winners.map((entry) => ({ id: entry.id, points }));
   }
 
+  /**
+   * Общий зачёт до даты until включительно.
+   * Джокер: один раз за кубок прошедший день без спусков засчитывается как худший из дней, когда человек катался.
+   * Майки: лидер зачёта, больше всех корон сейчас, больше всех перепада за кубок (только у единоличного лидера).
+   */
   async function standingRows(cup, people, until) {
     const dates = await countedDates(cup, people, until);
     const days = await Promise.all(dates.map((date) => scoredDay(cup, people, date)));
     const rows = people
       .map((person) => {
-        const perDay = days.map((day) => day.rows.find((row) => row.id === person.id)?.points ?? 0);
-        return { id: person.id, name: person.name, points: perDay.reduce((sum, value) => sum + value, 0), days: perDay };
+        const mine = days.map((day) => day.rows.find((row) => row.id === person.id));
+        const perDay = mine.map((row) => row?.points ?? 0);
+        const ridden = mine.map((row) => (row?.runs ?? 0) > 0);
+        let joker = null;
+        if (rules.jokersPerWeek > 0) {
+          const missed = dates.findIndex((date, index) => date < until && !ridden[index]);
+          const worst = Math.min(...perDay.filter((_, index) => ridden[index]));
+          if (missed >= 0 && Number.isFinite(worst)) {
+            joker = missed;
+            perDay[missed] = worst;
+          }
+        }
+        const vertical = mine.reduce((sum, row) => sum + (row?.vertical ?? 0), 0);
+        return { id: person.id, name: person.name, points: perDay.reduce((sum, value) => sum + value, 0), days: perDay, joker, vertical };
       })
       .sort((a, b) => b.points - a.points || a.name.localeCompare(b.name, "ru"));
     let place = 0;
@@ -914,7 +931,22 @@ export function mountApi(app, { db, rules, attemptLimit = 30, autoEvents = true 
       if (index === 0 || row.points < rows[index - 1].points) place = index + 1;
       row.place = place;
     });
-    return { dates, rows };
+
+    const { holders } = await bestTimes(cup, people, until);
+    const crownCount = new Map();
+    for (const holder of holders.values()) crownCount.set(holder.id, (crownCount.get(holder.id) ?? 0) + 1);
+    const soleTop = (value) => {
+      const ranked = rows.map((row) => ({ id: row.id, value: value(row) })).sort((a, b) => b.value - a.value);
+      if (ranked.length === 0 || ranked[0].value <= 0 || (ranked[1] && ranked[1].value === ranked[0].value)) return null;
+      return ranked[0].id;
+    };
+    const jerseys = {
+      leader: soleTop((row) => row.points),
+      crowns: soleTop((row) => crownCount.get(row.id) ?? 0),
+      volume: soleTop((row) => row.vertical),
+    };
+    for (const row of rows) row.crowns = crownCount.get(row.id) ?? 0;
+    return { dates, rows, jerseys };
   }
 
   /** Событие начинается: выбирается вид (тот, что возможен и сегодня ещё не был) и идёт время. */
@@ -1165,8 +1197,8 @@ export function mountApi(app, { db, rules, attemptLimit = 30, autoEvents = true 
     const now = await today(cup);
     await refreshDuels(cup);
     await refreshEvents(cup, people);
-    const { dates, rows } = await standingRows(cup, people, now);
-    res.json({ today: now, dates, rows });
+    const { dates, rows, jerseys } = await standingRows(cup, people, now);
+    res.json({ today: now, dates, rows, jerseys });
   });
 
   // --- Короны: лучшее время на каждой зачётной трассе, король и мой результат.

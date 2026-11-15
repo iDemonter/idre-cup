@@ -99,12 +99,22 @@ struct StandingRow: Decodable, Identifiable {
     let points: Int
     let days: [Int]
     let place: Int
+    /// Какой день (номер в days) закрыт джокером. На старом сервере поля нет.
+    let joker: Int?
+}
+
+/// Майки: у кого какая. nil, если лидера нет или лидеров несколько.
+struct Jerseys: Decodable {
+    let leader: String?
+    let crowns: String?
+    let volume: String?
 }
 
 struct StandingsReply: Decodable {
     let today: String
     let dates: [String]
     let rows: [StandingRow]
+    let jerseys: Jerseys?
 }
 
 /// Где сейчас участник: его последняя точка за 15 минут.
