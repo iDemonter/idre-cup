@@ -244,6 +244,116 @@ struct EventReply: Decodable {
     let event: GameEvent
 }
 
+/// Вечерняя игра «Реакция».
+struct ReactionGame: Decodable, Identifiable {
+    struct Mine: Decodable {
+        let times: [Double?]
+        let score: Double
+    }
+
+    struct Result: Decodable, Identifiable {
+        let id: String
+        let name: String
+        let score: Double
+        let times: [Double?]
+        let place: Int
+        let points: Int
+    }
+
+    let id: String
+    let kind: String
+    /// open или finished.
+    let status: String
+    let day: String
+    let closesAt: Double
+    /// Задержка до зелёного в каждом раунде, мс.
+    let delays: [Double]
+    let falseStartMs: Double
+    /// Кто уже сыграл.
+    let played: [String]
+    let mine: Mine?
+    let results: [Result]
+}
+
+struct GamesReply: Decodable {
+    let now: Double
+    let games: [ReactionGame]
+}
+
+struct GameReply: Decodable {
+    let game: ReactionGame
+}
+
+/// Итоги дня для вечерней церемонии.
+struct Ceremony: Decodable {
+    struct Best: Decodable {
+        let name: String
+        let value: Double
+    }
+
+    struct Crown: Decodable, Identifiable {
+        let number: Int
+        let name: String
+        let holder: String
+        let seconds: Double
+        let from: String?
+
+        var id: Int { number }
+    }
+
+    struct DuelResult: Decodable {
+        let kind: String
+        let trail: Int?
+        let challenger: String
+        let opponent: String
+        let winner: String?
+        let stake: Int
+    }
+
+    struct Award: Decodable {
+        let name: String
+        let points: Int
+    }
+
+    struct EventResult: Decodable {
+        let kind: String
+        let awards: [Award]
+    }
+
+    struct GameRow: Decodable {
+        let name: String
+        let place: Int
+        let points: Int
+        let score: Double
+    }
+
+    struct Standing: Decodable {
+        let name: String
+        let points: Int
+        let place: Int
+    }
+
+    struct Row: Decodable {
+        let name: String
+        let points: Int
+        let runs: Int
+    }
+
+    let date: String
+    let dayNumber: Int?
+    let rows: [Row]
+    let fastest: Best?
+    let vertical: Best?
+    let runs: Best?
+    let crowns: [Crown]
+    let duels: [DuelResult]
+    let events: [EventResult]
+    let games: [[GameRow]]
+    let pairs: [DayPair]?
+    let standings: [Standing]
+    let jerseys: [String: String?]
+}
+
 struct RestoreCode: Decodable, Identifiable {
     let code: String
     let name: String

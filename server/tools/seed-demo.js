@@ -146,4 +146,11 @@ if (process.env.DATABASE_URL) {
   await db.end();
 }
 
+// Вечер: «Реакция» сыграна всеми.
+const game = await call("POST", "/v1/games", { token: created.token, body: {} });
+const reactionTimes = { Иван: [231, 248, 219], Олег: [265, 240, 252], Анна: [214, null, 226], Макс: [198, 207, 221], Юля: [289, 274, 301] };
+for (const [name, times] of Object.entries(reactionTimes)) {
+  await call("POST", `/v1/games/${game.game.id}/result`, { token: tokens[name], body: { times } });
+}
+
 console.log(JSON.stringify({ server, code: created.cup.code, tokens }, null, 2));

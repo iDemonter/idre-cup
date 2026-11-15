@@ -301,6 +301,33 @@ final class Session: ObservableObject {
         return try? await api.send("GET", "/v1/crowns")
     }
 
+    // MARK: - Вечер
+
+    func ceremony() async -> Ceremony? {
+        guard let api, phase == .signedIn else { return nil }
+        return try? await api.send("GET", "/v1/ceremony")
+    }
+
+    func games() async -> GamesReply? {
+        guard let api, phase == .signedIn else { return nil }
+        return try? await api.send("GET", "/v1/games")
+    }
+
+    /// Начать «Реакцию» (только админ).
+    func startGame() async -> Bool {
+        await attempt { api in
+            let _: GameReply = try await api.send("POST", "/v1/games", body: [:])
+        }
+    }
+
+    /// Мои времена в мс; nil за фальстарт.
+    func sendReaction(_ game: ReactionGame, times: [Double?]) async -> Bool {
+        let payload: [Any] = times.map { $0.map { Int($0.rounded()) as Any } ?? NSNull() }
+        return await attempt { api in
+            let _: GameReply = try await api.send("POST", "/v1/games/\(game.id)/result", body: ["times": payload])
+        }
+    }
+
     // MARK: - Дуэли
 
     /// Дуэли кубка. Заодно обновляет число вызовов, ждущих моего ответа (точка на вкладке).

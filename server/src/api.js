@@ -1117,6 +1117,178 @@ export function mountApi(app, { db, rules, attemptLimit = 30, autoEvents = true 
     return { points, bonus };
   }
 
+  // --- Вечерние игры. «Реакция»: несколько раундов «жди зелёного — жми», время меряет каждый телефон сам.
+  const reaction = rules.evening.reaction;
+  const GAME_COLUMNS = `id, cup_id, to_char(day, 'YYYY-MM-DD') as day, kind, status,
+    extract(epoch from created_at)::float8 as created_at, extract(epoch from closes_at)::float8 as closes_at, delays, entries, results`;
+
+  /** Место по средней (меньше лучше), очки 6/4/2/1. Кто не сыграл, без места. */
+  function gameResults(game, names) {
+    const rows = Object.entries(game.entries ?? {}).map(([id, entry]) => ({ id, name: names.get(id) ?? "?", score: entry.score, times: entry.times }));
+    rows.sort((a, b) => a.score - b.score);
+    let place = 0;
+    rows.forEach((row, index) => {
+      if (index === 0 || row.score > rows[index - 1].score) place = index + 1;
+      row.place = place;
+      row.points = rules.evening.gamePoints[place - 1] ?? 0;
+    });
+    return rows;
+  }
+
+  async function refreshGames(cup, people) {
+    const open = await db.query(`select ${GAME_COLUMNS} from games where cup_id = $1 and status = 'open'`, [cup.id]);
+    const names = new Map(people.map((person) => [person.id, person.name]));
+    for (const game of open.rows) {
+      const played = Object.keys(game.entries ?? {}).filter((id) => names.has(id)).length;
+      const due = (await serverNow()) >= game.closes_at;
+      if (!due && played < people.length) continue;
+      await db.query("update games set status = 'finished', results = $2 where id = $1 and status = 'open'", [
+        game.id,
+        JSON.stringify(gameResults(game, names)),
+      ]);
+    }
+  }
+
+  function gameJson(game, names, me) {
+    return {
+      id: game.id,
+      kind: game.kind,
+      status: game.status,
+      day: game.day,
+      closesAt: game.closes_at,
+      delays: game.delays,
+      falseStartMs: reaction.falseStartMs,
+      played: Object.keys(game.entries ?? {}).map((id) => names.get(id) ?? "?"),
+      mine: game.entries?.[me] ?? null,
+      results: game.status === "finished" ? game.results : gameResults(game, names),
+    };
+  }
+
+  // --- Игры: идущая (если есть) и последние законченные.
+  app.get("/v1/games", auth, async (req, res) => {
+    const cup = await loadCup(req.me.cup_id);
+    const people = await loadPeople(cup.id);
+    await refreshGames(cup, people);
+    const names = new Map(people.map((person) => [person.id, person.name]));
+    const found = await db.query(`select ${GAME_COLUMNS} from games where cup_id = $1 order by created_at desc limit 10`, [cup.id]);
+    res.json({ now: await serverNow(), games: found.rows.map((game) => gameJson(game, names, req.me.id)) });
+  });
+
+  // --- Начать «Реакцию» (админ). Очки идут в сегодняшний день.
+  app.post("/v1/games", auth, async (req, res) => {
+    adminOnly(req);
+    const cup = await loadCup(req.me.cup_id);
+    const people = await loadPeople(cup.id);
+    await refreshGames(cup, people);
+    const running = await db.query("select 1 from games where cup_id = $1 and status = 'open'", [cup.id]);
+    if (running.rows.length > 0) throw new ApiError(409, "game_busy", "Одна игра уже идёт");
+    const delays = Array.from({ length: reaction.rounds }, () => reaction.minDelayMs + randomInt(reaction.maxDelayMs - reaction.minDelayMs + 1));
+    const created = await db.query(
+      `insert into games (cup_id, day, kind, closes_at, delays)
+       values ($1, $2::date, 'reaction', now() + make_interval(mins => $3), $4) returning ${GAME_COLUMNS}`,
+      [cup.id, await today(cup), reaction.openMinutes, JSON.stringify(delays)],
+    );
+    const names = new Map(people.map((person) => [person.id, person.name]));
+    res.status(201).json({ game: gameJson(created.rows[0], names, req.me.id) });
+  });
+
+  // --- Мой результат: время каждого раунда в мс, null за фальстарт. Играть можно один раз.
+  app.post("/v1/games/:game/result", auth, async (req, res) => {
+    const id = req.params.game;
+    if (!isUuid(id)) throw new ApiError(404, "no_game", "Такой игры нет");
+    const cup = await loadCup(req.me.cup_id);
+    const times = req.body?.times;
+    if (!Array.isArray(times) || times.length !== reaction.rounds || !times.every((time) => time === null || (Number.isFinite(time) && time >= 50 && time <= 5000))) {
+      throw new ApiError(400, "bad_result", `Нужно ${reaction.rounds} времени в мс (null за фальстарт)`);
+    }
+    const score = Math.round(times.reduce((sum, time) => sum + (time ?? reaction.falseStartMs), 0) / times.length);
+    const updated = await db.query(
+      `update games set entries = entries || jsonb_build_object($3::text, $4::jsonb)
+       where id = $1 and cup_id = $2 and status = 'open' and closes_at > now() and not (entries ? $3::text)
+       returning id`,
+      [id, cup.id, req.me.id, JSON.stringify({ times, score })],
+    );
+    if (updated.rows.length === 0) throw new ApiError(409, "game_closed", "Игра закончилась или ты уже сыграл");
+    const people = await loadPeople(cup.id);
+    await refreshGames(cup, people);
+    const names = new Map(people.map((person) => [person.id, person.name]));
+    const game = await db.query(`select ${GAME_COLUMNS} from games where id = $1`, [id]);
+    res.json({ game: gameJson(game.rows[0], names, req.me.id) });
+  });
+
+  /** Очки вечерних игр за день. */
+  async function gamePoints(cup, date) {
+    const found = await db.query("select results from games where cup_id = $1 and day = $2 and status = 'finished'", [cup.id, date]);
+    const points = new Map();
+    for (const game of found.rows) {
+      for (const row of game.results ?? []) points.set(row.id, (points.get(row.id) ?? 0) + row.points);
+    }
+    return points;
+  }
+
+  // --- Итоги дня для вечерней церемонии.
+  app.get("/v1/ceremony", auth, async (req, res) => {
+    const cup = await loadCup(req.me.cup_id);
+    const people = await loadPeople(cup.id);
+    const date = cleanDate(req.query.date) ?? (await today(cup));
+    await refreshDuels(cup);
+    await refreshEvents(cup, people);
+    await refreshGames(cup, people);
+    const day = await scoredDay(cup, people, date);
+    const names = new Map(people.map((person) => [person.id, person.name]));
+    const riders = day.rows.filter((row) => row.runs > 0);
+    const best = (value) => {
+      if (riders.length === 0) return null;
+      const top = riders.reduce((winner, row) => (value(row) > value(winner) ? row : winner));
+      return { id: top.id, name: top.name, value: value(top) };
+    };
+
+    // Короны, сменившие хозяина за этот день.
+    const before = await bestTimes(cup, people, addDays(date, -1));
+    const after = await bestTimes(cup, people, date);
+    const crowns = [];
+    for (const trail of trails) {
+      const now = after.holders.get(trail.number);
+      const was = before.holders.get(trail.number);
+      if (!now || now.id === was?.id) continue;
+      crowns.push({ number: trail.number, name: trail.name, holder: names.get(now.id) ?? "?", seconds: now.seconds, from: was ? names.get(was.id) ?? "?" : null });
+    }
+
+    const duels = await db.query(
+      `select ${DUEL_COLUMNS} from duels where cup_id = $1 and status = 'finished' and (starts_at at time zone $2)::date = $3::date order by starts_at`,
+      [cup.id, cup.timezone, date],
+    );
+    const events = await db.query(
+      `select ${EVENT_COLUMNS} from events where cup_id = $1 and day = $2 and status = 'finished' order by starts_at`,
+      [cup.id, date],
+    );
+    const games = await db.query(`select results from games where cup_id = $1 and day = $2 and status = 'finished' order by created_at`, [cup.id, date]);
+    const standing = await standingRows(cup, people, date);
+
+    res.json({
+      date,
+      dayNumber: day.dayNumber,
+      rows: day.rows.map((row) => ({ id: row.id, name: row.name, points: row.points, runs: row.runs })),
+      fastest: best((row) => row.topSpeed),
+      vertical: best((row) => row.vertical),
+      runs: best((row) => row.runs),
+      crowns,
+      duels: duels.rows.map((duel) => ({
+        kind: duel.kind,
+        trail: duel.trail,
+        challenger: names.get(duel.challenger_id) ?? "?",
+        opponent: names.get(duel.opponent_id) ?? "?",
+        winner: duel.winner_id ? names.get(duel.winner_id) ?? "?" : null,
+        stake: duel.stake,
+      })),
+      events: events.rows.map((event) => ({ kind: event.kind, awards: (event.results?.awards ?? []).map((award) => ({ name: names.get(award.id) ?? "?", points: award.points })) })),
+      games: games.rows.map((game) => (game.results ?? []).map((row) => ({ name: row.name, place: row.place, points: row.points, score: row.score }))),
+      pairs: day.pairs,
+      standings: standing.rows.slice(0, 3).map((row) => ({ name: row.name, points: row.points, place: row.place })),
+      jerseys: Object.fromEntries(Object.entries(standing.jerseys).map(([key, id]) => [key, id ? names.get(id) ?? "?" : null])),
+    });
+  });
+
   /**
    * Пары парного дня: случайные, но одни и те же весь день (порядок задаёт хеш кубка и даты).
    * При нечётном числе последний идёт один.
@@ -1163,6 +1335,7 @@ export function mountApi(app, { db, rules, attemptLimit = 30, autoEvents = true 
 
     // События: очки за задания и «двойной счёт» в объёме. Места считаются с прибавкой, цифры в строке остаются настоящими.
     const effects = await eventEffects(cup, people, date);
+    const evening = await gamePoints(cup, date);
     const boosted = rows.map((row) => {
       const extra = effects.bonus.get(row.id);
       return extra ? { ...row, vertical: row.vertical + extra.vertical, runs: row.runs + extra.runs, distance: row.distance + extra.distance } : row;
@@ -1172,7 +1345,17 @@ export function mountApi(app, { db, rules, attemptLimit = 30, autoEvents = true 
     const scored = scoreDay(boosted, rules, multiplier).map((row) => {
       const { vertical, runs, distance } = raw.get(row.id);
       const eventPoints = (effects.points.get(row.id) ?? 0) * multiplier;
-      row = { ...row, vertical, runs, distance, bonusVertical: effects.bonus.get(row.id)?.vertical ?? 0, eventPoints, points: row.points + eventPoints };
+      const gamesPoints = (evening.get(row.id) ?? 0) * multiplier;
+      row = {
+        ...row,
+        vertical,
+        runs,
+        distance,
+        bonusVertical: effects.bonus.get(row.id)?.vertical ?? 0,
+        eventPoints,
+        gamePoints: gamesPoints,
+        points: row.points + eventPoints + gamesPoints,
+      };
       const crownCount = crowns.get(row.id) ?? 0;
       const raceWins = wins.get(row.id) ?? 0;
       const crownPoints = crownCount * rules.crowns.pointsPerCrownAtDayEnd * multiplier;

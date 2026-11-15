@@ -163,6 +163,7 @@ jobs:
             shoot rating-crowns 12 -section rating -ratingTab crowns -serverURL $SERVER -token "$TOKEN"
             shoot profile 12 -section rating -showProfile YES -serverURL $SERVER -token "$TOKEN"
             shoot duels 12 -section duels -serverURL $SERVER -token "$TOKEN"
+            shoot evening 12 -section evening -serverURL $SERVER -token "$TOKEN"
             shoot duels-new 12 -section duels -newDuel YES -serverURL $SERVER -token "$TOKEN"
             shoot model-trail 25 -look Модель -preset Nord -selectTrail 28 -serverURL $SERVER -token "$TOKEN"
             shoot model-friends 25 -look Модель -preset Ost -serverURL $SERVER -token "$TOKEN"

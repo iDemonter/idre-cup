@@ -1,5 +1,5 @@
 {
-  "version": 5,
+  "version": 6,
   "maxParticipants": 8,
   "days": 6,
   "jokersPerWeek": 1,
@@ -90,7 +90,14 @@
       4,
       2,
       1
-    ]
+    ],
+    "reaction": {
+      "rounds": 3,
+      "minDelayMs": 1500,
+      "maxDelayMs": 5000,
+      "falseStartMs": 1000,
+      "openMinutes": 5
+    }
   },
   "resort": {
     "name": "Idre Fjäll",

@@ -9,6 +9,7 @@ struct RootView: View {
         case duels
         case map
         case day
+        case evening
 
         var title: String {
             switch self {
@@ -16,6 +17,7 @@ struct RootView: View {
             case .duels: return "Дуэли"
             case .map: return "Карта"
             case .day: return "Мой день"
+            case .evening: return "Вечер"
             }
         }
 
@@ -25,6 +27,7 @@ struct RootView: View {
             case .duels: return "flag.checkered.2.crossed"
             case .map: return "mountain.2.fill"
             case .day: return "chart.bar.fill"
+            case .evening: return "moon.stars.fill"
             }
         }
     }
@@ -59,6 +62,9 @@ struct RootView: View {
             }
             if section == .duels {
                 DuelsScreen()
+            }
+            if section == .evening {
+                EveningScreen()
             }
             if UserDefaults.standard.bool(forKey: "livePreview") {
                 LivePreview()

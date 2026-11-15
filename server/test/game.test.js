@@ -74,7 +74,7 @@ function trailRide(number, start, speed) {
 before(async () => {
   if (!url) return;
   db = new pg.Pool({ connectionString: url, max: 5 });
-  await db.query("drop table if exists events, duels, track_points, participants, cups, schema_migrations cascade");
+  await db.query("drop table if exists games, events, duels, track_points, participants, cups, schema_migrations cascade");
   await migrate(db, () => {});
   const app = createApp({ db, version: "test", attemptLimit: 1000, autoEvents: false });
   await new Promise((resolve) => {
@@ -496,6 +496,42 @@ test("парный день: пары на весь день, бонус луч�
   const soloRow = day.rows.find((row) => row.id === solo.ids[0]);
   assert.equal(solo.score, 2 * (soloRow.points - soloRow.pairPoints));
   assert.ok(Array.isArray(day.myTrails));
+});
+
+test("вечер: «Реакция» и итоги дня", options, async () => {
+  const today = new Date().toISOString().slice(0, 10);
+  const ivan = (await call("POST", "/v1/cups", { body: { cupName: "Вечер", name: "Иван", startsOn: today } })).body;
+  const oleg = (await call("POST", "/v1/join", { body: { code: ivan.cup.code, name: "Олег" } })).body;
+  const now = Math.floor(Date.now() / 1000);
+  await call("POST", "/v1/tracks", { token: ivan.token, body: { points: trailRide(28, now - 1500, 15) } });
+  await call("POST", "/v1/tracks", { token: oleg.token, body: { points: lap(now - 1000, { peakSpeed: 18, east: 200 }) } });
+
+  assert.equal((await call("POST", "/v1/games", { token: oleg.token, body: {} })).status, 403, "только админ");
+  const started = await call("POST", "/v1/games", { token: ivan.token, body: {} });
+  assert.equal(started.status, 201);
+  const game = started.body.game;
+  assert.equal(game.delays.length, 3);
+  assert.equal((await call("POST", "/v1/games", { token: ivan.token, body: {} })).body.error, "game_busy");
+
+  const send = (token, times) => call("POST", `/v1/games/${game.id}/result`, { token, body: { times } });
+  assert.equal((await send(ivan.token, [200, 210])).status, 400);
+  assert.equal((await send(ivan.token, [250, 240, null])).status, 200);
+  assert.equal((await send(ivan.token, [250, 240, 230])).body.error, "game_closed", "второй раз нельзя");
+  const last = await send(oleg.token, [300, 310, 320]);
+  assert.equal(last.body.game.status, "finished", "все сыграли");
+  const results = last.body.game.results;
+  assert.deepEqual(results.map((row) => [row.name, row.place, row.points]), [["Олег", 1, 6], ["Иван", 2, 4]], "фальстарт стоит 1000 мс");
+
+  const day = (await call("GET", "/v1/day", { token: ivan.token })).body.rows;
+  assert.equal(day.find((row) => row.name === "Олег").gamePoints, 6);
+
+  const ceremony = (await call("GET", "/v1/ceremony", { token: oleg.token })).body;
+  assert.equal(ceremony.fastest.name, "Олег");
+  assert.equal(ceremony.crowns.length, 1);
+  assert.equal(ceremony.crowns[0].holder, "Иван");
+  assert.equal(ceremony.crowns[0].from, null);
+  assert.equal(ceremony.games.length, 1);
+  assert.ok(ceremony.standings.length === 2);
 });
 
 test("территория: трек вдали от курорта в зачёт не идёт, пока её не выключить", options, async () => {
