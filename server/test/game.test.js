@@ -1,0 +1,177 @@
+// Полный сценарий на настоящей базе: кубок, вход, треки, рейтинг.
+// Нужен Postgres: TEST_DATABASE_URL=postgres://user:pass@host/db npm test
+// Без этой переменной тесты пропускаются.
+
+import assert from "node:assert/strict";
+import { after, before, test } from "node:test";
+import pg from "pg";
+import { createApp } from "../src/app.js";
+import { migrate } from "../src/migrate.js";
+
+const url = process.env.TEST_DATABASE_URL;
+const options = { skip: url ? false : "нет TEST_DATABASE_URL" };
+
+let db;
+let server;
+let base;
+
+async function call(method, path, { token, body } = {}) {
+  const res = await fetch(base + path, {
+    method,
+    headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  return { status: res.status, body: await res.json() };
+}
+
+// Трек у вершины Idre Fjäll: подъём на 200 м и спуск с заданной скоростью, раз в секунду.
+function lap(startSeconds, { peakSpeed, east = 0 }) {
+  const points = [];
+  const lat0 = 61.8881;
+  const lon0 = 12.8587 + east / 52_456;
+  let t = startSeconds;
+  let north = 0;
+  for (let second = 0; second < 280; second += 1) {
+    north += 5;
+    points.push([t, lat0 + north / 111_320, lon0, 680 + (second / 280) * 200, 5, 5]);
+    t += 1;
+  }
+  let alt = 880;
+  while (alt > 680) {
+    north -= peakSpeed;
+    alt -= peakSpeed * 0.15;
+    points.push([t, lat0 + north / 111_320, lon0, alt, peakSpeed, 5]);
+    t += 1;
+  }
+  return points;
+}
+
+before(async () => {
+  if (!url) return;
+  db = new pg.Pool({ connectionString: url, max: 5 });
+  await db.query("drop table if exists track_points, participants, cups, schema_migrations cascade");
+  await migrate(db, () => {});
+  const app = createApp({ db, version: "test" });
+  await new Promise((resolve) => {
+    server = app.listen(0, resolve);
+  });
+  base = `http://127.0.0.1:${server.address().port}`;
+});
+
+after(async () => {
+  server?.close();
+  await db?.end();
+});
+
+test("кубок: создать, войти по коду, увидеть участников", options, async () => {
+  const created = await call("POST", "/v1/cups", { body: { cupName: "Idre Cup 2027", name: "Иван", startsOn: "2027-01-03" } });
+  assert.equal(created.status, 201);
+  assert.match(created.body.cup.code, /^[A-Z2-9]{6}$/);
+  assert.equal(created.body.cup.startsOn, "2027-01-03");
+  assert.equal(created.body.me.isAdmin, true);
+
+  const joined = await call("POST", "/v1/join", { body: { code: created.body.cup.code.toLowerCase(), name: " Олег " } });
+  assert.equal(joined.status, 201);
+  assert.equal(joined.body.me.name, "Олег");
+  assert.equal(joined.body.me.isAdmin, false);
+
+  assert.equal((await call("POST", "/v1/join", { body: { code: created.body.cup.code, name: "олег" } })).body.error, "name_taken");
+  assert.equal((await call("POST", "/v1/join", { body: { code: "ZZZZZZ", name: "Кто-то" } })).status, 404);
+  assert.equal((await call("GET", "/v1/me")).status, 401);
+  assert.equal((await call("GET", "/v1/me", { token: "wrong-token" })).status, 401);
+
+  const me = await call("GET", "/v1/me", { token: joined.body.token });
+  assert.equal(me.status, 200);
+  assert.deepEqual(me.body.participants.map((person) => person.name), ["Иван", "Олег"]);
+});
+
+test("кубок: права админа, жильё, удаление", options, async () => {
+  const admin = (await call("POST", "/v1/cups", { body: { cupName: "Права", name: "Админ" } })).body;
+  const guest = (await call("POST", "/v1/join", { body: { code: admin.cup.code, name: "Гость" } })).body;
+
+  assert.equal((await call("PATCH", "/v1/cup", { token: guest.token, body: { name: "Взлом" } })).status, 403);
+  const home = await call("PATCH", "/v1/cup", { token: guest.token, body: { home: { lat: 61.886, lon: 12.834 } } });
+  assert.deepEqual(home.body.cup.home, { lat: 61.886, lon: 12.834 });
+
+  const renamed = await call("PATCH", `/v1/participants/${guest.me.id}`, { token: guest.token, body: { name: "Гость 2" } });
+  assert.equal(renamed.body.participant.name, "Гость 2");
+  assert.equal((await call("PATCH", `/v1/participants/${admin.me.id}`, { token: guest.token, body: { name: "Я" } })).status, 403);
+
+  const recoded = await call("POST", "/v1/cup/code", { token: admin.token });
+  assert.notEqual(recoded.body.cup.code, admin.cup.code);
+  assert.equal((await call("POST", "/v1/join", { body: { code: admin.cup.code, name: "Поздно" } })).status, 404);
+
+  assert.equal((await call("DELETE", `/v1/participants/${admin.me.id}`, { token: admin.token })).status, 409);
+  assert.equal((await call("DELETE", `/v1/participants/${guest.me.id}`, { token: admin.token })).status, 200);
+  assert.equal((await call("GET", "/v1/me", { token: guest.token })).status, 401);
+  assert.equal((await call("DELETE", "/v1/participants/не-uuid", { token: admin.token })).status, 404);
+});
+
+test("кубок: не больше восьми участников", options, async () => {
+  const admin = (await call("POST", "/v1/cups", { body: { cupName: "Полный", name: "Первый" } })).body;
+  for (let index = 2; index <= 8; index += 1) {
+    assert.equal((await call("POST", "/v1/join", { body: { code: admin.cup.code, name: `Участник ${index}` } })).status, 201);
+  }
+  assert.equal((await call("POST", "/v1/join", { body: { code: admin.cup.code, name: "Девятый" } })).body.error, "cup_full");
+});
+
+test("треки и рейтинг: быстрее всех получает 10 очков за скорость", options, async () => {
+  const today = new Date().toISOString().slice(0, 10);
+  const ivan = (await call("POST", "/v1/cups", { body: { cupName: "Гонка", name: "Иван", startsOn: today } })).body;
+  const oleg = (await call("POST", "/v1/join", { body: { code: ivan.cup.code, name: "Олег" } })).body;
+  const anna = (await call("POST", "/v1/join", { body: { code: ivan.cup.code, name: "Анна" } })).body;
+
+  // Все точки в последние 17 минут: они попадают в сегодняшний день по времени кубка
+  // (если тест не запущен сразу после полуночи по Стокгольму) и в «живые» позиции за 15 минут.
+  const start = Math.floor(Date.now() / 1000) - 1000;
+  const ivanTrack = [...lap(start, { peakSpeed: 20 }), ...lap(start + 600, { peakSpeed: 14 })];
+  const olegTrack = lap(start, { peakSpeed: 16, east: 200 });
+
+  const sent = await call("POST", "/v1/tracks", { token: ivan.token, body: { points: ivanTrack } });
+  assert.equal(sent.status, 200);
+  assert.equal(sent.body.saved, ivanTrack.length);
+  const again = await call("POST", "/v1/tracks", { token: ivan.token, body: { points: ivanTrack.slice(0, 100) } });
+  assert.equal(again.body.saved, 0, "повторная отправка ничего не дублирует");
+  await call("POST", "/v1/tracks", { token: oleg.token, body: { points: olegTrack } });
+  assert.equal((await call("POST", "/v1/tracks", { token: anna.token, body: { points: [[1, 2]] } })).status, 400);
+
+  const last = await call("GET", "/v1/tracks/last", { token: ivan.token });
+  assert.ok(Math.abs(last.body.last - ivanTrack.at(-1)[0]) < 0.01);
+
+  const day = await call("GET", "/v1/day", { token: anna.token });
+  assert.equal(day.status, 200);
+  assert.equal(day.body.dayNumber, 1);
+  const [first, second, third] = day.body.rows;
+  assert.equal(first.name, "Иван");
+  assert.equal(first.runs, 2);
+  assert.equal(first.speedPlace, 1);
+  assert.equal(first.speedPoints, 10);
+  assert.equal(first.volumePoints, 10);
+  assert.ok(Math.abs(first.topSpeed - 20) < 0.5, `скорость Ивана ${first.topSpeed}`);
+  assert.ok(Math.abs(first.vertical - 400) < 30, `перепад Ивана ${first.vertical}`);
+  assert.equal(second.name, "Олег");
+  assert.equal(second.speedPoints, 7);
+  assert.equal(second.points, 14);
+  assert.equal(third.name, "Анна");
+  assert.equal(third.points, 0);
+  assert.equal(third.speedPlace, null);
+
+  const standings = await call("GET", "/v1/standings", { token: oleg.token });
+  assert.deepEqual(standings.body.rows.map((row) => [row.name, row.points, row.place]), [["Иван", 20, 1], ["Олег", 14, 2], ["Анна", 0, 3]]);
+
+  const live = await call("GET", "/v1/live", { token: anna.token });
+  assert.deepEqual(live.body.positions.map((position) => position.name).sort(), ["Иван", "Олег"]);
+});
+
+test("территория: трек вдали от курорта в зачёт не идёт, пока её не выключить", options, async () => {
+  const today = new Date().toISOString().slice(0, 10);
+  const admin = (await call("POST", "/v1/cups", { body: { cupName: "Дома", name: "Иван", startsOn: today } })).body;
+  const start = Math.floor(Date.now() / 1000) - 1500;
+  // Тот же круг, но сдвинутый на 300 км к югу.
+  const far = lap(start, { peakSpeed: 15 }).map(([t, lat, ...rest]) => [t, lat - 2.7, ...rest]);
+  await call("POST", "/v1/tracks", { token: admin.token, body: { points: far } });
+
+  assert.equal((await call("GET", "/v1/day", { token: admin.token })).body.rows[0].runs, 0);
+  await call("PATCH", "/v1/cup", { token: admin.token, body: { geofence: false } });
+  assert.equal((await call("GET", "/v1/day", { token: admin.token })).body.rows[0].runs, 1);
+});

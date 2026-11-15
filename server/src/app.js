@@ -1,14 +1,19 @@
 import express from "express";
-import { readFile } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { ApiError, mountApi } from "./api.js";
 
 const rulesPath = fileURLToPath(new URL("../config/rules.json", import.meta.url));
 
 /**
- * Собирает приложение. База передаётся снаружи, чтобы тесты работали без Postgres.
- * @param {{ db?: { query: (sql: string) => Promise<unknown> } | null, version?: string }} options
+ * Собирает приложение. База передаётся снаружи, чтобы тесты могли подставить свою.
+ * Без базы работают только /health и /v1/config.
+ * @param {{ db?: import("pg").Pool | null, version?: string }} options
  */
 export function createApp({ db = null, version = "dev" } = {}) {
+  // Правила и очки. Меняются правкой config/rules.json и перезапуском сервера, без новой сборки приложения.
+  const rules = JSON.parse(readFileSync(rulesPath, "utf8"));
+
   const app = express();
   app.disable("x-powered-by");
   app.use(express.json({ limit: "2mb" }));
@@ -27,15 +32,13 @@ export function createApp({ db = null, version = "dev" } = {}) {
     res.json({ ok: true, version, db: dbOk, time: new Date().toISOString() });
   });
 
-  // Правила и очки. Меняются правкой config/rules.json, без новой сборки приложения.
-  app.get("/v1/config", async (_req, res, next) => {
-    try {
-      const rules = JSON.parse(await readFile(rulesPath, "utf8"));
-      res.json(rules);
-    } catch (error) {
-      next(error);
-    }
+  app.get("/v1/config", (_req, res) => {
+    res.json(rules);
   });
+
+  if (db && typeof db.connect === "function") {
+    mountApi(app, { db, rules });
+  }
 
   app.use((_req, res) => {
     res.status(404).json({ error: "not_found" });
@@ -43,6 +46,14 @@ export function createApp({ db = null, version = "dev" } = {}) {
 
   // eslint-disable-next-line no-unused-vars
   app.use((error, _req, res, _next) => {
+    if (error instanceof ApiError) {
+      res.status(error.status).json({ error: error.code, message: error.message });
+      return;
+    }
+    if (error?.type === "entity.parse.failed" || error?.type === "entity.too.large") {
+      res.status(error.status ?? 400).json({ error: "bad_request", message: "Тело запроса не разобрать" });
+      return;
+    }
     console.error(error);
     res.status(500).json({ error: "internal_error" });
   });

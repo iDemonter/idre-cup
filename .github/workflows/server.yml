@@ -1,0 +1,67 @@
+name: Сервер
+
+# Проверки сервера: тесты на настоящем Postgres и сборка образа Docker.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "server/**"
+      - ".github/workflows/server.yml"
+  pull_request:
+    paths:
+      - "server/**"
+      - ".github/workflows/server.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Тесты и образ
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: idrecup
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: idrecup_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U idrecup -d idrecup_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Зависимости
+        working-directory: server
+        run: npm ci
+
+      - name: Тесты
+        working-directory: server
+        env:
+          TEST_DATABASE_URL: postgres://idrecup:test@127.0.0.1:5432/idrecup_test
+        run: npm test
+
+      - name: Образ Docker собирается и запускается
+        run: |
+          docker build -t idre-cup-server server
+          docker run -d --name api --network host -e PORT=18080 \
+            -e DATABASE_URL=postgres://idrecup:test@127.0.0.1:5432/idrecup_test \
+            --read-only --cap-drop ALL idre-cup-server
+          for attempt in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:18080/health | grep -q '"db":true'; then echo "сервер в контейнере отвечает"; exit 0; fi
+            sleep 1
+          done
+          docker logs api
+          exit 1

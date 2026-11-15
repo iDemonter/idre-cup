@@ -1,14 +1,31 @@
 {
-  "version": 1,
+  "version": 2,
   "maxParticipants": 8,
   "days": 6,
   "pairDays": 2,
   "jokersPerWeek": 1,
   "lastDayMultiplier": 2,
   "day": {
-    "speedPoints": [10, 7, 5, 3, 1],
-    "volumePoints": [10, 7, 5, 3, 1],
-    "speedHoldSeconds": 3
+    "speedPoints": [
+      10,
+      7,
+      5,
+      3,
+      1
+    ],
+    "volumePoints": [
+      10,
+      7,
+      5,
+      3,
+      1
+    ],
+    "speedHoldSeconds": 3,
+    "volumeWeights": {
+      "vertical": 1,
+      "runs": 1,
+      "distance": 1
+    }
   },
   "crowns": {
     "pointsPerCrownAtDayEnd": 2,
@@ -27,6 +44,23 @@
     "windowTo": "15:00"
   },
   "evening": {
-    "gamePoints": [6, 4, 2, 1]
+    "gamePoints": [
+      6,
+      4,
+      2,
+      1
+    ]
+  },
+  "resort": {
+    "name": "Idre Fjäll",
+    "lat": 61.8881353,
+    "lon": 12.8587081,
+    "radiusKm": 4.5
+  },
+  "track": {
+    "reversalMeters": 10,
+    "minVerticalMeters": 20,
+    "gapSeconds": 120,
+    "movingSpeed": 1.5
   }
 }
