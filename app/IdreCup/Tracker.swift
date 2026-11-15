@@ -13,6 +13,8 @@ final class Tracker: NSObject, ObservableObject, CLLocationManagerDelegate {
     @Published private(set) var pathVersion = 0
     /// Показан демо-день вместо настоящей записи.
     @Published private(set) var isDemo = false
+    /// Где телефон сейчас, если это известно. Обновляется и без записи трека.
+    @Published private(set) var here: CLLocationCoordinate2D?
 
     private let manager = CLLocationManager()
     private let store = TrackStore()
@@ -43,6 +45,13 @@ final class Tracker: NSObject, ObservableObject, CLLocationManagerDelegate {
     func requestAccess() {
         if manager.authorizationStatus == .notDetermined {
             manager.requestWhenInUseAuthorization()
+        }
+    }
+
+    /// Узнать своё место один раз, не включая запись.
+    func locateOnce() {
+        if isAllowed, !isRecording {
+            manager.requestLocation()
         }
     }
 
@@ -107,6 +116,9 @@ final class Tracker: NSObject, ObservableObject, CLLocationManagerDelegate {
     }
 
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        if let latest = locations.last, latest.horizontalAccuracy >= 0, latest.horizontalAccuracy <= 100 {
+            here = latest.coordinate
+        }
         guard isRecording, !isDemo else { return }
         for location in locations {
             // Грубые и старые точки отбрасываем.

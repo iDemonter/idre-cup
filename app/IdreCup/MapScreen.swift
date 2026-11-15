@@ -8,12 +8,15 @@ struct MapScreen: View {
     private let terrain: TerrainData?
 
     @EnvironmentObject private var tracker: Tracker
+    @EnvironmentObject private var homeStore: HomeStore
     @State private var position: MapCameraPosition
     @State private var look: MapLook
     @State private var modelCamera: ModelCamera
     @State private var activePreset: String?
     @State private var distance: Double = MapScreen.overviewDistance
     @State private var selectedID: Int?
+    /// Режим «поставить жильё»: следующее нажатие на карту ставит звёздочку.
+    @State private var isPlacingHome = false
 
     private static let overviewName = "Обзор"
     private static let overviewDistance: Double = 9_500
@@ -62,6 +65,37 @@ struct MapScreen: View {
 
     private var showsModel: Bool { look == .model && terrain != nil }
 
+    /// Звёздочка жилья для карты Apple: одна или ни одной.
+    private var homeMarks: [HomeMark] {
+        homeStore.home.map { [HomeMark(coordinate: $0)] } ?? []
+    }
+
+    private func placeHome(_ place: CLLocationCoordinate2D) {
+        homeStore.set(place)
+        isPlacingHome = false
+    }
+
+    /// Камера на жильё: смотрим от него в сторону вершины.
+    private func showHome() {
+        guard let home = homeStore.home else { return }
+        let place = LocalFrame(origin: data.summitCoordinate).local(home)
+        let heading = (atan2(-place.east, -place.north) * 180 / .pi + 360).truncatingRemainder(dividingBy: 360)
+        activePreset = nil
+        modelCamera = ModelCamera(id: modelCamera.id + 1, east: place.east, north: place.north, distance: 2_600, heading: heading, pitch: 58)
+        withAnimation(.easeInOut(duration: 1.2)) {
+            position = .camera(MapCamera(centerCoordinate: home, distance: 2_200, heading: heading, pitch: 55))
+        }
+    }
+
+    /// «1,4 км» до жилья по прямой, если известно, где телефон.
+    private var homeDistance: String? {
+        guard let home = homeStore.home, let here = tracker.here else { return nil }
+        let meters = CLLocation(latitude: here.latitude, longitude: here.longitude)
+            .distance(from: CLLocation(latitude: home.latitude, longitude: home.longitude))
+        guard meters < 50_000 else { return nil }
+        return meters < 1_000 ? "\(Format.meters(meters)) м" : "\(Format.km(meters)) км"
+    }
+
     /// Линия своего трека для карты Apple: одна или ни одной.
     private var trackLines: [TrackLine] {
         tracker.path.count > 1 ? [TrackLine(id: tracker.pathVersion, coordinates: tracker.path)] : []
@@ -92,7 +126,17 @@ struct MapScreen: View {
     var body: some View {
         Group {
             if showsModel, let terrain {
-                TerrainView(data: data, terrain: terrain, camera: modelCamera, path: tracker.path, pathVersion: tracker.pathVersion, selectedID: $selectedID)
+                TerrainView(
+                    data: data,
+                    terrain: terrain,
+                    camera: modelCamera,
+                    path: tracker.path,
+                    pathVersion: tracker.pathVersion,
+                    home: homeStore.home,
+                    isPlacingHome: isPlacingHome,
+                    onPlaceHome: placeHome,
+                    selectedID: $selectedID
+                )
                     .ignoresSafeArea()
             } else {
                 appleMap
@@ -107,10 +151,23 @@ struct MapScreen: View {
         }
         .onAppear {
             tracker.requestAccess()
+            tracker.locateOnce()
         }
     }
 
     private var appleMap: some View {
+        MapReader { proxy in
+            appleMapContent
+                // Нажатие ставит жильё только в режиме «поставить жильё», в остальное время жест не мешает карте.
+                .gesture(isPlacingHome ? SpatialTapGesture().onEnded { tap in
+                    if let place = proxy.convert(tap.location, from: .local) {
+                        placeHome(place)
+                    }
+                } : nil)
+        }
+    }
+
+    private var appleMapContent: some View {
         Map(position: $position) {
             ForEach(data.lifts) { lift in
                 MapPolyline(coordinates: lift.coordinates)
@@ -151,6 +208,13 @@ struct MapScreen: View {
 
             Annotation(Resort.name, coordinate: data.summitCoordinate) {
                 SummitMarker()
+            }
+
+            // Жильё.
+            ForEach(homeMarks) { mark in
+                Annotation("", coordinate: mark.coordinate) {
+                    HomeBadge()
+                }
             }
 
             // Свой трек за день.
@@ -245,13 +309,17 @@ struct MapScreen: View {
 
     private var bottomPanel: some View {
         VStack(alignment: .leading, spacing: 10) {
-            if let selected {
+            if isPlacingHome {
+                placingBanner
+                    .padding(.horizontal, 20)
+            } else if let selected {
                 pisteCard(selected)
                     .padding(.horizontal, 20)
             }
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
+                    homeChip
                     presetChip(MapScreen.overviewName, model: MapScreen.modelOverview(id: 0)) {
                         MapScreen.overviewCamera(for: data)
                     }
@@ -296,6 +364,103 @@ struct MapScreen: View {
         .padding(.top, 12)
         .padding(.bottom, 8)
         .background(Theme.surface.opacity(0.94))
+    }
+
+    // MARK: - Жильё
+
+    /// Кнопка со звёздочкой: ставит жильё, а если оно уже стоит, показывает его.
+    @ViewBuilder
+    private var homeChip: some View {
+        if homeStore.home == nil {
+            Button {
+                isPlacingHome = true
+                tracker.locateOnce()
+            } label: {
+                homeChipLabel("Жильё")
+            }
+            .buttonStyle(.plain)
+        } else {
+            Menu {
+                Button {
+                    showHome()
+                } label: {
+                    Label("Показать на карте", systemImage: "scope")
+                }
+                Button {
+                    isPlacingHome = true
+                    tracker.locateOnce()
+                } label: {
+                    Label("Переставить", systemImage: "mappin.and.ellipse")
+                }
+                Button(role: .destructive) {
+                    homeStore.clear()
+                } label: {
+                    Label("Убрать", systemImage: "trash")
+                }
+            } label: {
+                homeChipLabel(homeDistance ?? "Жильё")
+            } primaryAction: {
+                showHome()
+            }
+        }
+    }
+
+    private func homeChipLabel(_ title: String) -> some View {
+        HStack(spacing: 5) {
+            Image(systemName: "star.fill")
+                .font(.system(size: 11, weight: .bold))
+            Text(title)
+        }
+        .font(Theme.caption())
+        .foregroundStyle(Theme.accent)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(Theme.accent.opacity(0.18), in: Capsule())
+    }
+
+    private var placingBanner: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                HomeBadge()
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Нажмите на карту, где ваше жильё")
+                        .font(Theme.headline(15))
+                        .foregroundStyle(Theme.textPrimary)
+                    Text("Точнее всего на виде «Спутник»: там видны дома.")
+                        .font(Theme.caption())
+                        .foregroundStyle(Theme.textSecondary)
+                }
+                Spacer(minLength: 0)
+            }
+            HStack(spacing: 8) {
+                if let here = tracker.here {
+                    Button {
+                        placeHome(here)
+                    } label: {
+                        Text("Я сейчас в нём")
+                            .font(Theme.caption())
+                            .foregroundStyle(Theme.onAccent)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(Theme.accent, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+                Button {
+                    isPlacingHome = false
+                } label: {
+                    Text("Отмена")
+                        .font(Theme.caption())
+                        .foregroundStyle(Theme.textSecondary)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(Theme.raised, in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(12)
+        .background(Theme.raised.opacity(0.6), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
     private func pisteCard(_ piste: Piste) -> some View {
@@ -374,6 +539,24 @@ struct MapScreen: View {
         let version = info?["CFBundleShortVersionString"] as? String ?? "?"
         let build = info?["CFBundleVersion"] as? String ?? "?"
         return "v\(version) (\(build))"
+    }
+}
+
+/// Жильё как элемент списка для карты.
+private struct HomeMark: Identifiable {
+    let id = "home"
+    let coordinate: CLLocationCoordinate2D
+}
+
+/// Звёздочка жилья.
+private struct HomeBadge: View {
+    var body: some View {
+        Image(systemName: "star.fill")
+            .font(.system(size: 13, weight: .bold))
+            .foregroundStyle(Theme.onAccent)
+            .frame(width: 28, height: 28)
+            .background(Theme.accent, in: Circle())
+            .overlay(Circle().stroke(Theme.base, lineWidth: 2))
     }
 }
 

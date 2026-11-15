@@ -13,6 +13,10 @@ struct TerrainView: UIViewRepresentable {
     /// Свой трек за день и его номер версии: линия перестраивается, когда номер меняется.
     let path: [CLLocationCoordinate2D]
     let pathVersion: Int
+    /// Жильё: звёздочка на модели. В режиме isPlacingHome нажатие на гору ставит её.
+    let home: CLLocationCoordinate2D?
+    let isPlacingHome: Bool
+    let onPlaceHome: (CLLocationCoordinate2D) -> Void
     @Binding var selectedID: Int?
 
     func makeCoordinator() -> Coordinator {
@@ -42,6 +46,7 @@ struct TerrainView: UIViewRepresentable {
         coordinator.apply(camera, to: view, animated: false)
         coordinator.select(selectedID)
         coordinator.showTrack(path, version: pathVersion)
+        coordinator.showHome(home)
         return view
     }
 
@@ -57,6 +62,9 @@ struct TerrainView: UIViewRepresentable {
         if pathVersion != coordinator.trackVersion {
             coordinator.showTrack(path, version: pathVersion)
         }
+        if home?.latitude != coordinator.home?.latitude || home?.longitude != coordinator.home?.longitude {
+            coordinator.showHome(home)
+        }
     }
 
     // MARK: - Сцена
@@ -68,6 +76,7 @@ struct TerrainView: UIViewRepresentable {
         private(set) var cameraID: Int?
         private(set) var selectedID: Int?
         private(set) var trackVersion: Int?
+        private(set) var home: CLLocationCoordinate2D?
 
         /// Одна единица сцены = 100 м.
         private let unit: Double = 100
@@ -77,6 +86,9 @@ struct TerrainView: UIViewRepresentable {
         private let highlightNode = SCNNode()
         private let trackNode = SCNNode()
         private var meNode: SCNNode?
+        private var homeNode: SCNNode?
+        private var isHomeShown = false
+        private let terrainName = "terrain"
         private var badges: [Badge] = []
         private var selectedNumber: Int?
         private var isMeShown = false
@@ -121,7 +133,9 @@ struct TerrainView: UIViewRepresentable {
             cameraNode.camera = lens
             scene.rootNode.addChildNode(cameraNode)
 
-            scene.rootNode.addChildNode(SCNNode(geometry: terrainGeometry()))
+            let ground = SCNNode(geometry: terrainGeometry())
+            ground.name = terrainName
+            scene.rootNode.addChildNode(ground)
             scene.rootNode.addChildNode(highlightNode)
             scene.rootNode.addChildNode(trackNode)
 
@@ -160,6 +174,12 @@ struct TerrainView: UIViewRepresentable {
                 let image = LiftIcon.badge(LiftKind(osm: lift.kind))
                 addBadge(image: image, at: frame.local(mid), above: 16, name: nil, size: 22, rank: lift.show ?? 0, number: nil)
             }
+
+            // Жильё: звёздочка, видна всегда.
+            let star = Self.symbolImage("star.fill", fill: UIColor(Theme.accent), tint: UIColor(Theme.onAccent))
+            let homeMark = addBadge(image: star, at: (0, 0), above: 14, name: nil, size: 28, rank: 3_000_000, number: nil, always: true)
+            homeMark.isHidden = true
+            homeNode = homeMark
 
             // Своя точка: появляется вместе с треком.
             let me = addBadge(image: Self.dotImage(), at: (0, 0), above: 12, name: nil, size: 18, rank: 2_000_000, number: nil, always: true)
@@ -379,11 +399,35 @@ struct TerrainView: UIViewRepresentable {
             meNode?.isHidden = true
         }
 
+        /// Звёздочка жилья. Если жильё за пределами модели, её не видно.
+        func showHome(_ place: CLLocationCoordinate2D?) {
+            home = place
+            if let place {
+                let spot = frame.local(place)
+                if terrain.contains(east: spot.east, north: spot.north) {
+                    homeNode?.position = point(spot.east, spot.north, lift: 14)
+                    homeNode?.isHidden = false
+                    isHomeShown = true
+                    return
+                }
+            }
+            isHomeShown = false
+            homeNode?.isHidden = true
+        }
+
         @objc func handleTap(_ gesture: UITapGestureRecognizer) {
             guard let view = gesture.view as? SCNView else { return }
             let hits = view.hitTest(gesture.location(in: view), options: [
                 SCNHitTestOption.searchMode: SCNHitTestSearchMode.all.rawValue,
             ])
+            if parent.isPlacingHome {
+                // Ближайшее к камере место на горе под пальцем.
+                if let hit = hits.first(where: { $0.node.name == terrainName }) {
+                    let spot = hit.worldCoordinates
+                    parent.onPlaceHome(frame.coordinate(east: Double(spot.x) * unit, north: -Double(spot.z) * unit))
+                }
+                return
+            }
             for hit in hits {
                 if let name = hit.node.name, name.hasPrefix("piste-"), let id = Int(name.dropFirst(6)) {
                     parent.selectedID = id
@@ -425,8 +469,8 @@ struct TerrainView: UIViewRepresentable {
                 badge.node.scale = SCNVector3(scale, scale, scale)
 
                 if badge.always {
-                    // Своя точка: ничем не заслоняется и никого не вытесняет.
-                    badge.node.isHidden = !isMeShown
+                    // Своя точка и жильё: ничем не заслоняются и никого не вытесняют.
+                    badge.node.isHidden = badge.node === homeNode ? !isHomeShown : !isMeShown
                     continue
                 }
 

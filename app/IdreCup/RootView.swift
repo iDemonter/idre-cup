@@ -23,6 +23,7 @@ struct RootView: View {
     }
 
     @StateObject private var tracker = Tracker()
+    @StateObject private var homeStore = HomeStore()
     @State private var section: Screen
     private let data: PisteData
     private let terrain: TerrainData?
@@ -49,6 +50,7 @@ struct RootView: View {
             sectionBar
         }
         .environmentObject(tracker)
+        .environmentObject(homeStore)
         .onAppear {
             if UserDefaults.standard.bool(forKey: "demo") {
                 showDemo()

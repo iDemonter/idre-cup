@@ -101,10 +101,10 @@ jobs:
           }
           shoot model-overview 25 -look Модель
           shoot model-nord-demo 12 -look Модель -preset Nord -demo YES
-          shoot model-vast 12 -look Модель -preset Väst
+          shoot model-vast-home 12 -look Модель -preset Väst -homeLat 61.88634 -homeLon 12.83393
           shoot day-demo 10 -section day -demo YES
           shoot day-empty 10 -section day
-          shoot satellite-nord-demo 25 -look Спутник -preset Nord -demo YES
+          shoot satellite-vast-home 25 -look Спутник -preset Väst -homeLat 61.88634 -homeLon 12.83393
 
       - name: Сохранить снимки в ветку screenshots
         run: |
