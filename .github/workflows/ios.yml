@@ -2,12 +2,13 @@ name: iOS
 
 # Mac для разработки нет, поэтому всё собирается здесь.
 # 1. «Проверочная сборка» — компиляция под симулятор, без подписи и без секретов.
+#    Затем приложение запускается в симуляторе, снимки экрана кладутся в ветку screenshots.
 # 2. «TestFlight» — архив, подпись облачным сертификатом Apple и отправка в TestFlight.
 #    Запускается только из ветки main и только если заданы секреты репозитория.
 
 on:
   push:
-    branches: [main]
+    branches: [main, "dev/**"]
     paths:
       - "app/**"
       - ".github/workflows/ios.yml"
@@ -18,7 +19,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write   # нужно только для ветки screenshots
 
 concurrency:
   group: ios-${{ github.ref }}
@@ -48,8 +49,55 @@ jobs:
             -scheme IdreCup \
             -configuration Debug \
             -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO \
             -quiet
+
+      - name: Снимки экрана в симуляторе
+        if: github.event_name != 'pull_request'
+        continue-on-error: true
+        run: |
+          APP=build/Build/Products/Debug-iphonesimulator/IdreCup.app
+          DEVICE=$(xcrun simctl list devices available -j | python3 -c "
+          import json, sys
+          devices = json.load(sys.stdin)['devices']
+          phones = [d for runtime, group in sorted(devices.items()) if 'iOS' in runtime for d in group if d['name'].startswith('iPhone')]
+          plain = [d for d in phones if 'Pro' not in d['name'] and 'Plus' not in d['name'] and 'SE' not in d['name'] and 'e' != d['name'][-1]]
+          print((plain or phones)[-1]['udid'])
+          ")
+          xcrun simctl boot "$DEVICE"
+          xcrun simctl bootstatus "$DEVICE" -b
+          xcrun simctl install "$DEVICE" "$APP"
+          xcrun simctl privacy "$DEVICE" grant location com.idemonter.idrecup
+          mkdir -p shots
+          shoot() {
+            # $1 = имя файла, остальное = параметры запуска
+            name="$1"; shift
+            xcrun simctl launch "$DEVICE" com.idemonter.idrecup "$@"
+            sleep 25
+            xcrun simctl io "$DEVICE" screenshot "shots/$name.png"
+            xcrun simctl terminate "$DEVICE" com.idemonter.idrecup
+          }
+          shoot model-overview -look Модель
+          shoot model-nord -look Модель -preset Nord
+          shoot model-vast -look Модель -preset Väst
+          shoot model-ost -look Модель -preset Ost
+          shoot model-syd -look Модель -preset Syd
+          shoot satellite-nord -look Спутник -preset Nord
+
+      - name: Сохранить снимки в ветку screenshots
+        if: github.event_name != 'pull_request'
+        continue-on-error: true
+        run: |
+          cd shots
+          ls -la
+          git init -q -b screenshots
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          echo "Снимки экрана последней сборки ($GITHUB_SHA, ветка $GITHUB_REF_NAME). Ветка перезаписывается при каждой сборке." > README.md
+          git add -A
+          git commit -q -m "Снимки экрана: $GITHUB_SHA"
+          git push -q --force "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" screenshots
 
   testflight:
     name: TestFlight

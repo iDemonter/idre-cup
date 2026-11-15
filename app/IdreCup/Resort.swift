@@ -8,6 +8,8 @@ enum Resort {
 
 /// Вид карты под трассами.
 enum MapLook: String, CaseIterable, Identifiable {
+    /// Своя 3D-модель горы с вытянутой высотой. Остальные виды рисует Apple Maps.
+    case model = "Модель"
     case satellite = "Спутник"
     case hybrid = "Гибрид"
     case scheme = "Схема"
@@ -16,7 +18,7 @@ enum MapLook: String, CaseIterable, Identifiable {
 
     var style: MapStyle {
         switch self {
-        case .satellite:
+        case .model, .satellite:
             return .imagery(elevation: .realistic)
         case .hybrid:
             return .hybrid(elevation: .realistic)

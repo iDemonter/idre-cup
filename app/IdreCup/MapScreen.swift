@@ -1,15 +1,17 @@
 import MapKit
 import SwiftUI
 
-/// Карта трасс: рельеф Apple Maps, поверх него трассы по цветам сложности,
+/// Карта трасс: 3D-модель горы или рельеф Apple Maps, поверх трассы по цветам сложности,
 /// подъёмники и значки с номерами. Нажатие на значок открывает карточку трассы.
 struct MapScreen: View {
     private let data: PisteData
+    private let terrain: TerrainData?
 
     @StateObject private var location = LocationManager()
     @State private var position: MapCameraPosition
-    @State private var look: MapLook = .satellite
-    @State private var activePreset: String? = MapScreen.overviewName
+    @State private var look: MapLook
+    @State private var modelCamera: ModelCamera
+    @State private var activePreset: String?
     @State private var distance: Double = MapScreen.overviewDistance
     @State private var selectedID: Int?
 
@@ -18,13 +20,49 @@ struct MapScreen: View {
 
     init() {
         let loaded = PisteData.load()
+        let loadedTerrain = TerrainData.load()
         data = loaded
-        _position = State(initialValue: .camera(MapScreen.overviewCamera(for: loaded)))
+        terrain = loadedTerrain
+
+        // Вид и зону можно задать при запуске: -look Спутник -preset Nord.
+        // Так делаются снимки экрана при сборке.
+        let defaults = UserDefaults.standard
+        let askedLook = defaults.string(forKey: "look").flatMap { MapLook(rawValue: $0) }
+        let fallback: MapLook = loadedTerrain == nil ? .satellite : .model
+        _look = State(initialValue: askedLook ?? fallback)
+
+        let askedZone = defaults.string(forKey: "preset").flatMap { name in loaded.zones.first { $0.name == name } }
+        if let zone = askedZone {
+            _activePreset = State(initialValue: zone.name)
+            _modelCamera = State(initialValue: MapScreen.modelCamera(for: zone, in: loaded))
+            _position = State(initialValue: .camera(MapScreen.mapCamera(for: zone)))
+        } else {
+            _activePreset = State(initialValue: MapScreen.overviewName)
+            _modelCamera = State(initialValue: MapScreen.modelOverview(id: 0))
+            _position = State(initialValue: .camera(MapScreen.overviewCamera(for: loaded)))
+        }
+    }
+
+    private static func mapCamera(for zone: Zone) -> MapCamera {
+        MapCamera(centerCoordinate: zone.coordinate, distance: 3_300, heading: zone.heading, pitch: 58)
+    }
+
+    /// Камера модели для зоны: смотрим от подножия к вершине, как и на карте Apple.
+    private static func modelCamera(for zone: Zone, in data: PisteData) -> ModelCamera {
+        let place = LocalFrame(origin: data.summitCoordinate).local(zone.center)
+        return ModelCamera(id: 0, east: place.east, north: place.north, distance: 3_600, heading: zone.heading, pitch: 60)
     }
 
     private static func overviewCamera(for data: PisteData) -> MapCamera {
         MapCamera(centerCoordinate: data.summitCoordinate, distance: overviewDistance, heading: 0, pitch: 45)
     }
+
+    /// Общий вид модели: с юго-запада, как на официальной карте курорта.
+    private static func modelOverview(id: Int) -> ModelCamera {
+        ModelCamera(id: id, east: -550, north: -50, distance: 8_600, heading: 55, pitch: 56)
+    }
+
+    private var showsModel: Bool { look == .model && terrain != nil }
 
     private var selected: Piste? {
         guard let selectedID else { return nil }
@@ -49,6 +87,27 @@ struct MapScreen: View {
     }
 
     var body: some View {
+        Group {
+            if showsModel, let terrain {
+                TerrainView(data: data, terrain: terrain, camera: modelCamera, selectedID: $selectedID)
+                    .ignoresSafeArea()
+            } else {
+                appleMap
+            }
+        }
+        .background(Theme.base.ignoresSafeArea())
+        .safeAreaInset(edge: .top, spacing: 0) {
+            header
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            bottomPanel
+        }
+        .onAppear {
+            location.requestAccess()
+        }
+    }
+
+    private var appleMap: some View {
         Map(position: $position) {
             ForEach(data.lifts) { lift in
                 MapPolyline(coordinates: lift.coordinates)
@@ -102,15 +161,6 @@ struct MapScreen: View {
         }
         .onMapCameraChange { context in
             distance = context.camera.distance
-        }
-        .safeAreaInset(edge: .top, spacing: 0) {
-            header
-        }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            bottomPanel
-        }
-        .onAppear {
-            location.requestAccess()
         }
     }
 
@@ -193,12 +243,12 @@ struct MapScreen: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    presetChip(MapScreen.overviewName) {
+                    presetChip(MapScreen.overviewName, model: MapScreen.modelOverview(id: 0)) {
                         MapScreen.overviewCamera(for: data)
                     }
                     ForEach(data.zones) { zone in
-                        presetChip(zone.name) {
-                            MapCamera(centerCoordinate: zone.coordinate, distance: 3_300, heading: zone.heading, pitch: 58)
+                        presetChip(zone.name, model: MapScreen.modelCamera(for: zone, in: data)) {
+                            MapScreen.mapCamera(for: zone)
                         }
                     }
                 }
@@ -224,7 +274,7 @@ struct MapScreen: View {
             }
 
             HStack {
-                Text("Трассы: © участники OpenStreetMap")
+                Text(showsModel ? "Трассы: © OpenStreetMap · Высоты: Copernicus DEM" : "Трассы: © участники OpenStreetMap")
                     .font(Theme.caption(10))
                     .foregroundStyle(Theme.textSecondary.opacity(0.8))
                 Spacer()
@@ -277,10 +327,13 @@ struct MapScreen: View {
         return parts.joined(separator: " · ")
     }
 
-    private func presetChip(_ name: String, camera: @escaping () -> MapCamera) -> some View {
+    private func presetChip(_ name: String, model: ModelCamera, camera: @escaping () -> MapCamera) -> some View {
         let isActive = name == activePreset
         return Button {
             activePreset = name
+            var next = model
+            next.id = modelCamera.id + 1
+            modelCamera = next
             withAnimation(.easeInOut(duration: 1.2)) {
                 position = .camera(camera())
             }
