@@ -59,6 +59,8 @@ struct DayRow: Decodable, Identifiable {
     /// Короны на конец дня и выигранные автогонки. На старом сервере этих полей нет.
     let crowns: Int?
     let raceWins: Int?
+    /// Очки дуэлей за день: плюс за победы, минус за поражения.
+    let duelPoints: Int?
 }
 
 struct CrownRow: Decodable, Identifiable {
@@ -113,6 +115,52 @@ struct LivePosition: Decodable, Identifiable, Equatable {
 
 struct LiveReply: Decodable {
     let positions: [LivePosition]
+}
+
+/// Дуэль один на один. Значения сторон: гонка в секундах, скорость в м/с, выносливость в метрах.
+struct Duel: Decodable, Identifiable, Equatable {
+    struct Side: Decodable, Equatable {
+        let id: String
+        let name: String
+        let value: Double?
+    }
+
+    struct Trail: Decodable, Equatable {
+        let number: Int
+        let name: String
+    }
+
+    let id: String
+    /// race, speed или endurance.
+    let kind: String
+    let trail: Trail?
+    let minutes: Int
+    let stake: Int
+    /// pending, active, counting, finished, declined, cancelled или expired.
+    let status: String
+    let createdAt: Double
+    let answerBy: Double?
+    let startsAt: Double?
+    let endsAt: Double?
+    let challenger: Side
+    let opponent: Side
+    let winner: String?
+}
+
+struct DuelsReply: Decodable {
+    /// Время сервера, секунды с 1970: по нему телефон ведёт отсчёт.
+    let now: Double
+    let stake: Int
+    let answerMinutes: Int
+    /// Вид дуэли → сколько минут она может длиться.
+    let minutes: [String: [Int]]
+    /// Сколько дуэлей мне осталось сегодня.
+    let left: Int
+    let duels: [Duel]
+}
+
+struct DuelReply: Decodable {
+    let duel: Duel
 }
 
 struct RestoreCode: Decodable, Identifiable {

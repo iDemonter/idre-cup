@@ -13,6 +13,8 @@ struct MapScreen: View {
     @EnvironmentObject private var session: Session
     /// Скачанные аватары друзей для кружков на карте: ключ «id-версия».
     @State private var friendPhotos: [String: UIImage] = [:]
+    /// Короны по номеру трассы: для карточки трассы. Загружаются, когда трассу выбрали.
+    @State private var crowns: [Int: CrownRow] = [:]
     @State private var position: MapCameraPosition
     @State private var look: MapLook
     @State private var modelCamera: ModelCamera
@@ -37,6 +39,12 @@ struct MapScreen: View {
         let askedLook = defaults.string(forKey: "look").flatMap { MapLook(rawValue: $0) }
         let fallback: MapLook = loadedTerrain == nil ? .satellite : .model
         _look = State(initialValue: askedLook ?? fallback)
+
+        // Для снимков экрана: -selectTrail 28 открывает карточку трассы с этим номером.
+        let askedTrail = defaults.integer(forKey: "selectTrail")
+        if askedTrail > 0, let piste = loaded.labelled.first(where: { $0.number == askedTrail }) {
+            _selectedID = State(initialValue: piste.id)
+        }
 
         let askedZone = defaults.string(forKey: "preset").flatMap { name in loaded.zones.first { $0.name == name } }
         if let zone = askedZone {
@@ -562,6 +570,17 @@ struct MapScreen: View {
                 Text(pisteDetails(piste))
                     .font(Theme.caption())
                     .foregroundStyle(Theme.textSecondary)
+                if let line = crownLine(piste) {
+                    HStack(spacing: 5) {
+                        Image(systemName: "crown.fill")
+                            .font(.system(size: 10, weight: .bold))
+                        Text(line)
+                            .font(Theme.caption())
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                    }
+                    .foregroundStyle(Theme.accent)
+                }
             }
             Spacer()
             Button {
@@ -577,6 +596,22 @@ struct MapScreen: View {
         }
         .padding(12)
         .background(Theme.raised.opacity(0.6), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .task(id: piste.id) {
+            if let reply = await session.crowns() {
+                crowns = Dictionary(reply.trails.map { ($0.number, $0) }, uniquingKeysWith: { first, _ in first })
+            }
+        }
+    }
+
+    /// Король трассы и его время; у незачётных трасс и вне кубка строки нет.
+    private func crownLine(_ piste: Piste) -> String? {
+        guard let number = piste.number, let row = crowns[number] else { return nil }
+        guard let holder = row.holder else { return "корона свободна" }
+        var text = "\(holder.name ?? "?") · \(Format.lap(holder.seconds))"
+        if holder.id != session.me?.id {
+            text += row.mine.map { " · моё \(Format.lap($0))" } ?? " · я здесь ещё не был"
+        }
+        return text
     }
 
     private func pisteDetails(_ piste: Piste) -> String {

@@ -1,17 +1,19 @@
 import CoreLocation
 import SwiftUI
 
-/// Корень приложения: разделы и нижняя панель. Разделы «Дуэли» и «Вечер» из макета
-/// добавятся вместе с этими механиками.
+/// Корень приложения: разделы и нижняя панель. Раздел «Вечер» из макета
+/// добавится вместе с вечерними играми.
 struct RootView: View {
     enum Screen: String, CaseIterable {
         case rating
+        case duels
         case map
         case day
 
         var title: String {
             switch self {
             case .rating: return "Рейтинг"
+            case .duels: return "Дуэли"
             case .map: return "Карта"
             case .day: return "Мой день"
             }
@@ -20,6 +22,7 @@ struct RootView: View {
         var symbol: String {
             switch self {
             case .rating: return "trophy.fill"
+            case .duels: return "flag.checkered.2.crossed"
             case .map: return "mountain.2.fill"
             case .day: return "chart.bar.fill"
             }
@@ -53,6 +56,9 @@ struct RootView: View {
             if section == .rating {
                 RatingScreen()
             }
+            if section == .duels {
+                DuelsScreen()
+            }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             sectionBar
@@ -65,6 +71,8 @@ struct RootView: View {
             // Пока приложение живо (в том числе в фоне во время записи), трек уходит на сервер раз в полминуты.
             while !Task.isCancelled {
                 await session.sync(tracker)
+                // Заодно узнаём, не вызвал ли кто на дуэль: на вкладке загорится точка.
+                _ = await session.duels()
                 try? await Task.sleep(for: .seconds(30))
             }
         }
@@ -98,7 +106,7 @@ struct RootView: View {
     }
 
     private var sectionBar: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 4) {
             ForEach(Screen.allCases, id: \.self) { item in
                 let isActive = item == section
                 Button {
@@ -109,6 +117,15 @@ struct RootView: View {
                             .font(.system(size: 17, weight: .bold))
                             .frame(width: 56, height: 30)
                             .background(isActive ? Theme.accent.opacity(0.18) : Color.clear, in: Capsule())
+                            .overlay(alignment: .topTrailing) {
+                                // Кто-то вызвал на дуэль и ждёт ответа.
+                                if item == .duels && session.duelCalls > 0 {
+                                    Circle()
+                                        .fill(Theme.pisteRed)
+                                        .frame(width: 10, height: 10)
+                                        .offset(x: -8, y: 2)
+                                }
+                            }
                         Text(item.title)
                             .font(Theme.caption(11))
                     }
@@ -118,7 +135,7 @@ struct RootView: View {
                 .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, 24)
+        .padding(.horizontal, 12)
         .padding(.top, 8)
         .padding(.bottom, 4)
         .background(Theme.surface.ignoresSafeArea(edges: .bottom))

@@ -3,6 +3,7 @@
 // Без этой переменной тесты пропускаются.
 
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { after, before, test } from "node:test";
 import pg from "pg";
 import { createApp } from "../src/app.js";
@@ -46,12 +47,36 @@ function lap(startSeconds, { peakSpeed, east = 0 }) {
   return points;
 }
 
+// Спуск точно по линии трассы с постоянной скоростью, точка в секунду, высота падает на 160 м.
+const trailList = JSON.parse(readFileSync(new URL("../config/trails.json", import.meta.url), "utf8")).trails;
+function trailRide(number, start, speed) {
+  const trail = trailList.find((item) => item.number === number);
+  const points = [];
+  let t = start;
+  const total = trail.length;
+  let walked = 0;
+  for (let index = 1; index < trail.coords.length; index += 1) {
+    const [lat1, lon1] = trail.coords[index - 1];
+    const [lat2, lon2] = trail.coords[index];
+    const length = Math.hypot((lat2 - lat1) * 111_320, (lon2 - lon1) * 52_456);
+    for (let done = 0; done < length; done += speed) {
+      const share = done / length;
+      points.push([t, lat1 + (lat2 - lat1) * share, lon1 + (lon2 - lon1) * share, 840 - ((walked + done) / total) * 160, speed, 5]);
+      t += 1;
+    }
+    walked += length;
+  }
+  const [lat, lon] = trail.coords.at(-1);
+  points.push([t, lat, lon, 680, speed, 5]);
+  return points;
+}
+
 before(async () => {
   if (!url) return;
   db = new pg.Pool({ connectionString: url, max: 5 });
-  await db.query("drop table if exists track_points, participants, cups, schema_migrations cascade");
+  await db.query("drop table if exists duels, track_points, participants, cups, schema_migrations cascade");
   await migrate(db, () => {});
-  const app = createApp({ db, version: "test" });
+  const app = createApp({ db, version: "test", attemptLimit: 1000 });
   await new Promise((resolve) => {
     server = app.listen(0, resolve);
   });
@@ -212,30 +237,7 @@ test("треки и рейтинг: быстрее всех получает 10 
 });
 
 test("короны и автогонки: лучшее время на трассе даёт корону, старт рядом даёт гонку", options, async () => {
-  const { readFileSync } = await import("node:fs");
-  const trail = JSON.parse(readFileSync(new URL("../config/trails.json", import.meta.url), "utf8")).trails.find((item) => item.number === 28);
-
-  // Спуск точно по линии трассы 28 с постоянной скоростью, точка в секунду, высота падает на 160 м.
-  function ride(start, speed) {
-    const points = [];
-    let t = start;
-    const total = trail.length;
-    let walked = 0;
-    for (let index = 1; index < trail.coords.length; index += 1) {
-      const [lat1, lon1] = trail.coords[index - 1];
-      const [lat2, lon2] = trail.coords[index];
-      const length = Math.hypot((lat2 - lat1) * 111_320, (lon2 - lon1) * 52_456);
-      for (let done = 0; done < length; done += speed) {
-        const share = done / length;
-        points.push([t, lat1 + (lat2 - lat1) * share, lon1 + (lon2 - lon1) * share, 840 - ((walked + done) / total) * 160, speed, 5]);
-        t += 1;
-      }
-      walked += length;
-    }
-    const [lat, lon] = trail.coords.at(-1);
-    points.push([t, lat, lon, 680, speed, 5]);
-    return points;
-  }
+  const ride = (start, speed) => trailRide(28, start, speed);
 
   const today = new Date().toISOString().slice(0, 10);
   const ivan = (await call("POST", "/v1/cups", { body: { cupName: "Короны", name: "Иван", startsOn: today } })).body;
@@ -261,6 +263,96 @@ test("короны и автогонки: лучшее время на трас�
   assert.equal(second.crowns, 0);
   assert.equal(second.raceWins, 0);
   assert.equal(first.points, first.speedPoints + first.volumePoints + 3);
+});
+
+test("дуэли: вызов, ответ, итог по трекам, 5 очков переходят победителю", options, async () => {
+  const today = new Date().toISOString().slice(0, 10);
+  const ivan = (await call("POST", "/v1/cups", { body: { cupName: "Дуэли", name: "Иван", startsOn: today } })).body;
+  const oleg = (await call("POST", "/v1/join", { body: { code: ivan.cup.code, name: "Олег" } })).body;
+  const anna = (await call("POST", "/v1/join", { body: { code: ivan.cup.code, name: "Анна" } })).body;
+  // Сдвигает время дуэли: настоящей дуэли нужен час, тесту секунды.
+  const shift = (id, from, to) =>
+    db.query("update duels set starts_at = now() - make_interval(secs => $2), ends_at = now() - make_interval(secs => $3) where id = $1", [id, from, to]);
+
+  // Неверные вызовы.
+  const bad = (body) => call("POST", "/v1/duels", { token: ivan.token, body });
+  assert.equal((await bad({ opponent: oleg.me.id, kind: "race", minutes: 60 })).status, 400, "гонка без трассы");
+  assert.equal((await bad({ opponent: oleg.me.id, kind: "speed", minutes: 45 })).status, 400, "нет такого времени");
+  assert.equal((await bad({ opponent: ivan.me.id, kind: "speed", minutes: 30 })).status, 400, "сам с собой");
+
+  // Вызов и ответ.
+  const challenge = await bad({ opponent: oleg.me.id, kind: "race", trail: 28, minutes: 60 });
+  assert.equal(challenge.status, 201);
+  assert.equal(challenge.body.duel.status, "pending");
+  assert.equal(challenge.body.duel.trail.number, 28);
+  const id = challenge.body.duel.id;
+  assert.equal((await bad({ opponent: anna.me.id, kind: "speed", minutes: 30 })).body.error, "duel_busy");
+  const third = await call("POST", "/v1/duels", { token: anna.token, body: { opponent: oleg.me.id, kind: "speed", minutes: 30 } });
+  assert.equal(third.body.error, "duel_busy");
+  assert.equal((await call("POST", `/v1/duels/${id}/accept`, { token: anna.token })).status, 403);
+  const accepted = await call("POST", `/v1/duels/${id}/accept`, { token: oleg.token });
+  assert.equal(accepted.body.duel.status, "active");
+  assert.ok(Math.abs(accepted.body.duel.endsAt - accepted.body.duel.startsAt - 3600) < 1);
+  assert.equal((await call("POST", `/v1/duels/${id}/decline`, { token: oleg.token })).status, 409, "уже принято");
+
+  // Оба проехали трассу 25 минут назад: Олег быстрее.
+  const start = Math.floor(Date.now() / 1000) - 1500;
+  await call("POST", "/v1/tracks", { token: ivan.token, body: { points: trailRide(28, start, 12) } });
+  await call("POST", "/v1/tracks", { token: oleg.token, body: { points: trailRide(28, start + 100, 15) } });
+
+  await shift(id, 3000, -600);
+  let list = await call("GET", "/v1/duels", { token: anna.token });
+  let duel = list.body.duels.find((item) => item.id === id);
+  assert.equal(duel.status, "active");
+  assert.ok(duel.challenger.value > duel.opponent.value, `Иван ${duel.challenger.value} c, Олег ${duel.opponent.value} c`);
+
+  // Время вышло, но треки могли дойти не все: сервер ждёт.
+  await shift(id, 3000, 100);
+  list = await call("GET", "/v1/duels", { token: ivan.token });
+  assert.equal(list.body.duels.find((item) => item.id === id).status, "counting");
+
+  // Ждать больше нечего: итог.
+  await shift(id, 3000, 960);
+  list = await call("GET", "/v1/duels", { token: ivan.token });
+  duel = list.body.duels.find((item) => item.id === id);
+  assert.equal(duel.status, "finished");
+  assert.equal(duel.winner, oleg.me.id);
+  assert.equal(list.body.left, 2);
+
+  let day = (await call("GET", "/v1/day", { token: ivan.token })).body.rows;
+  const row = (name) => day.find((item) => item.name === name);
+  assert.equal(row("Олег").duelPoints, 5);
+  assert.equal(row("Олег").duelWins, 1);
+  assert.equal(row("Иван").duelPoints, -5);
+  assert.equal(row("Иван").points, row("Иван").speedPoints + row("Иван").volumePoints + row("Иван").crownPoints + row("Иван").racePoints - 5);
+
+  // Второй раз за день с тем же соперником нельзя.
+  assert.equal((await bad({ opponent: oleg.me.id, kind: "speed", minutes: 30 })).body.error, "duel_pair");
+
+  // Отказ и отзыв вызова ничего не стоят.
+  const declined = await bad({ opponent: anna.me.id, kind: "endurance", minutes: 60 });
+  assert.equal((await call("POST", `/v1/duels/${declined.body.duel.id}/decline`, { token: anna.token })).body.duel.status, "declined");
+  const cancelled = await bad({ opponent: anna.me.id, kind: "endurance", minutes: 60 });
+  assert.equal((await call("POST", `/v1/duels/${cancelled.body.duel.id}/cancel`, { token: anna.token })).status, 403);
+  assert.equal((await call("POST", `/v1/duels/${cancelled.body.duel.id}/cancel`, { token: ivan.token })).body.duel.status, "cancelled");
+
+  // Скорость: Анна вызвала Ивана и не каталась. Кто без результата, проигрывает.
+  const speed = await call("POST", "/v1/duels", { token: anna.token, body: { opponent: ivan.me.id, kind: "speed", minutes: 30 } });
+  await call("POST", `/v1/duels/${speed.body.duel.id}/accept`, { token: ivan.token });
+  await shift(speed.body.duel.id, 3000, 960);
+  list = await call("GET", "/v1/duels", { token: anna.token });
+  duel = list.body.duels.find((item) => item.id === speed.body.duel.id);
+  assert.equal(duel.status, "finished");
+  assert.equal(duel.winner, ivan.me.id);
+  assert.equal(duel.challenger.value, null);
+  assert.ok(Math.abs(duel.opponent.value - 12) < 0.5, `скорость Ивана ${duel.opponent.value}`);
+
+  day = (await call("GET", "/v1/day", { token: anna.token })).body.rows;
+  assert.equal(row("Иван").duelPoints, 0);
+  assert.equal(row("Анна").duelPoints, -5);
+  assert.equal(row("Анна").points, -5);
+  const standings = (await call("GET", "/v1/standings", { token: anna.token })).body.rows;
+  assert.equal(standings.find((item) => item.name === "Анна").points, -5);
 });
 
 test("территория: трек вдали от курорта в зачёт не идёт, пока её не выключить", options, async () => {

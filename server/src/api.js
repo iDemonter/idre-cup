@@ -62,9 +62,9 @@ const CUP_COLUMNS =
 
 /**
  * @param {import("express").Express} app
- * @param {{ db: import("pg").Pool, rules: object }} options
+ * @param {{ db: import("pg").Pool, rules: object, attemptLimit?: number }} options
  */
-export function mountApi(app, { db, rules }) {
+export function mountApi(app, { db, rules, attemptLimit = 30 }) {
   const trackRules = {
     holdSeconds: rules.day.speedHoldSeconds,
     reversal: rules.track.reversalMeters,
@@ -75,14 +75,14 @@ export function mountApi(app, { db, rules }) {
   const resort = { lat: rules.resort.lat, lon: rules.resort.lon };
   const trails = loadTrails(resort);
 
-  // --- Защита от перебора кодов: не больше 30 попыток создать или войти за 10 минут с одного адреса.
+  // --- Защита от перебора кодов: не больше attemptLimit (30) попыток создать или войти за 10 минут с одного адреса.
   const attempts = new Map();
   function limit(req) {
     const forwarded = req.headers["cf-connecting-ip"] ?? req.headers["x-forwarded-for"];
     const address = (Array.isArray(forwarded) ? forwarded[0] : forwarded)?.split(",")[0].trim() ?? req.socket.remoteAddress ?? "?";
     const now = Date.now();
     const recent = (attempts.get(address) ?? []).filter((time) => now - time < 600_000);
-    if (recent.length >= 30) throw new ApiError(429, "too_many_requests", "Слишком много попыток, подождите 10 минут");
+    if (recent.length >= attemptLimit) throw new ApiError(429, "too_many_requests", "Слишком много попыток, подождите 10 минут");
     recent.push(now);
     attempts.set(address, recent);
     if (attempts.size > 5000) attempts.clear();
@@ -394,29 +394,14 @@ export function mountApi(app, { db, rules }) {
     res.json({ last: last.rows[0].last });
   });
 
-  // --- Итоги дня участника по его треку. Пересчитываются, только когда пришли новые точки.
   const statsCache = new Map();
-  async function dayStats(participantId, date, cup) {
-    const range = `ts >= ($2::date::timestamp at time zone $3) and ts < (($2::date + 1)::timestamp at time zone $3)`;
-    const mark = await db.query(
-      `select count(*)::int as count, extract(epoch from max(ts))::float8 as last from track_points where participant_id = $1 and ${range}`,
-      [participantId, date, cup.timezone],
-    );
-    const key = `${participantId}|${date}|${cup.geofence}`;
-    const cached = statsCache.get(key);
-    if (cached && cached.count === mark.rows[0].count && cached.last === mark.rows[0].last) return cached.stats;
 
-    const loaded = await db.query(
-      `select extract(epoch from ts)::float8 as t, lat, lon, coalesce(altitude_m, 0)::float8 as alt, coalesce(speed_mps, -1)::float8 as speed
-       from track_points where participant_id = $1 and ${range} order by ts`,
-      [participantId, date, cup.timezone],
-    );
+  // --- Итоги по набору точек: скорость, перепад, спуски и пройденные трассы.
+  function summarize(rows, cup) {
     // Вне территории курорта точки в зачёт не идут (кроме кубков с выключенной территорией).
-    const points = cup.geofence
-      ? loaded.rows.filter((point) => meters(resort, point) <= rules.resort.radiusKm * 1000)
-      : loaded.rows;
+    const points = cup.geofence ? rows.filter((point) => meters(resort, point) <= rules.resort.radiusKm * 1000) : rows;
     const full = analyze(points, trackRules);
-    // Какие трассы пройдены на каждом спуске и за сколько: для корон и автогонок.
+    // Какие трассы пройдены на каждом спуске и за сколько: для корон, автогонок и дуэлей.
     const trailRuns = [];
     for (const segment of full.segments) {
       if (segment.kind !== "run") continue;
@@ -428,13 +413,54 @@ export function mountApi(app, { db, rules }) {
         });
       trailRuns.push(...matchRun(run, trails));
     }
-    const stats = {
+    return {
       topSpeed: full.topSpeed,
       vertical: Math.round(full.vertical),
       runs: full.runs,
       distance: Math.round(full.runDistance),
       trailRuns,
     };
+  }
+
+  const POINT_COLUMNS =
+    "extract(epoch from ts)::float8 as t, lat, lon, coalesce(altitude_m, 0)::float8 as alt, coalesce(speed_mps, -1)::float8 as speed";
+
+  // --- Итоги участника за отрезок времени (секунды с 1970): по ним считаются дуэли.
+  async function rangeStats(participantId, from, to, cup) {
+    const range = "ts >= to_timestamp($2) and ts <= to_timestamp($3)";
+    const mark = await db.query(
+      `select count(*)::int as count, extract(epoch from max(ts))::float8 as last from track_points where participant_id = $1 and ${range}`,
+      [participantId, from, to],
+    );
+    const key = `${participantId}|${from}|${to}|${cup.geofence}`;
+    const cached = statsCache.get(key);
+    if (cached && cached.count === mark.rows[0].count && cached.last === mark.rows[0].last) return cached.stats;
+    const loaded = await db.query(
+      `select ${POINT_COLUMNS} from track_points where participant_id = $1 and ${range} order by ts`,
+      [participantId, from, to],
+    );
+    const stats = summarize(loaded.rows, cup);
+    statsCache.set(key, { count: mark.rows[0].count, last: mark.rows[0].last, stats });
+    if (statsCache.size > 2000) statsCache.delete(statsCache.keys().next().value);
+    return stats;
+  }
+
+  // --- Итоги дня участника по его треку. Пересчитываются, только когда пришли новые точки.
+  async function dayStats(participantId, date, cup) {
+    const range = `ts >= ($2::date::timestamp at time zone $3) and ts < (($2::date + 1)::timestamp at time zone $3)`;
+    const mark = await db.query(
+      `select count(*)::int as count, extract(epoch from max(ts))::float8 as last from track_points where participant_id = $1 and ${range}`,
+      [participantId, date, cup.timezone],
+    );
+    const key = `${participantId}|${date}|${cup.geofence}`;
+    const cached = statsCache.get(key);
+    if (cached && cached.count === mark.rows[0].count && cached.last === mark.rows[0].last) return cached.stats;
+
+    const loaded = await db.query(
+      `select ${POINT_COLUMNS} from track_points where participant_id = $1 and ${range} order by ts`,
+      [participantId, date, cup.timezone],
+    );
+    const stats = summarize(loaded.rows, cup);
     statsCache.set(key, { count: mark.rows[0].count, last: mark.rows[0].last, stats });
     if (statsCache.size > 2000) statsCache.delete(statsCache.keys().next().value);
     return stats;
@@ -494,6 +520,267 @@ export function mountApi(app, { db, rules }) {
     return { holders, personal };
   }
 
+  // --- Дуэли один на один. Вызов → ответ → отрезок времени → итог по трекам обоих.
+  const duelRules = rules.duel;
+  const DUEL_KINDS = ["race", "speed", "endurance"];
+  const DUEL_COLUMNS = `id, cup_id, challenger_id, opponent_id, kind, trail, minutes, stake, status,
+    extract(epoch from created_at)::float8 as created_at, extract(epoch from starts_at)::float8 as starts_at,
+    extract(epoch from ends_at)::float8 as ends_at, winner_id, challenger_value, opponent_value`;
+  const trailNames = new Map(trails.map((trail) => [trail.number, trail.name]));
+
+  async function serverNow() {
+    const now = await db.query("select extract(epoch from now())::float8 as now");
+    return now.rows[0].now;
+  }
+
+  /** Что сравнивается: гонка = секунды на трассе (меньше лучше), скорость = м/с, выносливость = метры перепада. */
+  function duelValue(duel, stats) {
+    if (duel.kind === "race") {
+      const times = stats.trailRuns.filter((run) => run.number === duel.trail).map((run) => run.seconds);
+      return times.length > 0 ? Math.min(...times) : null;
+    }
+    if (stats.runs === 0) return null;
+    return duel.kind === "speed" ? Math.round(stats.topSpeed * 36) / 36 : stats.vertical;
+  }
+
+  async function duelValues(duel, cup) {
+    const [challenger, opponent] = await Promise.all(
+      [duel.challenger_id, duel.opponent_id].map((id) => rangeStats(id, duel.starts_at, duel.ends_at, cup)),
+    );
+    return [duelValue(duel, challenger), duelValue(duel, opponent)];
+  }
+
+  /** Победитель или null при ничьей. Кто не показал результата, проигрывает тому, кто показал. */
+  function duelWinner(duel, challenger, opponent) {
+    if (challenger === null && opponent === null) return null;
+    if (challenger === null) return duel.opponent_id;
+    if (opponent === null) return duel.challenger_id;
+    if (challenger === opponent) return null;
+    const challengerWins = duel.kind === "race" ? challenger < opponent : challenger > opponent;
+    return challengerWins ? duel.challenger_id : duel.opponent_id;
+  }
+
+  /** Двигает дуэли кубка: вызовы без ответа гаснут, закончившиеся получают итог. */
+  async function refreshDuels(cup) {
+    await db.query(
+      "update duels set status = 'expired' where cup_id = $1 and status = 'pending' and created_at < now() - make_interval(mins => $2)",
+      [cup.id, duelRules.answerMinutes],
+    );
+    const due = await db.query(
+      `select ${DUEL_COLUMNS} from duels where cup_id = $1 and status = 'active' and ends_at < now() - make_interval(secs => $2)`,
+      [cup.id, duelRules.settleDelaySeconds],
+    );
+    if (due.rows.length === 0) return;
+    const now = await serverNow();
+    for (const duel of due.rows) {
+      // Телефон мог быть без связи: ждём, пока от обоих придут точки позже конца дуэли, но не дольше waitForTracksMinutes.
+      const lasts = await db.query(
+        `select participant_id, extract(epoch from max(ts))::float8 as last from track_points
+         where participant_id = any($1::uuid[]) group by participant_id`,
+        [[duel.challenger_id, duel.opponent_id]],
+      );
+      const seen = new Map(lasts.rows.map((row) => [row.participant_id, row.last]));
+      const complete = [duel.challenger_id, duel.opponent_id].every((id) => (seen.get(id) ?? 0) >= duel.ends_at);
+      if (!complete && now < duel.ends_at + duelRules.waitForTracksMinutes * 60) continue;
+      const [challenger, opponent] = await duelValues(duel, cup);
+      await db.query(
+        `update duels set status = 'finished', winner_id = $2, challenger_value = $3, opponent_value = $4, settled_at = now()
+         where id = $1 and status = 'active'`,
+        [duel.id, duelWinner(duel, challenger, opponent), challenger, opponent],
+      );
+    }
+  }
+
+  /** Сколько дуэлей (идущих и законченных) у участника сегодня и сколько из них с этим соперником. */
+  async function duelCounts(cup, personId, otherId) {
+    const found = await db.query(
+      `select count(*)::int as total,
+              count(*) filter (where challenger_id = $3 or opponent_id = $3)::int as pair
+       from duels
+       where cup_id = $1 and status in ('active', 'finished') and (challenger_id = $2 or opponent_id = $2)
+         and (starts_at at time zone $4)::date = (now() at time zone $4)::date`,
+      [cup.id, personId, otherId, cup.timezone],
+    );
+    return found.rows[0];
+  }
+
+  async function checkDuelLimits(cup, me, other, otherName) {
+    const mine = await duelCounts(cup, me, other);
+    if (mine.total >= duelRules.perDayLimit) {
+      throw new ApiError(409, "duel_limit", `На сегодня дуэли закончились: не больше ${duelRules.perDayLimit} в день`);
+    }
+    if (mine.pair >= duelRules.perPairPerDay) throw new ApiError(409, "duel_pair", `С ${otherName} сегодня уже была дуэль`);
+    const theirs = await duelCounts(cup, other, me);
+    if (theirs.total >= duelRules.perDayLimit) throw new ApiError(409, "duel_limit", `У ${otherName} на сегодня дуэли закончились`);
+  }
+
+  function duelJson(duel, names, now, live) {
+    const value = (side) => (live ? live[side] : duel[`${side}_value`]);
+    const person = (side) => ({ id: duel[`${side}_id`], name: names.get(duel[`${side}_id`]) ?? "?", value: value(side) ?? null });
+    return {
+      id: duel.id,
+      kind: duel.kind,
+      trail: duel.trail === null ? null : { number: duel.trail, name: trailNames.get(duel.trail) ?? "" },
+      minutes: duel.minutes,
+      stake: duel.stake,
+      // counting: время вышло, сервер ждёт остаток треков и считает итог.
+      status: duel.status === "active" && now > duel.ends_at ? "counting" : duel.status,
+      createdAt: duel.created_at,
+      answerBy: duel.status === "pending" ? duel.created_at + duelRules.answerMinutes * 60 : null,
+      startsAt: duel.starts_at,
+      endsAt: duel.ends_at,
+      challenger: person("challenger"),
+      opponent: person("opponent"),
+      winner: duel.winner_id,
+    };
+  }
+
+  async function duelNames(cupId) {
+    // С удалёнными участниками: их имена остаются в истории дуэлей.
+    const found = await db.query("select id, name from participants where cup_id = $1", [cupId]);
+    return new Map(found.rows.map((row) => [row.id, row.name]));
+  }
+
+  async function oneDuel(cup, id) {
+    const [found, names, now] = await Promise.all([
+      db.query(`select ${DUEL_COLUMNS} from duels where id = $1 and cup_id = $2`, [id, cup.id]),
+      duelNames(cup.id),
+      serverNow(),
+    ]);
+    return duelJson(found.rows[0], names, now, null);
+  }
+
+  // --- Дуэли кубка: свежие сверху, у идущих сразу текущие результаты.
+  app.get("/v1/duels", auth, async (req, res) => {
+    const cup = await loadCup(req.me.cup_id);
+    await refreshDuels(cup);
+    const [found, names, now, mine] = await Promise.all([
+      db.query(`select ${DUEL_COLUMNS} from duels where cup_id = $1 order by created_at desc limit 40`, [cup.id]),
+      duelNames(cup.id),
+      serverNow(),
+      duelCounts(cup, req.me.id, req.me.id),
+    ]);
+    const duels = [];
+    for (const duel of found.rows) {
+      let live = null;
+      if (duel.status === "active") {
+        const [challenger, opponent] = await duelValues(duel, cup);
+        live = { challenger, opponent };
+      }
+      duels.push(duelJson(duel, names, now, live));
+    }
+    res.json({
+      now,
+      stake: duelRules.stake,
+      answerMinutes: duelRules.answerMinutes,
+      minutes: duelRules.minutes,
+      left: Math.max(0, duelRules.perDayLimit - mine.total),
+      duels,
+    });
+  });
+
+  // --- Вызвать на дуэль.
+  app.post("/v1/duels", auth, async (req, res) => {
+    const cup = await loadCup(req.me.cup_id);
+    const body = req.body ?? {};
+    const kind = body.kind;
+    if (!DUEL_KINDS.includes(kind)) throw new ApiError(400, "bad_duel", "Вид дуэли: race, speed или endurance");
+    if (!duelRules.minutes[kind].includes(body.minutes)) {
+      throw new ApiError(400, "bad_duel", `Время дуэли: ${duelRules.minutes[kind].join(" или ")} минут`);
+    }
+    let trail = null;
+    if (kind === "race") {
+      if (!trailNames.has(body.trail)) throw new ApiError(400, "bad_duel", "Для гонки нужна зачётная трасса");
+      trail = body.trail;
+    }
+    if (typeof body.opponent !== "string" || !isUuid(body.opponent) || body.opponent === req.me.id) {
+      throw new ApiError(400, "bad_duel", "Нужен соперник из кубка");
+    }
+    const opponent = await db.query(
+      `select ${PERSON_COLUMNS} from participants where id = $1 and cup_id = $2 and removed_at is null`,
+      [body.opponent, cup.id],
+    );
+    if (opponent.rows.length === 0) throw new ApiError(404, "no_participant", "Такого участника в кубке нет");
+    const other = opponent.rows[0];
+
+    await refreshDuels(cup);
+    const busy = await db.query(
+      `select challenger_id, opponent_id from duels
+       where cup_id = $1 and status in ('pending', 'active')
+         and (challenger_id = any($2::uuid[]) or opponent_id = any($2::uuid[]))`,
+      [cup.id, [req.me.id, other.id]],
+    );
+    if (busy.rows.some((row) => row.challenger_id === req.me.id || row.opponent_id === req.me.id)) {
+      throw new ApiError(409, "duel_busy", "Сначала закончи свою дуэль или дождись ответа на вызов");
+    }
+    if (busy.rows.length > 0) throw new ApiError(409, "duel_busy", `${other.name} сейчас в другой дуэли`);
+    await checkDuelLimits(cup, req.me.id, other.id, other.name);
+
+    const created = await db.query(
+      `insert into duels (cup_id, challenger_id, opponent_id, kind, trail, minutes, stake)
+       values ($1, $2, $3, $4, $5, $6, $7) returning id`,
+      [cup.id, req.me.id, other.id, kind, trail, body.minutes, duelRules.stake],
+    );
+    res.status(201).json({ duel: await oneDuel(cup, created.rows[0].id) });
+  });
+
+  // --- Ответ на вызов: принять (время пошло), отказаться или отозвать свой вызов. Отказ ничего не стоит.
+  app.post("/v1/duels/:duel/:action", auth, async (req, res) => {
+    const { duel: id, action } = req.params;
+    if (!isUuid(id) || !["accept", "decline", "cancel"].includes(action)) throw new ApiError(404, "no_duel", "Такой дуэли нет");
+    const cup = await loadCup(req.me.cup_id);
+    await refreshDuels(cup);
+    const found = await db.query(`select ${DUEL_COLUMNS} from duels where id = $1 and cup_id = $2`, [id, cup.id]);
+    const duel = found.rows[0];
+    if (!duel) throw new ApiError(404, "no_duel", "Такой дуэли нет");
+    if (duel.status !== "pending") throw new ApiError(409, "duel_closed", "На этот вызов уже ответили или он истёк");
+
+    if (action === "cancel") {
+      if (duel.challenger_id !== req.me.id) throw new ApiError(403, "not_yours", "Отозвать вызов может только тот, кто его бросил");
+      await db.query("update duels set status = 'cancelled' where id = $1 and status = 'pending'", [id]);
+    } else {
+      if (duel.opponent_id !== req.me.id) throw new ApiError(403, "not_yours", "Ответить может только тот, кого вызвали");
+      if (action === "decline") {
+        await db.query("update duels set status = 'declined' where id = $1 and status = 'pending'", [id]);
+      } else {
+        const names = await duelNames(cup.id);
+        await checkDuelLimits(cup, req.me.id, duel.challenger_id, names.get(duel.challenger_id) ?? "соперником");
+        await db.query(
+          `update duels set status = 'active', starts_at = now(), ends_at = now() + make_interval(mins => minutes)
+           where id = $1 and status = 'pending'`,
+          [id],
+        );
+      }
+    }
+    res.json({ duel: await oneDuel(cup, id) });
+  });
+
+  /** Очки дуэлей за день: победитель забирает ставку у проигравшего. День дуэли = день её начала. */
+  async function duelPoints(cup, people, date) {
+    const found = await db.query(
+      `select challenger_id, opponent_id, winner_id, stake from duels
+       where cup_id = $1 and status = 'finished' and winner_id is not null
+         and (starts_at at time zone $2)::date = $3::date`,
+      [cup.id, cup.timezone, date],
+    );
+    const inCup = new Set(people.map((person) => person.id));
+    const result = new Map();
+    const add = (id, points, won) => {
+      const row = result.get(id) ?? { points: 0, wins: 0, losses: 0 };
+      row.points += points;
+      if (won) row.wins += 1;
+      else row.losses += 1;
+      result.set(id, row);
+    };
+    for (const duel of found.rows) {
+      if (!inCup.has(duel.challenger_id) || !inCup.has(duel.opponent_id)) continue;
+      const loser = duel.winner_id === duel.challenger_id ? duel.opponent_id : duel.challenger_id;
+      add(duel.winner_id, duel.stake, true);
+      add(loser, -duel.stake, false);
+    }
+    return result;
+  }
+
   async function scoredDay(cup, people, date) {
     const { dayNumber, multiplier } = dayInfo(cup, date);
     const stats = await Promise.all(people.map((person) => dayStats(person.id, date, cup)));
@@ -521,12 +808,26 @@ export function mountApi(app, { db, rules }) {
       }
     }
 
+    // Дуэли: ставка переходит от проигравшего к победителю и на последнем дне не удваивается.
+    const duels = await duelPoints(cup, people, date);
+
     const scored = scoreDay(rows, rules, multiplier).map((row) => {
       const crownCount = crowns.get(row.id) ?? 0;
       const raceWins = wins.get(row.id) ?? 0;
       const crownPoints = crownCount * rules.crowns.pointsPerCrownAtDayEnd * multiplier;
       const racePoints = raceWins * rules.crowns.autoRaceWinPoints * multiplier;
-      return { ...row, crowns: crownCount, crownPoints, raceWins, racePoints, points: row.points + crownPoints + racePoints };
+      const duel = duels.get(row.id) ?? { points: 0, wins: 0, losses: 0 };
+      return {
+        ...row,
+        crowns: crownCount,
+        crownPoints,
+        raceWins,
+        racePoints,
+        duelWins: duel.wins,
+        duelLosses: duel.losses,
+        duelPoints: duel.points,
+        points: row.points + crownPoints + racePoints + duel.points,
+      };
     });
     scored.sort((a, b) => b.points - a.points || b.topSpeed - a.topSpeed || a.name.localeCompare(b.name, "ru"));
     return { date, dayNumber, multiplier, rows: scored };
@@ -537,6 +838,7 @@ export function mountApi(app, { db, rules }) {
     const cup = await loadCup(req.me.cup_id);
     const date = cleanDate(req.query.date) ?? (await today(cup));
     const people = await loadPeople(cup.id);
+    await refreshDuels(cup);
     res.json(await scoredDay(cup, people, date));
   });
 
@@ -545,6 +847,7 @@ export function mountApi(app, { db, rules }) {
     const cup = await loadCup(req.me.cup_id);
     const people = await loadPeople(cup.id);
     const now = await today(cup);
+    await refreshDuels(cup);
 
     const dates = await countedDates(cup, people, now);
 

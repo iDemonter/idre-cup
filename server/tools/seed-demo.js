@@ -1,5 +1,6 @@
 // Демо-кубок для проверки приложения: пять участников и треки за три дня у вершины Idre Fjäll.
 // Запуск при работающем сервере:  node tools/seed-demo.js http://127.0.0.1:8080
+// С переменной DATABASE_URL (та же база, что у сервера) в демо появляются законченная и идущая дуэли.
 // Печатает код кубка и токены участников (JSON).
 
 const server = (process.argv[2] ?? "http://127.0.0.1:8080").replace(/\/$/, "");
@@ -102,5 +103,30 @@ const rides = [
 for (const [name, number, start, speed] of rides) {
   await call("POST", "/v1/tracks", { token: tokens[name], body: { points: ride(number, start, speed) } });
 }
+
+// Дуэли: одна законченная (Иван выиграл у Олега гонку на 28-й), одна идущая и один вызов Ивану.
+// Время дуэли сдвигается прямо в базе, поэтому нужен DATABASE_URL; без него дуэли остаются только что начатыми.
+const ids = {};
+for (const person of (await call("GET", "/v1/me", { token: created.token })).participants) ids[person.name] = person.id;
+const duel = async (from, to, body) => {
+  const made = await call("POST", "/v1/duels", { token: tokens[from], body: { opponent: ids[to], ...body } });
+  return made.duel.id;
+};
+const race = await duel("Олег", "Иван", { kind: "race", trail: 28, minutes: 60 });
+await call("POST", `/v1/duels/${race}/accept`, { token: tokens["Иван"] });
+const endurance = await duel("Анна", "Макс", { kind: "endurance", minutes: 120 });
+await call("POST", `/v1/duels/${endurance}/accept`, { token: tokens["Макс"] });
+if (process.env.DATABASE_URL) {
+  const { default: pg } = await import("pg");
+  const db = new pg.Client({ connectionString: process.env.DATABASE_URL });
+  await db.connect();
+  const shift = (id, from, to) =>
+    db.query("update duels set starts_at = now() - make_interval(secs => $2), ends_at = now() - make_interval(secs => $3) where id = $1", [id, from, to]);
+  await shift(race, 3.2 * 3600, 2.2 * 3600);
+  await shift(endurance, 45 * 60, -75 * 60);
+  await db.end();
+  await call("GET", "/v1/duels", { token: created.token }); // сервер подводит итог законченной дуэли
+}
+await duel("Юля", "Иван", { kind: "speed", minutes: 30 });
 
 console.log(JSON.stringify({ server, code: created.cup.code, tokens }, null, 2));

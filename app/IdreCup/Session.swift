@@ -19,6 +19,8 @@ final class Session: ObservableObject {
     /// Где сейчас остальные участники (без меня).
     @Published private(set) var friends: [LivePosition] = []
     /// Текст последней ошибки для показа человеку.
+    /// Сколько вызовов на дуэль ждут моего ответа.
+    @Published private(set) var duelCalls = 0
     @Published var problem: String?
     @Published private(set) var isBusy = false
 
@@ -208,6 +210,7 @@ final class Session: ObservableObject {
         me = nil
         people = []
         friends = []
+        duelCalls = 0
         uploadedUntil = nil
         phase = .signedOut
     }
@@ -279,6 +282,34 @@ final class Session: ObservableObject {
     func crowns() async -> CrownsReply? {
         guard let api, phase == .signedIn else { return nil }
         return try? await api.send("GET", "/v1/crowns")
+    }
+
+    // MARK: - Дуэли
+
+    /// Дуэли кубка. Заодно обновляет число вызовов, ждущих моего ответа (точка на вкладке).
+    func duels() async -> DuelsReply? {
+        guard let api, phase == .signedIn else { return nil }
+        guard let reply: DuelsReply = try? await api.send("GET", "/v1/duels") else { return nil }
+        let waiting = reply.duels.filter { $0.status == "pending" && $0.opponent.id == me?.id }.count
+        if waiting != duelCalls { duelCalls = waiting }
+        return reply
+    }
+
+    /// Вызвать на дуэль. Причина отказа сервера (соперник занят, предел на день) попадает в problem.
+    func challenge(_ opponent: Person, kind: String, trail: Int?, minutes: Int) async -> Bool {
+        var body: [String: Any] = ["opponent": opponent.id, "kind": kind, "minutes": minutes]
+        if let trail { body["trail"] = trail }
+        let payload = body
+        return await attempt { api in
+            let _: DuelReply = try await api.send("POST", "/v1/duels", body: payload)
+        }
+    }
+
+    /// Ответ на вызов: accept, decline или cancel.
+    func answer(_ duel: Duel, _ action: String) async -> Bool {
+        await attempt { api in
+            let _: DuelReply = try await api.send("POST", "/v1/duels/\(duel.id)/\(action)")
+        }
     }
 
     // MARK: - Аватары

@@ -45,13 +45,20 @@ jobs:
 
       - name: Сборка под симулятор
         run: |
+          set -o pipefail
+          # Ошибки компиляции дублируются аннотациями: их видно через API GitHub без входа,
+          # а сам журнал сборки без входа не открыть.
           xcodebuild build \
             -project app/IdreCup.xcodeproj \
             -scheme IdreCup \
             -configuration Debug \
             -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO \
-            -quiet
+            -quiet 2>&1 | tee build.log || {
+              grep -E ': error: ' build.log | sort -u | head -40 \
+                | sed -E "s#^$PWD/##; s#^([^:]+):([0-9]+):([0-9]+): error: (.*)\$#::error file=\1,line=\2::\4#"
+              exit 1
+            }
 
   screenshots:
     name: Снимки экрана
@@ -90,7 +97,7 @@ jobs:
           for attempt in $(seq 1 90); do curl -fsS http://127.0.0.1:8080/health 2>/dev/null | grep -q '"db":true' && break; sleep 1; done
           # Если демо-кубок не получился, файла demo.json быть не должно: снимки кубка тогда пропускаются,
           # а причина попадает в ветку screenshots (demo-log.txt), где её видно без входа в GitHub.
-          if node tools/seed-demo.js http://127.0.0.1:8080 > ../demo.json 2> ../seed-error.txt; then
+          if DATABASE_URL="postgres://$(whoami)@127.0.0.1:5432/idrecup" node tools/seed-demo.js http://127.0.0.1:8080 > ../demo.json 2> ../seed-error.txt; then
             echo "демо-кубок создан" > ../demo-log.txt
           else
             rm -f ../demo.json
@@ -145,6 +152,9 @@ jobs:
             shoot rating-week 12 -section rating -ratingTab week -serverURL $SERVER -token "$TOKEN"
             shoot rating-crowns 12 -section rating -ratingTab crowns -serverURL $SERVER -token "$TOKEN"
             shoot profile 12 -section rating -showProfile YES -serverURL $SERVER -token "$TOKEN"
+            shoot duels 12 -section duels -serverURL $SERVER -token "$TOKEN"
+            shoot duels-new 12 -section duels -newDuel YES -serverURL $SERVER -token "$TOKEN"
+            shoot model-trail 25 -look Модель -preset Nord -selectTrail 28 -serverURL $SERVER -token "$TOKEN"
             shoot model-friends 25 -look Модель -preset Ost -serverURL $SERVER -token "$TOKEN"
             shoot satellite-friends 30 -look Спутник -preset Ost -serverURL $SERVER -token "$TOKEN"
           fi

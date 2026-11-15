@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "maxParticipants": 8,
   "days": 6,
   "pairDays": 2,
@@ -33,7 +33,26 @@
     "autoRaceStartWindowSeconds": 30
   },
   "duel": {
-    "stake": 5
+    "stake": 5,
+    "answerMinutes": 30,
+    "perDayLimit": 3,
+    "perPairPerDay": 1,
+    "settleDelaySeconds": 90,
+    "waitForTracksMinutes": 15,
+    "minutes": {
+      "race": [
+        60,
+        120
+      ],
+      "speed": [
+        30,
+        60
+      ],
+      "endurance": [
+        60,
+        120
+      ]
+    }
   },
   "events": {
     "perDayMin": 2,

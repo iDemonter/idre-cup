@@ -202,8 +202,8 @@ struct RatingScreen: View {
                         detail: row.runs > 0
                             ? "\(Format.kmh(row.topSpeed)) км/ч · \(Format.meters(row.vertical)) м · \(row.runs) \(Format.plural(row.runs, "спуск", "спуска", "спусков"))"
                             : "ещё не катался",
-                        points: "+\(row.points)",
-                        footnote: row.runs > 0 ? dayFootnote(row) : nil
+                        points: signed(row.points),
+                        footnote: dayFootnote(row)
                     )
                 }
             }
@@ -223,7 +223,7 @@ struct RatingScreen: View {
                     rowCard(
                         place: row.place,
                         person: person(row.id, row.name),
-                        detail: row.days.isEmpty ? "пока без очков" : row.days.map { String($0) }.joined(separator: " + "),
+                        detail: row.days.isEmpty ? "пока без очков" : daySum(row.days),
                         points: String(row.points),
                         footnote: nil
                     )
@@ -234,15 +234,39 @@ struct RatingScreen: View {
         }
     }
 
-    private func dayFootnote(_ row: DayRow) -> String {
-        var parts = ["скорость \(place(row.speedPlace))", "объём \(place(row.volumePlace))"]
+    /// «10 + 17 − 5»: очки по дням.
+    private func daySum(_ days: [Int]) -> String {
+        var text = ""
+        for (index, value) in days.enumerated() {
+            if index == 0 {
+                text = value < 0 ? "−\(-value)" : String(value)
+            } else {
+                text += value < 0 ? " − \(-value)" : " + \(value)"
+            }
+        }
+        return text
+    }
+
+    /// «+19», «−5»: в день можно уйти в минус, проиграв дуэль.
+    private func signed(_ points: Int) -> String {
+        points < 0 ? "−\(-points)" : "+\(points)"
+    }
+
+    private func dayFootnote(_ row: DayRow) -> String? {
+        var parts: [String] = []
+        if row.runs > 0 {
+            parts = ["скорость \(place(row.speedPlace))", "объём \(place(row.volumePlace))"]
+        }
         if let count = row.crowns, count > 0 {
             parts.append("👑 \(count)")
         }
         if let wins = row.raceWins, wins > 0 {
             parts.append("🏁 \(wins)")
         }
-        return parts.joined(separator: " · ")
+        if let duels = row.duelPoints, duels != 0 {
+            parts.append("дуэли \(signed(duels))")
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
     /// Короны: у каждой зачётной трассы король с лучшим временем недели. Рядом своё лучшее время.
