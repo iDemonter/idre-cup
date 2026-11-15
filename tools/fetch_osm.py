@@ -26,6 +26,28 @@ QUERY = f"""
 out tags geom;
 """
 
+# Окружение для 3D-модели: лес, вода, дома, дороги и полезные места в границах модели.
+LAND_BBOX = "61.869,12.799,61.906,12.894"
+
+LAND_QUERY = f"""
+[out:json][timeout:120];
+(
+  way["natural"~"^(wood|water|scrub|heath|fell|bare_rock|wetland|grassland)$"]({LAND_BBOX});
+  relation["natural"~"^(wood|water|scrub|heath|fell|bare_rock|wetland|grassland)$"]({LAND_BBOX});
+  way["landuse"~"^(forest|residential|commercial|retail|winter_sports|recreation_ground)$"]({LAND_BBOX});
+  relation["landuse"~"^(forest|residential|commercial|retail|winter_sports|recreation_ground)$"]({LAND_BBOX});
+  way["building"]({LAND_BBOX});
+  way["highway"~"^(primary|secondary|tertiary|unclassified|residential|service|living_street|pedestrian)$"]({LAND_BBOX});
+  nwr["amenity"]({LAND_BBOX});
+  nwr["shop"]({LAND_BBOX});
+  nwr["tourism"]({LAND_BBOX});
+  nwr["leisure"]({LAND_BBOX});
+  nwr["sport"]({LAND_BBOX});
+  node["place"]({LAND_BBOX});
+);
+out tags geom;
+"""
+
 SERVERS = [
     "https://overpass-api.de/api/interpreter",
     "https://overpass.kumi.systems/api/interpreter",
@@ -33,10 +55,11 @@ SERVERS = [
 ]
 
 OUT = pathlib.Path(__file__).resolve().parent.parent / "data" / "osm-idre.json"
+OUT_LAND = OUT.with_name("osm-land.json")
 
 
-def fetch() -> dict:
-    body = urllib.parse.urlencode({"data": QUERY}).encode()
+def fetch(query: str = QUERY) -> dict:
+    body = urllib.parse.urlencode({"data": query}).encode()
     last_error = None
     for attempt in range(3):
         for server in SERVERS:
@@ -44,7 +67,7 @@ def fetch() -> dict:
                 request = urllib.request.Request(
                     server, data=body, headers={"User-Agent": "idre-cup/0.1 (github.com/iDemonter/idre-cup)"}
                 )
-                with urllib.request.urlopen(request, timeout=90) as response:
+                with urllib.request.urlopen(request, timeout=150) as response:
                     return json.load(response)
             except Exception as error:  # noqa: BLE001 - пробуем следующий сервер
                 last_error = error
@@ -68,6 +91,15 @@ def main() -> None:
         kind = "piste" if "piste:type" in tags else "lift" if "aerialway" in tags else "peak"
         kinds[kind] = kinds.get(kind, 0) + 1
     print(f"Сохранено {len(elements)} объектов: {kinds} → {OUT}")
+
+    land = fetch(LAND_QUERY).get("elements", [])
+    if not land:
+        raise SystemExit("Overpass вернул пустое окружение")
+    OUT_LAND.write_text(
+        json.dumps({"source": "OpenStreetMap, ODbL", "bbox": LAND_BBOX, "elements": land}, ensure_ascii=False, separators=(",", ":")),
+        encoding="utf-8",
+    )
+    print(f"Окружение: {len(land)} объектов → {OUT_LAND}")
 
 
 if __name__ == "__main__":
