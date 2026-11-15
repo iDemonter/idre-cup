@@ -18,8 +18,8 @@ BBOX = "61.85,12.76,61.93,12.95"
 QUERY = f"""
 [out:json][timeout:60];
 (
-  way["piste:type"="downhill"]({BBOX});
-  relation["piste:type"="downhill"]({BBOX});
+  way["piste:type"]["piste:type"!="nordic"]({BBOX});
+  relation["piste:type"]["piste:type"!="nordic"]({BBOX});
   way["aerialway"]({BBOX});
   node["natural"="peak"]({BBOX});
 );
