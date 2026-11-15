@@ -23,7 +23,9 @@ struct MyDayScreen: View {
                 }
                 recordingCard
                 segmentList
-                demoButton
+                if !tracker.isDemo {
+                    demoButton
+                }
             }
             .padding(.horizontal, 20)
             .padding(.top, 8)
@@ -139,29 +141,42 @@ struct MyDayScreen: View {
 
     private var recordButton: some View {
         Button {
-            if tracker.isRecording {
+            if tracker.isDemo {
+                tracker.leaveDemo()
+            } else if tracker.isRecording {
                 tracker.stop()
             } else {
                 tracker.start()
             }
         } label: {
             HStack(spacing: 10) {
-                Image(systemName: tracker.isRecording ? "stop.fill" : "record.circle")
-                Text(tracker.isRecording ? "Остановить запись" : "Начать запись")
+                Image(systemName: recordSymbol)
+                Text(recordTitle)
             }
             .font(Theme.headline())
-            .foregroundStyle(tracker.isRecording ? Theme.textPrimary : Theme.onAccent)
+            .foregroundStyle(isQuietButton ? Theme.textPrimary : Theme.onAccent)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
-            .background(tracker.isRecording ? Theme.raised : Theme.accent, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .background(isQuietButton ? Theme.raised : Theme.accent, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(Theme.border, lineWidth: tracker.isRecording ? 1.5 : 0)
+                    .stroke(Theme.border, lineWidth: isQuietButton ? 1.5 : 0)
             )
         }
         .buttonStyle(.plain)
-        .disabled(tracker.isDemo)
-        .opacity(tracker.isDemo ? 0.4 : 1)
+    }
+
+    /// В демо-дне записи нет: на месте кнопки записи стоит выход к своему дню.
+    private var isQuietButton: Bool { tracker.isDemo || tracker.isRecording }
+
+    private var recordSymbol: String {
+        if tracker.isDemo { return "arrow.uturn.backward" }
+        return tracker.isRecording ? "stop.fill" : "record.circle"
+    }
+
+    private var recordTitle: String {
+        if tracker.isDemo { return "Вернуться к своему дню" }
+        return tracker.isRecording ? "Остановить запись" : "Начать запись"
     }
 
     private var deniedNote: some View {
@@ -255,13 +270,9 @@ struct MyDayScreen: View {
 
     private var demoButton: some View {
         Button {
-            if tracker.isDemo {
-                tracker.leaveDemo()
-            } else {
-                startDemo()
-            }
+            startDemo()
         } label: {
-            Text(tracker.isDemo ? "Выйти из демо-дня" : "Показать демо-день")
+            Text("Показать демо-день")
                 .font(Theme.caption())
                 .foregroundStyle(Theme.textSecondary)
                 .frame(maxWidth: .infinity)

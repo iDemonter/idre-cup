@@ -237,10 +237,10 @@ struct RatingScreen: View {
     private func dayFootnote(_ row: DayRow) -> String {
         var parts = ["скорость \(place(row.speedPlace))", "объём \(place(row.volumePlace))"]
         if let count = row.crowns, count > 0 {
-            parts.append("\(count) \(Format.plural(count, "корона", "короны", "корон"))")
+            parts.append("👑 \(count)")
         }
         if let wins = row.raceWins, wins > 0 {
-            parts.append("\(wins) \(Format.plural(wins, "гонка", "гонки", "гонок"))")
+            parts.append("🏁 \(wins)")
         }
         return parts.joined(separator: " · ")
     }
@@ -351,6 +351,7 @@ struct RatingScreen: View {
                         .font(Theme.caption(10))
                         .foregroundStyle(Theme.textSecondary.opacity(0.75))
                         .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                 }
             }
             Spacer(minLength: 8)
