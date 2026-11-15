@@ -261,18 +261,18 @@ struct RatingScreen: View {
                     .foregroundStyle(Theme.textSecondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
-            }
-            Spacer(minLength: 0)
-            VStack(alignment: .trailing, spacing: 2) {
-                Text(points)
-                    .font(Theme.title(22))
-                    .foregroundStyle(Theme.accent)
                 if let footnote {
                     Text(footnote)
                         .font(Theme.caption(10))
-                        .foregroundStyle(Theme.textSecondary)
+                        .foregroundStyle(Theme.textSecondary.opacity(0.75))
+                        .lineLimit(1)
                 }
             }
+            Spacer(minLength: 8)
+            Text(points)
+                .font(Theme.title(22))
+                .foregroundStyle(Theme.accent)
+                .fixedSize()
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
