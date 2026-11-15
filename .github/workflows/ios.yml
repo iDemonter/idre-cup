@@ -2,7 +2,8 @@ name: iOS
 
 # Mac для разработки нет, поэтому всё собирается здесь.
 # 1. «Проверочная сборка» — компиляция под симулятор, без подписи и без секретов.
-#    Затем приложение запускается в симуляторе, снимки экрана кладутся в ветку screenshots.
+# 3. «Снимки экрана» — приложение запускается в симуляторе, снимки кладутся в ветку screenshots.
+#    По ним проверяется, как выглядит карта: Mac и симулятора под рукой нет.
 # 2. «TestFlight» — архив, подпись облачным сертификатом Apple и отправка в TestFlight.
 #    Запускается только из ветки main и только если заданы секреты репозитория.
 
@@ -19,7 +20,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write   # нужно только для ветки screenshots
+  contents: read
 
 concurrency:
   group: ios-${{ github.ref }}
@@ -49,13 +50,33 @@ jobs:
             -scheme IdreCup \
             -configuration Debug \
             -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            -quiet
+
+  screenshots:
+    name: Снимки экрана
+    if: github.event_name != 'pull_request'
+    runs-on: macos-26
+    timeout-minutes: 30
+    permissions:
+      contents: write   # снимки кладутся в ветку screenshots
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Сборка под симулятор
+        run: |
+          which xcodegen || brew install xcodegen
+          (cd app && xcodegen generate)
+          xcodebuild build \
+            -project app/IdreCup.xcodeproj \
+            -scheme IdreCup \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO \
             -quiet
 
       - name: Снимки экрана в симуляторе
-        if: github.event_name != 'pull_request'
-        continue-on-error: true
         run: |
           APP=build/Build/Products/Debug-iphonesimulator/IdreCup.app
           DEVICE=$(xcrun simctl list devices available -j | python3 -c "
@@ -86,8 +107,6 @@ jobs:
           shoot satellite-nord -look Спутник -preset Nord
 
       - name: Сохранить снимки в ветку screenshots
-        if: github.event_name != 'pull_request'
-        continue-on-error: true
         run: |
           cd shots
           ls -la

@@ -59,7 +59,7 @@ struct MapScreen: View {
 
     /// Общий вид модели: с юго-запада, как на официальной карте курорта.
     private static func modelOverview(id: Int) -> ModelCamera {
-        ModelCamera(id: id, east: -520, north: -120, distance: 6_300, heading: 55, pitch: 58)
+        ModelCamera(id: id, east: -450, north: 150, distance: 6_000, heading: 55, pitch: 54)
     }
 
     private var showsModel: Bool { look == .model && terrain != nil }

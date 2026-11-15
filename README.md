@@ -58,6 +58,20 @@ Settings → Secrets and variables → Actions → New repository secret.
 
 Данные карты: © участники OpenStreetMap, лицензия ODbL.
 
+## 3D-модель горы
+
+Вид «Модель» рисует гору сам, без Apple Maps: сетка высот, раскраска с тенями и горизонталями, на ней трассы и подъёмники. Высота вытянута в 2,6 раза, потому что гора пологая. Работает без интернета.
+
+- `data/dem-idre.json` — высоты района. Обновляет workflow «Данные высот» (`tools/fetch_dem.py`).
+- `tools/build_terrain.py` — собирает `terrain.json` (сетка 25 м) и `terrain.jpg` (раскраска) в `app/IdreCup/Resources/`. Нужны numpy, scipy и Pillow.
+- `app/IdreCup/TerrainView.swift` — сцена SceneKit.
+
+Высоты: Copernicus DEM GLO-30. © DLR e.V. 2010-2014 и © Airbus Defence and Space GmbH 2014-2018, предоставлены по программе COPERNICUS Европейским союзом и ESA; все права защищены.
+
+## Снимки экрана
+
+Каждая сборка запускает приложение в симуляторе и кладёт снимки экрана в ветку `screenshots` (она перезаписывается). Вид и зону можно задать параметрами запуска: `-look Модель -preset Nord`.
+
 ## Сервер
 
 ```bash
