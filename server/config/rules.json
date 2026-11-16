@@ -1,5 +1,5 @@
 {
-  "version": 7,
+  "version": 8,
   "maxParticipants": 8,
   "days": 6,
   "jokersPerWeek": 1,
@@ -112,7 +112,12 @@
     "lon": 12.8587081,
     "radiusKm": 4.5,
     "extraAreas": [
-      { "name": "Idre Himmelfjäll", "lat": 61.899, "lon": 12.77, "radiusKm": 2.5 }
+      {
+        "name": "Idre Himmelfjäll",
+        "lat": 61.899,
+        "lon": 12.77,
+        "radiusKm": 2.5
+      }
     ]
   },
   "track": {
@@ -133,5 +138,14 @@
       1
     ],
     "soloFactor": 2
+  },
+  "season": {
+    "from": "11-01",
+    "to": "04-30",
+    "dayPoints": 2,
+    "verticalPer": 500,
+    "verticalMax": 8,
+    "meetPoints": 2,
+    "crownPoints": 1
   }
 }

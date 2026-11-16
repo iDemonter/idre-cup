@@ -9,6 +9,7 @@ import { analyze, meters } from "./analyzer.js";
 import { scoreDay } from "./scoring.js";
 import { loadTrails, matchRun, toMeters, trailLabel } from "./trails.js";
 import { TV_PAGE } from "./tv.js";
+import { loadResorts, seasonDay, seasonTable } from "./season.js";
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // без похожих O/0 и I/1
 const MAX_BATCH = 5000;
@@ -51,6 +52,8 @@ function cupJson(row) {
     timezone: row.timezone,
     geofence: row.geofence,
     home: row.home_lat === null || row.home_lon === null ? null : { lat: row.home_lat, lon: row.home_lon },
+    seasonFrom: row.season_from ?? null,
+    seasonTo: row.season_to ?? null,
   };
 }
 
@@ -60,7 +63,7 @@ const PERSON_COLUMNS = "id, name, is_admin, case when avatar is null then null e
 
 // Даты из Postgres приходят строками 2027-01-03, а не объектами Date: так не съезжает часовой пояс.
 const CUP_COLUMNS =
-  "id, name, invite_code, to_char(starts_on, 'YYYY-MM-DD') as starts_on, days, prize, timezone, geofence, home_lat, home_lon";
+  "id, name, invite_code, to_char(starts_on, 'YYYY-MM-DD') as starts_on, days, prize, timezone, geofence, home_lat, home_lon, to_char(season_from, 'YYYY-MM-DD') as season_from, to_char(season_to, 'YYYY-MM-DD') as season_to";
 
 /**
  * @param {import("express").Express} app
@@ -81,6 +84,7 @@ export function mountApi(app, { db, rules, attemptLimit = 30, autoEvents = true 
     { lat: rules.resort.lat, lon: rules.resort.lon, radiusKm: rules.resort.radiusKm },
     ...(rules.resort.extraAreas ?? []),
   ];
+  const resorts = loadResorts(rules);
   const onTerritory = (point) => areas.some((area) => meters(area, point) <= area.radiusKm * 1000);
 
   // --- Защита от перебора кодов: не больше attemptLimit (30) попыток создать или войти за 10 минут с одного адреса.
@@ -246,12 +250,14 @@ export function mountApi(app, { db, rules, attemptLimit = 30, autoEvents = true 
         set("home_lon", lon);
       }
     }
-    const adminFields = ["name", "startsOn", "prize", "geofence"].filter((field) => field in body);
+    const adminFields = ["name", "startsOn", "prize", "geofence", "seasonFrom", "seasonTo"].filter((field) => field in body);
     if (adminFields.length > 0) adminOnly(req);
     if ("name" in body) set("name", cleanName(body.name));
     if ("startsOn" in body) set("starts_on", cleanDate(body.startsOn));
     if ("prize" in body) set("prize", typeof body.prize === "string" ? body.prize.trim().slice(0, 120) || null : null);
     if ("geofence" in body) set("geofence", body.geofence !== false);
+    if ("seasonFrom" in body) set("season_from", cleanDate(body.seasonFrom));
+    if ("seasonTo" in body) set("season_to", cleanDate(body.seasonTo));
     if (sets.length === 0) throw new ApiError(400, "bad_request", "Нечего менять");
 
     values.push(req.me.cup_id);
@@ -1650,6 +1656,116 @@ export function mountApi(app, { db, rules, attemptLimit = 30, autoEvents = true 
           mine: mine.get(trail.number) ?? null,
         };
       }),
+    });
+  });
+
+  // --- Сезон: даты, дни на склоне, таблица, короны на всех курортах.
+  function seasonRange(cup, now) {
+    const year = Number(now.slice(0, 4));
+    const [fromMonth] = rules.season.from.split("-").map(Number);
+    // Сезон, в котором сейчас: если месяц раньше начала сезона, сезон начался в прошлом году.
+    const startYear = Number(now.slice(5, 7)) >= fromMonth ? year : year - 1;
+    const from = cup.season_from ?? `${startYear}-${rules.season.from}`;
+    const to = cup.season_to ?? `${rules.season.to < rules.season.from ? startYear + 1 : startYear}-${rules.season.to}`;
+    return { from, to };
+  }
+
+  async function seasonDayStats(participantId, date, cup) {
+    const range = `ts >= ($2::date::timestamp at time zone $3) and ts < (($2::date + 1)::timestamp at time zone $3)`;
+    const mark = await db.query(
+      `select count(*)::int as count, extract(epoch from max(ts))::float8 as last from track_points where participant_id = $1 and ${range}`,
+      [participantId, date, cup.timezone],
+    );
+    const key = `season|${participantId}|${date}|${cup.geofence}`;
+    const cached = statsCache.get(key);
+    if (cached && cached.count === mark.rows[0].count && cached.last === mark.rows[0].last) return cached.stats;
+    const loaded = await db.query(
+      `select ${POINT_COLUMNS} from track_points where participant_id = $1 and ${range} order by ts`,
+      [participantId, date, cup.timezone],
+    );
+    const stats = seasonDay(loaded.rows, resorts, trackRules, !cup.geofence);
+    statsCache.set(key, { count: mark.rows[0].count, last: mark.rows[0].last, stats });
+    if (statsCache.size > 2000) statsCache.delete(statsCache.keys().next().value);
+    return stats;
+  }
+
+  const resortInfo = new Map(resorts.map((resort) => [resort.id, resort]));
+  const trailInfo = new Map(resorts.flatMap((resort) => resort.info.map((trail) => [trail.id, { ...trail, resort: resort.id }])));
+
+  app.get("/v1/season", auth, async (req, res) => {
+    const cup = await loadCup(req.me.cup_id);
+    const people = await loadPeople(cup.id);
+    const now = await today(cup);
+    const { from, to } = seasonRange(cup, now);
+    const until = to < now ? to : now;
+    const found = await db.query(
+      `select participant_id, to_char((ts at time zone $2)::date, 'YYYY-MM-DD') as date
+       from track_points
+       where participant_id = any($1::uuid[]) and (ts at time zone $2)::date between $3::date and $4::date
+       group by 1, 2 order by 2`,
+      [people.map((person) => person.id), cup.timezone, from, until],
+    );
+    const days = new Map();
+    for (const row of found.rows) {
+      const day = await seasonDayStats(row.participant_id, row.date, cup);
+      if (!days.has(row.participant_id)) days.set(row.participant_id, []);
+      days.get(row.participant_id).push({ date: row.date, day });
+    }
+    const { rows, crowns, personal } = seasonTable(people, days, rules.season);
+    const names = new Map(people.map((person) => [person.id, person.name]));
+    const resortName = (id) => (id === "other" ? "Другое место" : resortInfo.get(id)?.name ?? id);
+    const mine = personal.get(req.me.id) ?? new Map();
+    const crownList = [...crowns.entries()].map(([trail, holder]) => {
+      const info = trailInfo.get(trail);
+      return {
+        trail,
+        label: info?.label ?? null,
+        name: info?.name ?? null,
+        resort: resortName(info?.resort),
+        holder: { id: holder.id, name: names.get(holder.id), seconds: holder.seconds },
+        mine: mine.get(trail) ?? null,
+      };
+    });
+    crownList.sort((a, b) => a.resort.localeCompare(b.resort, "sv") || (a.name ?? "").localeCompare(b.name ?? "", "sv"));
+    res.json({
+      from,
+      to,
+      today: now,
+      rules: rules.season,
+      rows: rows.map((row) => ({
+        ...row,
+        resorts: row.resorts.map(resortName),
+        history: row.history.slice(0, 30).map((day) => ({ ...day, resorts: day.resorts.map(resortName) })),
+      })),
+      crowns: crownList,
+    });
+  });
+
+  // --- Курорты сезона: список и трассы одного курорта для карты.
+  app.get("/v1/resorts", auth, (_req, res) => {
+    res.json({
+      resorts: resorts.map((resort) => ({
+        id: resort.id,
+        name: resort.name,
+        region: resort.region,
+        center: [resort.lat, resort.lon],
+        radiusKm: resort.radiusKm,
+        trails: resort.info.length,
+      })),
+    });
+  });
+
+  app.get("/v1/resorts/:resort", auth, (req, res) => {
+    const resort = resortInfo.get(req.params.resort);
+    if (!resort) throw new ApiError(404, "not_found", "Нет такого курорта");
+    res.json({
+      id: resort.id,
+      name: resort.name,
+      region: resort.region,
+      center: [resort.lat, resort.lon],
+      radiusKm: resort.radiusKm,
+      trails: resort.info.map(({ id, label, name, difficulty, length, coords }) => ({ id, label, name, difficulty, length, coords })),
+      lifts: resort.lifts ?? [],
     });
   });
 

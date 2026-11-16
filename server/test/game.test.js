@@ -597,3 +597,48 @@ test("Himmelfjäll: его трассы в территории кубка и д
   assert.equal(crown.name, "Fridabranten");
   assert.equal(crown.holder.name, "Иван");
 });
+
+test("сезон: дни на курортах, встреча, короны, точки вне курортов не идут", options, async () => {
+  const day = (offset) => new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
+  const ivan = (await call("POST", "/v1/cups", { body: { cupName: "Сезон", name: "Иван" } })).body;
+  const oleg = (await call("POST", "/v1/join", { body: { code: ivan.cup.code, name: "Олег" } })).body;
+  const anna = (await call("POST", "/v1/join", { body: { code: ivan.cup.code, name: "Анна" } })).body;
+  assert.equal((await call("PATCH", "/v1/cup", { token: oleg.token, body: { seasonFrom: day(-10) } })).status, 403);
+  const patched = await call("PATCH", "/v1/cup", { token: ivan.token, body: { seasonFrom: day(-10), seasonTo: day(10) } });
+  assert.equal(patched.body.cup.seasonFrom, day(-10));
+
+  const start = Math.floor(Date.now() / 1000) - 3600;
+  await call("POST", "/v1/tracks", { token: ivan.token, body: { points: [...trailRide(28, start, 12), ...trailRide(112, start + 900, 12)] } });
+  await call("POST", "/v1/tracks", { token: oleg.token, body: { points: trailRide(28, start + 60, 15) } });
+  // Анна катается в 300 км от любого курорта из списка: в сезон не идёт.
+  await call("POST", "/v1/tracks", { token: anna.token, body: { points: trailRide(28, start, 12).map(([t, lat, ...rest]) => [t, lat - 2.7, ...rest]) } });
+
+  const season = (await call("GET", "/v1/season", { token: ivan.token })).body;
+  assert.equal(season.from, day(-10));
+  const row = (name) => season.rows.find((item) => item.name === name);
+  assert.equal(row("Иван").days, 1);
+  assert.deepEqual(row("Иван").resorts.sort(), ["Idre Fjäll", "Idre Himmelfjäll"]);
+  assert.equal(row("Иван").meets, 1, "Иван и Олег в один день в Idre Fjäll");
+  assert.equal(row("Олег").meets, 1);
+  assert.equal(row("Анна").days, 0);
+  assert.equal(row("Анна").points, 0);
+  const rules = season.rules;
+  const ivanDay = row("Иван").history[0];
+  assert.equal(ivanDay.points, rules.dayPoints + Math.min(Math.floor(ivanDay.vertical / rules.verticalPer), rules.verticalMax) + rules.meetPoints);
+
+  const crown28 = season.crowns.find((item) => item.trail === "idre:28");
+  assert.equal(crown28.holder.name, "Олег");
+  assert.equal(crown28.resort, "Idre Fjäll");
+  assert.ok(crown28.mine > crown28.holder.seconds);
+  const crownH12 = season.crowns.find((item) => item.trail === "idre:112");
+  assert.equal(crownH12.label, "H12");
+  assert.equal(crownH12.holder.name, "Иван");
+  assert.equal(row("Иван").crowns, 1);
+  assert.equal(row("Иван").points, ivanDay.points + rules.crownPoints);
+
+  const list = (await call("GET", "/v1/resorts", { token: ivan.token })).body.resorts;
+  assert.ok(list.some((item) => item.id === "idre-himmelfjall" && item.trails === 25));
+  const himmel = (await call("GET", "/v1/resorts/idre-himmelfjall", { token: ivan.token })).body;
+  assert.equal(himmel.trails.find((trail) => trail.id === "idre:112").name, "Fridabranten");
+  assert.equal((await call("GET", "/v1/resorts/nowhere", { token: ivan.token })).status, 404);
+});
