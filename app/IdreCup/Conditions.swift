@@ -199,7 +199,7 @@ struct ConditionsDetails: View {
                                 Circle()
                                     .fill(lift.isOpen ? Theme.pisteGreen : (lift.isClosed ? Theme.pisteRed : Theme.textSecondary))
                                     .frame(width: 8, height: 8)
-                                Text("\(lift.code) · \(lift.name)")
+                                Text(lift.code == lift.name ? lift.name : "\(lift.code) · \(lift.name)")
                                     .font(Theme.headline(14))
                                     .foregroundStyle(Theme.textPrimary)
                                     .lineLimit(1)
