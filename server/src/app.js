@@ -12,7 +12,7 @@ const rulesPath = fileURLToPath(new URL("../config/rules.json", import.meta.url)
  * attemptLimit: сколько раз за 10 минут с одного адреса можно создать кубок или войти по коду.
  * autoEvents: сервер сам назначает события дня по расписанию.
  */
-export function createApp({ db = null, version = "dev", attemptLimit = 30, autoEvents = true } = {}) {
+export function createApp({ db = null, version = "dev", attemptLimit = 30, autoEvents = true, fetcher = globalThis.fetch } = {}) {
   // Правила и очки. Меняются правкой config/rules.json и перезапуском сервера, без новой сборки приложения.
   const rules = JSON.parse(readFileSync(rulesPath, "utf8"));
 
@@ -39,7 +39,7 @@ export function createApp({ db = null, version = "dev", attemptLimit = 30, autoE
   });
 
   if (db && typeof db.connect === "function") {
-    mountApi(app, { db, rules, attemptLimit, autoEvents });
+    mountApi(app, { db, rules, attemptLimit, autoEvents, fetcher });
   }
 
   app.use((_req, res) => {

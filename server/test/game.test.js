@@ -9,6 +9,17 @@ import pg from "pg";
 import { createApp } from "../src/app.js";
 import { migrate } from "../src/migrate.js";
 
+// Сайты курортов и MET Norway в тестах не трогаем: отдаём сохранённые образцы страниц.
+const fixture = (name) => readFileSync(new URL(`./fixtures/${name}`, import.meta.url), "utf8");
+const asHtml = (text) => text.split("\n").map((line) => `<div>${line.replace(/&/g, "&amp;")}</div>`).join("\n");
+export const fetched = [];
+async function fakeFetch(url) {
+  fetched.push(url);
+  if (url.includes("idrefjall.se")) return new Response(asHtml(fixture("idre-status.txt")));
+  if (url.includes("api.met.no")) return new Response(fixture("met-forecast.json"));
+  return new Response("нет", { status: 404 });
+}
+
 const url = process.env.TEST_DATABASE_URL;
 const options = { skip: url ? false : "нет TEST_DATABASE_URL" };
 
@@ -76,7 +87,7 @@ before(async () => {
   db = new pg.Pool({ connectionString: url, max: 5 });
   await db.query("drop table if exists games, events, duels, track_points, participants, cups, schema_migrations cascade");
   await migrate(db, () => {});
-  const app = createApp({ db, version: "test", attemptLimit: 1000, autoEvents: false });
+  const app = createApp({ db, version: "test", attemptLimit: 1000, autoEvents: false, fetcher: fakeFetch });
   await new Promise((resolve) => {
     server = app.listen(0, resolve);
   });
@@ -673,8 +684,41 @@ test("сезон: курорт из каталога (Hammarbybacken), трас�
 
   const season = (await call("GET", "/v1/season", { token: me.token })).body;
   assert.deepEqual(season.rows[0].resorts, ["Hammarbybacken"]);
+  // В дне кубка он «в других местах»: без очков, но с перепадом и спусками.
+  const today = (await call("GET", "/v1/day", { token: me.token })).body;
+  assert.equal(today.elsewhere.length, 1);
+  assert.equal(today.elsewhere[0].resort, "Hammarbybacken");
+  assert.equal(today.elsewhere[0].runs, 1);
+  assert.equal(today.rows[0].runs, 0, "в зачёт недели не идёт");
   assert.equal(season.rows[0].days, 1);
   const crown = season.crowns.find((item) => item.trail === trail.id);
   assert.ok(crown, `корона на ${trail.name}`);
   assert.equal(crown.resort, "Hammarbybacken");
+});
+
+test("условия: лифты, часы, погода и снег Idre Fjäll, прогноз, кеш", options, async () => {
+  const me = (await call("POST", "/v1/cups", { body: { cupName: "Погода", name: "Иван" } })).body;
+  fetched.length = 0;
+  const reply = (await call("GET", "/v1/conditions?lat=61.889&lon=12.85", { token: me.token })).body;
+  assert.equal(reply.resort.id, "idre-fjall");
+  assert.deepEqual(reply.status.lifts, { open: 2, total: 24 });
+  assert.deepEqual(reply.status.pistes, { open: 12, total: 41 });
+  assert.equal(reply.status.snow.piste, 45);
+  assert.equal(reply.status.weather.top.temp, -12);
+  assert.equal(reply.status.weather.top.wind, 6);
+  assert.equal(reply.status.weather.valley.temp, -8);
+  const sydgondolen = reply.status.liftList.find((lift) => lift.code === "G");
+  assert.equal(sydgondolen.status, "closed");
+  assert.equal(reply.status.liftList.find((lift) => lift.code === "A").today.closes, "16:00");
+  assert.ok(["16:00", "16:30"].includes(reply.status.closes), reply.status.closes);
+  assert.equal(typeof reply.forecast.day.min, "number");
+  assert.ok(reply.forecast.hours.length > 0);
+
+  await call("GET", "/v1/conditions?resort=idre-fjall", { token: me.token });
+  assert.equal(fetched.filter((url) => url.includes("idrefjall.se")).length, 1, "второй раз из кеша");
+  // Где нет страницы курорта, всё равно есть прогноз.
+  const hill = (await call("GET", "/v1/conditions?resort=hammarbybacken", { token: me.token })).body;
+  assert.equal(hill.resort.name, "Hammarbybacken");
+  assert.equal(hill.status, null);
+  assert.ok(hill.forecast);
 });

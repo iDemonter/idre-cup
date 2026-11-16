@@ -9,7 +9,8 @@ import { analyze, meters } from "./analyzer.js";
 import { scoreDay } from "./scoring.js";
 import { loadTrails, matchRun, toMeters, trailLabel } from "./trails.js";
 import { TV_PAGE } from "./tv.js";
-import { loadResorts, seasonDay, seasonTable } from "./season.js";
+import { loadResorts, resortOf, seasonDay, seasonTable } from "./season.js";
+import { closingTime, htmlLines, mergeSkistar, parseIdre, parseSkistar, summarizeForecast } from "./conditions.js";
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // без похожих O/0 и I/1
 const MAX_BATCH = 5000;
@@ -69,7 +70,7 @@ const CUP_COLUMNS =
  * @param {import("express").Express} app
  * @param {{ db: import("pg").Pool, rules: object, attemptLimit?: number }} options
  */
-export function mountApi(app, { db, rules, attemptLimit = 30, autoEvents = true }) {
+export function mountApi(app, { db, rules, attemptLimit = 30, autoEvents = true, fetcher = globalThis.fetch }) {
   const trackRules = {
     holdSeconds: rules.day.speedHoldSeconds,
     reversal: rules.track.reversalMeters,
@@ -1625,7 +1626,18 @@ export function mountApi(app, { db, rules, attemptLimit = 30, autoEvents = true 
     // Мои пройденные трассы за день: «Мой день» подписывает ими спуски.
     const mine = await dayStats(req.me.id, date, cup);
     const names = new Map(trails.map((trail) => [trail.number, trail.name]));
-    res.json({ ...day, myTrails: mine.trailRuns.map((run) => ({ ...run, name: names.get(run.number) ?? "" })) });
+    // Кто сегодня катается вне кубка (например, в Åre): видно его день, но очков недели он не получает.
+    const elsewhere = [];
+    if (cup.geofence) {
+      for (const person of people) {
+        const season = await seasonDayStats(person.id, date, cup);
+        for (const place of season.places) {
+          if (place.resort.startsWith("idre-") || place.resort === "other") continue;
+          elsewhere.push({ id: person.id, name: person.name, resort: resortInfo.get(place.resort)?.name ?? place.resort, vertical: place.vertical, runs: place.runs, topSpeed: place.topSpeed });
+        }
+      }
+    }
+    res.json({ ...day, elsewhere, myTrails: mine.trailRuns.map((run) => ({ ...run, name: names.get(run.number) ?? "" })) });
   });
 
   // --- Общий зачёт: сумма очков по дням кубка. Пока даты не заданы, в зачёт идут все дни с треками.
@@ -1768,6 +1780,95 @@ export function mountApi(app, { db, rules, attemptLimit = 30, autoEvents = true 
       lifts: resort.lifts ?? [],
     });
   });
+
+  // --- Условия на курорте: лифты, трассы, часы работы, погода, снег, прогноз.
+  // Сайты курортов и MET Norway читаются не чаще refreshMinutes / forecastMinutes; ответ кешируется.
+  const conditionsConfig = JSON.parse(readFileSync(new URL("../config/conditions.json", import.meta.url), "utf8"));
+  const conditionsCache = new Map();
+  const USER_AGENT = "idre-cup/0.1 (+https://github.com/iDemonter/idre-cup)";
+
+  async function cached(key, minutes, load) {
+    const hit = conditionsCache.get(key);
+    if (hit && Date.now() - hit.at < minutes * 60_000) return hit.value;
+    if (hit?.pending) return hit.value;
+    const entry = { at: hit?.at ?? 0, value: hit?.value ?? null, pending: true };
+    conditionsCache.set(key, entry);
+    try {
+      const value = await load();
+      conditionsCache.set(key, { at: Date.now(), value });
+      return value;
+    } catch (error) {
+      console.error(`условия ${key}: ${error.message}`);
+      // Сайт не ответил: отдаём прошлое значение, следующая попытка через минуту.
+      conditionsCache.set(key, { at: Date.now() - (minutes - 1) * 60_000, value: entry.value });
+      return entry.value;
+    }
+  }
+
+  async function getText(url) {
+    const response = await fetcher(url, { headers: { "user-agent": USER_AGENT, accept: "text/html" }, signal: AbortSignal.timeout(15_000) });
+    if (!response.ok) throw new Error(`${url}: ${response.status}`);
+    return response.text();
+  }
+
+  async function resortStatus(resortId) {
+    const source = conditionsConfig.sources.find((item) => item.resort === resortId);
+    if (!source) return null;
+    return cached(`status|${resortId}`, conditionsConfig.refreshMinutes, async () => {
+      if (source.kind === "idre") return { ...parseIdre(htmlLines(await getText(source.url))), source: source.url, fetchedAt: new Date().toISOString() };
+      const parts = [];
+      for (const url of source.urls) parts.push(parseSkistar(htmlLines(await getText(url))));
+      return { ...mergeSkistar(parts), source: source.urls[0].replace(/[^/]+\/SimpleView\/$/, ""), fetchedAt: new Date().toISOString() };
+    });
+  }
+
+  async function resortForecast(resort, timezone) {
+    const lat = resort.lat.toFixed(3);
+    const lon = resort.lon.toFixed(3);
+    const json = await cached(`forecast|${lat}|${lon}`, conditionsConfig.forecastMinutes, async () => {
+      const response = await fetcher(`https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=${lat}&lon=${lon}`, {
+        headers: { "user-agent": USER_AGENT, accept: "application/json" },
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (!response.ok) throw new Error(`met.no: ${response.status}`);
+      return response.json();
+    });
+    return json ? summarizeForecast(json, timezone) : null;
+  }
+
+  app.get("/v1/conditions", auth, async (req, res) => {
+    const cup = await loadCup(req.me.cup_id);
+    const lat = Number(req.query.lat);
+    const lon = Number(req.query.lon);
+    // Курорт: явно указанный, иначе тот, где сейчас телефон (с запасом в два радиуса), иначе Idre Fjäll.
+    let resort = typeof req.query.resort === "string" ? resortInfo.get(req.query.resort) : null;
+    if (!resort && Number.isFinite(lat) && Number.isFinite(lon)) {
+      const wide = resorts.map((item) => ({ ...item, radiusKm: item.radiusKm * 2 }));
+      resort = resortInfo.get(resortOf(wide, { lat, lon })?.id) ?? null;
+    }
+    resort ??= resortInfo.get("idre-fjall");
+    const [status, forecast] = await Promise.all([
+      resortStatus(resort.id).catch(() => null),
+      resortForecast(resort, cup.timezone).catch(() => null),
+    ]);
+    const weekday = new Date(new Date().toLocaleString("en-US", { timeZone: cup.timezone })).getDay();
+    res.json({
+      resort: { id: resort.id, name: resort.name, region: resort.region },
+      status: status
+        ? {
+            ...status,
+            closes: closingTime(status, weekday),
+            liftList: (status.liftList ?? []).map((lift) => ({ ...lift, today: lift.hours ? hoursToday(lift.hours, weekday) : null })),
+          }
+        : null,
+      forecast,
+    });
+  });
+
+  function hoursToday(list, weekday) {
+    const found = list.find((hours) => hours.days?.includes(weekday)) ?? list.find((hours) => !hours.days);
+    return found ? { opens: found.opens, closes: found.closes } : null;
+  }
 
   // --- Где сейчас участники: последняя точка каждого за 15 минут.
   app.get("/v1/live", auth, async (req, res) => {
