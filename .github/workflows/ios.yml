@@ -115,7 +115,7 @@ jobs:
           cat server.log | tail -5
 
       - name: Снимки экрана в симуляторе
-        timeout-minutes: 16
+        timeout-minutes: 26
         run: |
           APP=build/Build/Products/Debug-iphonesimulator/IdreCup.app
           DEVICE=$(xcrun simctl list devices available -j | python3 -c "
@@ -172,6 +172,7 @@ jobs:
             limit 60 xcrun simctl openurl "$DEVICE" "$SERVER/tv/$CODE" || true
             sleep 6
             limit 60 xcrun simctl io "$DEVICE" screenshot shots/quiz-tv.png || true
+            limit 60 xcrun simctl terminate "$DEVICE" com.apple.mobilesafari || true
             shoot duels-new 12 -section duels -newDuel YES -serverURL $SERVER -token "$TOKEN"
             shoot model-trail 25 -look Модель -preset Nord -selectTrail 28 -serverURL $SERVER -token "$TOKEN"
             shoot model-friends 25 -look Модель -preset Ost -serverURL $SERVER -token "$TOKEN"
