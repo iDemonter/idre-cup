@@ -306,6 +306,19 @@ final class Session: ObservableObject {
         return try? await api.send("GET", "/v1/season")
     }
 
+    // Курорты сезона для карты (OtherResorts.swift).
+    func resorts() async -> [ResortSummary] {
+        guard let api, phase == .signedIn else { return [] }
+        let reply: ResortList? = try? await api.send("GET", "/v1/resorts")
+        return reply?.resorts ?? []
+    }
+
+    func resort(_ id: String) async -> ResortDetail? {
+        guard let api, phase == .signedIn else { return nil }
+        let path = "/v1/resorts/" + (id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? id)
+        return try? await api.send("GET", path)
+    }
+
     // MARK: - Вечер
 
     func ceremony() async -> Ceremony? {

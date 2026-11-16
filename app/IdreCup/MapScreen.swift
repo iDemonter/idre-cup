@@ -19,6 +19,9 @@ struct MapScreen: View {
     @State private var look: MapLook
     @State private var modelCamera: ModelCamera
     @State private var activePreset: String?
+    /// Курорты сезона вне Idre и открытый сейчас из них (рисуется поверх Apple Maps).
+    @State private var otherResorts: [ResortSummary] = []
+    @State private var otherResort: ResortDetail?
     @State private var distance: Double = MapScreen.overviewDistance
     @State private var selectedID: Int?
     /// Выбранное на модели место: ресторан, прокат, ски-центр.
@@ -251,6 +254,31 @@ struct MapScreen: View {
                     .stroke(Color.white.opacity(0.75), style: StrokeStyle(lineWidth: 1.5, lineCap: .round, dash: [5, 5]))
             }
 
+            if let other = otherResort {
+                ForEach(other.lifts) { lift in
+                    MapPolyline(coordinates: lift.coordinates)
+                        .stroke(Color.white.opacity(0.75), style: StrokeStyle(lineWidth: 1.5, lineCap: .round, dash: [5, 5]))
+                }
+                ForEach(other.trails) { trail in
+                    MapPolyline(coordinates: trail.coordinates)
+                        .stroke(Color.white.opacity(0.9), style: StrokeStyle(lineWidth: 6, lineCap: .round, lineJoin: .round))
+                }
+                ForEach(other.trails) { trail in
+                    MapPolyline(coordinates: trail.coordinates)
+                        .stroke(trail.color, style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
+                }
+                ForEach(other.trails.filter { $0.label != nil }) { trail in
+                    Annotation("", coordinate: trail.mid) {
+                        Text(trail.label ?? "")
+                            .font(Theme.caption(10))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 2)
+                            .background(trail.color, in: Capsule())
+                    }
+                }
+            }
+
             ForEach(selectedSegments) { piste in
                 MapPolyline(coordinates: piste.coordinates)
                     .stroke(Theme.accent.opacity(0.7), style: StrokeStyle(lineWidth: 14, lineCap: .round, lineJoin: .round))
@@ -437,6 +465,7 @@ struct MapScreen: View {
                     presetChip(MapScreen.areaName, model: MapScreen.modelArea) {
                         MapScreen.areaCamera(for: data)
                     }
+                    otherResortsChip
                 }
                 .padding(.horizontal, 20)
             }
@@ -667,6 +696,48 @@ struct MapScreen: View {
         if piste.lit { parts.append("освещена") }
         if piste.isApproximate { parts.append("линия примерная") }
         return parts.joined(separator: " · ")
+    }
+
+    /// «Другие курорты»: Åre, Vemdalen, горки Стокгольма. Открываются на Apple Maps с трассами из OpenStreetMap.
+    @ViewBuilder
+    private var otherResortsChip: some View {
+        let list = otherResorts.filter { !$0.isIdre }
+        let isActive = otherResort != nil && activePreset == otherResort?.name
+        Menu {
+            ForEach(Dictionary(grouping: list, by: \.region).keys.sorted(), id: \.self) { region in
+                Section(region) {
+                    ForEach(list.filter { $0.region == region }.sorted { $0.trails > $1.trails }) { resort in
+                        Button("\(resort.name) · \(resort.trails) \(Format.plural(resort.trails, "трасса", "трассы", "трасс"))") {
+                            Task { await openResort(resort) }
+                        }
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Text(isActive ? (otherResort?.name ?? "") : "Другие курорты")
+                Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold))
+            }
+            .font(Theme.caption())
+            .foregroundStyle(isActive ? Theme.onAccent : Theme.textSecondary)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(isActive ? Theme.accent : Theme.raised, in: Capsule())
+        }
+        .task(id: session.phase == .signedIn) {
+            if otherResorts.isEmpty { otherResorts = await session.resorts() }
+        }
+    }
+
+    private func openResort(_ summary: ResortSummary) async {
+        guard let detail = await session.resort(summary.id) else { return }
+        otherResort = detail
+        activePreset = detail.name
+        // Своей 3D-модели у других курортов нет: показываем их на Apple Maps.
+        if look == .model { look = .hybrid }
+        withAnimation(.easeInOut(duration: 1.2)) {
+            position = .camera(detail.camera)
+        }
     }
 
     private func presetChip(_ name: String, model: ModelCamera, camera: @escaping () -> MapCamera) -> some View {
