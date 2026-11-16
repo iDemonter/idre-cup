@@ -1,0 +1,49 @@
+name: Курорты
+
+# Каталог курортов для зачёта сезона: скачивает районы из tools/resort_regions.json из OpenStreetMap,
+# собирает server/config/resorts.json и запускает проверку «Сервер» для нового коммита
+# (коммит от github-actions сам проверки не запускает, а автообновление на Hermes её ждёт).
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "tools/resorts.py"
+      - "tools/resort_regions.json"
+      - ".github/workflows/resorts.yml"
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: resorts
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    name: Скачать курорты
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Скачать и собрать
+        run: python3 tools/resorts.py --fetch
+
+      - name: Сохранить в репозиторий
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/osm-resorts server/config/resorts.json
+          if git diff --cached --quiet; then
+            echo "Данные не изменились"
+          else
+            git commit -m "Курорты сезона из OpenStreetMap"
+            git pull --rebase
+            git push
+            gh workflow run server.yml --ref main
+          fi
