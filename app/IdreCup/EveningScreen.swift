@@ -2,7 +2,11 @@ import SwiftUI
 
 /// «Вечер»: итоги дня (церемония) и игра «Реакция». Очки игры идут в сегодняшний день.
 struct EveningScreen: View {
+    let data: PisteData
+    let terrain: TerrainData?
     @EnvironmentObject private var session: Session
+    /// Повтор дня на модели. Для снимков экрана: -replay YES.
+    @State private var showsReplay = UserDefaults.standard.bool(forKey: "replay")
     @State private var ceremony: Ceremony?
     @State private var games: GamesReply?
     @State private var didLoad = false
@@ -16,6 +20,9 @@ struct EveningScreen: View {
                 if session.phase != .signedIn {
                     note("Вечер идёт внутри кубка. Войдите в кубок в разделе «Рейтинг».")
                 } else {
+                    if terrain != nil {
+                        replayButton
+                    }
                     gameCard
                     if let ceremony {
                         ceremonyCards(ceremony)
@@ -36,6 +43,12 @@ struct EveningScreen: View {
             while !Task.isCancelled {
                 await load()
                 try? await Task.sleep(for: .seconds(10))
+            }
+        }
+        .fullScreenCover(isPresented: $showsReplay) {
+            if let terrain {
+                ReplayView(data: data, terrain: terrain)
+                    .environmentObject(session)
             }
         }
         .fullScreenCover(item: $playing) { game in
@@ -77,6 +90,30 @@ struct EveningScreen: View {
     private var overline: String {
         if let number = ceremony?.dayNumber { return "ИТОГИ ДНЯ \(number)" }
         return "ИТОГИ ДНЯ И ИГРЫ"
+    }
+
+    private var replayButton: some View {
+        Button {
+            showsReplay = true
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "play.rectangle.fill")
+                    .font(.system(size: 24, weight: .bold))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Повтор дня на карте")
+                        .font(Theme.headline(17))
+                    Text("Все треки за день одновременно, час за минуту")
+                        .font(Theme.caption())
+                        .opacity(0.8)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+            }
+            .foregroundStyle(Theme.onAccent)
+            .padding(16)
+            .background(Theme.accent, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - «Реакция»

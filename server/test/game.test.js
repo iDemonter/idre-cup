@@ -532,6 +532,11 @@ test("вечер: «Реакция» и итоги дня", options, async () =>
   assert.equal(ceremony.crowns[0].from, null);
   assert.equal(ceremony.games.length, 1);
   assert.ok(ceremony.standings.length === 2);
+
+  const replay = (await call("GET", "/v1/replay", { token: oleg.token })).body;
+  assert.equal(replay.tracks.length, 2);
+  const steps = replay.tracks[0].points.slice(1).map((point, index) => point[0] - replay.tracks[0].points[index][0]);
+  assert.ok(steps.every((step) => step >= 1 && step <= 10), "точка раз в ~5 секунд");
 });
 
 test("территория: трек вдали от курорта в зачёт не идёт, пока её не выключить", options, async () => {

@@ -284,6 +284,18 @@ struct GameReply: Decodable {
     let game: ReactionGame
 }
 
+/// Треки всех за день для повтора на модели. Точка: [секунды с 1970, широта, долгота], раз в 5 секунд.
+struct ReplayReply: Decodable {
+    struct Track: Decodable, Identifiable {
+        let id: String
+        let name: String
+        let points: [[Double]]
+    }
+
+    let date: String
+    let tracks: [Track]
+}
+
 /// Итоги дня для вечерней церемонии.
 struct Ceremony: Decodable {
     struct Best: Decodable {

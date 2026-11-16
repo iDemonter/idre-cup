@@ -308,6 +308,11 @@ final class Session: ObservableObject {
         return try? await api.send("GET", "/v1/ceremony")
     }
 
+    func replay() async -> ReplayReply? {
+        guard let api, phase == .signedIn else { return nil }
+        return try? await api.send("GET", "/v1/replay")
+    }
+
     func games() async -> GamesReply? {
         guard let api, phase == .signedIn else { return nil }
         return try? await api.send("GET", "/v1/games")

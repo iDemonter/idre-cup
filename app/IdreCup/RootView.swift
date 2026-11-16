@@ -64,7 +64,7 @@ struct RootView: View {
                 DuelsScreen()
             }
             if section == .evening {
-                EveningScreen()
+                EveningScreen(data: data, terrain: terrain)
             }
             if UserDefaults.standard.bool(forKey: "livePreview") {
                 LivePreview()

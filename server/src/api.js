@@ -1226,6 +1226,29 @@ export function mountApi(app, { db, rules, attemptLimit = 30, autoEvents = true 
     return points;
   }
 
+  // --- Повтор дня: треки всех участников, по точке раз в 5 секунд (для анимации на 3D-модели).
+  app.get("/v1/replay", auth, async (req, res) => {
+    const cup = await loadCup(req.me.cup_id);
+    const people = await loadPeople(cup.id);
+    const date = cleanDate(req.query.date) ?? (await today(cup));
+    const range = `ts >= ($2::date::timestamp at time zone $3) and ts < (($2::date + 1)::timestamp at time zone $3)`;
+    const tracks = [];
+    for (const person of people) {
+      // Первая точка каждого 5-секундного окна.
+      const found = await db.query(
+        `select distinct on (floor(extract(epoch from ts) / 5)) extract(epoch from ts)::float8 as t, lat, lon
+         from track_points where participant_id = $1 and ${range}
+         order by floor(extract(epoch from ts) / 5), ts`,
+        [person.id, date, cup.timezone],
+      );
+      const points = (cup.geofence ? found.rows.filter((point) => meters(resort, point) <= rules.resort.radiusKm * 1000) : found.rows).map(
+        (point) => [Math.round(point.t), Math.round(point.lat * 1e6) / 1e6, Math.round(point.lon * 1e6) / 1e6],
+      );
+      if (points.length > 0) tracks.push({ id: person.id, name: person.name, points });
+    }
+    res.json({ date, tracks });
+  });
+
   // --- Итоги дня для вечерней церемонии.
   app.get("/v1/ceremony", auth, async (req, res) => {
     const cup = await loadCup(req.me.cup_id);
