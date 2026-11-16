@@ -56,7 +56,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             -quiet 2>&1 | tee build.log || {
               grep -E 'error:' build.log | sort -u | head -40 \
-                | sed -E "s#^$PWD/##; s#^([^:]+):([0-9]+):([0-9]+): error: (.*)\$#::error file=\1,line=\2::\4#; t; s#^#::error::#"
+                | sed -E -e "s#^$PWD/##" -e "s#^([^:]+):([0-9]+):([0-9]+): error: (.*)\$#::error file=\1,line=\2::\4#" -e t -e "s#^#::error::#"
               exit 1
             }
 

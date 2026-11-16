@@ -1,4 +1,5 @@
 import CoreLocation
+import MapKit
 import SwiftUI
 
 /// Курорты сезона (Åre, Vemdalen, горки Стокгольма): список с сервера, трассы и подъёмники из OpenStreetMap.
