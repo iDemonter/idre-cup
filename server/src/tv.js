@@ -18,7 +18,8 @@ export const TV_PAGE = `<!doctype html>
   h1 { margin:0; font-size:6.5vh; line-height:1.1; }
   .timer { font-size:7vh; font-weight:800; color:var(--accent); font-variant-numeric:tabular-nums; }
   main { flex:1; display:flex; gap:3vw; min-height:0; }
-  .stage { flex:3; display:flex; flex-direction:column; gap:3vh; justify-content:center; }
+  .stage { flex:3; display:flex; flex-direction:column; gap:3vh; justify-content:flex-start; overflow:hidden; min-width:0; }
+  .stage h1 { font-size:5.2vh; }
   .board { flex:1.2; background:var(--surface); border-radius:3vh; padding:3vh 2vw; overflow:hidden; }
   .board h2 { margin:0 0 2vh; font-size:2.4vh; color:var(--muted); letter-spacing:.12em; }
   .row { display:flex; justify-content:space-between; font-size:3.4vh; padding:1vh 0; border-bottom:1px solid var(--raised); }
