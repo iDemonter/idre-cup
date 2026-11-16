@@ -3,10 +3,12 @@
 // В базе лежит только хеш токена.
 
 import { createHash, randomBytes, randomInt } from "node:crypto";
+import { readFileSync } from "node:fs";
 import express from "express";
 import { analyze, meters } from "./analyzer.js";
 import { scoreDay } from "./scoring.js";
 import { loadTrails, matchRun, toMeters } from "./trails.js";
+import { TV_PAGE } from "./tv.js";
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // без похожих O/0 и I/1
 const MAX_BATCH = 5000;
@@ -1120,15 +1122,110 @@ export function mountApi(app, { db, rules, attemptLimit = 30, autoEvents = true 
   // --- Вечерние игры. «Реакция»: несколько раундов «жди зелёного — жми», время меряет каждый телефон сам.
   const reaction = rules.evening.reaction;
   const GAME_COLUMNS = `id, cup_id, to_char(day, 'YYYY-MM-DD') as day, kind, status,
-    extract(epoch from created_at)::float8 as created_at, extract(epoch from closes_at)::float8 as closes_at, delays, entries, results`;
+    extract(epoch from created_at)::float8 as created_at, extract(epoch from closes_at)::float8 as closes_at, delays, entries, results,
+    questions, answers`;
+  const quizRules = rules.evening.quiz;
+  const quizPool = JSON.parse(readFileSync(new URL("../config/quiz.json", import.meta.url), "utf8")).questions;
+  const shuffle = (items) => {
+    const copy = [...items];
+    for (let index = copy.length - 1; index > 0; index -= 1) {
+      const other = randomInt(index + 1);
+      [copy[index], copy[other]] = [copy[other], copy[index]];
+    }
+    return copy;
+  };
+  /** Вопрос с перемешанными вариантами: первый в options правильный. */
+  const makeQuestion = (text, options) => {
+    const unique = [...new Set(options.map(String))].slice(0, 4);
+    const order = shuffle(unique.map((option, index) => ({ option, index })));
+    return { text, options: order.map((item) => item.option), correct: order.findIndex((item) => item.index === 0) };
+  };
 
-  /** Место по средней (меньше лучше), очки 6/4/2/1. Кто не сыграл, без места. */
+  /** Вопросы про сегодняшний день: кто быстрее, сколько спусков, чьи короны. Только если данных хватает. */
+  async function dayQuestions(cup, people, date) {
+    const day = await scoredDay(cup, people, date);
+    const riders = day.rows.filter((row) => row.runs > 0);
+    const names = people.map((person) => person.name);
+    const others = (right) => shuffle(names.filter((name) => name !== right)).slice(0, 3);
+    const questions = [];
+    if (riders.length >= 2 && names.length >= 2) {
+      const fastest = riders.reduce((a, b) => (b.topSpeed > a.topSpeed ? b : a));
+      questions.push(makeQuestion("Кто сегодня был быстрее всех?", [fastest.name, ...others(fastest.name)]));
+      const kmh = Math.round(fastest.topSpeed * 3.6);
+      questions.push(makeQuestion(`Какую максимальную скорость сегодня показал ${fastest.name}?`, [kmh, kmh - 9, kmh + 8, kmh + 17].map((value) => `${value} км/ч`)));
+      const most = riders.reduce((a, b) => (b.runs > a.runs ? b : a));
+      if (riders.filter((row) => row.runs === most.runs).length === 1) {
+        questions.push(makeQuestion("Кто сделал больше всех спусков сегодня?", [most.name, ...others(most.name)]));
+      }
+      const climber = riders[randomInt(riders.length)];
+      const vertical = Math.max(10, Math.round(climber.vertical / 10) * 10);
+      questions.push(makeQuestion(`Сколько метров перепада сегодня у ${climber.name}?`, [vertical, Math.round(vertical * 0.6 / 10) * 10, Math.round(vertical * 1.4 / 10) * 10, Math.round(vertical * 1.9 / 10) * 10].map((value) => `${value} м`)));
+    }
+    const before = await bestTimes(cup, people, addDays(date, -1));
+    const after = await bestTimes(cup, people, date);
+    const personName = new Map(people.map((person) => [person.id, person.name]));
+    for (const trail of shuffle(trails)) {
+      const now = after.holders.get(trail.number);
+      if (!now || now.id === before.holders.get(trail.number)?.id || names.length < 2) continue;
+      const holder = personName.get(now.id);
+      questions.push(makeQuestion(`Кто сегодня забрал корону трассы ${trail.number} ${trail.name}?`, [holder, ...others(holder)]));
+      break;
+    }
+    return shuffle(questions.filter((question) => question.options.length >= 2)).slice(0, quizRules.dayQuestions);
+  }
+
+  /** Что сейчас идёт в викторине: вступление, вопрос (index) или показ ответа. Всё по часам сервера. */
+  function quizPhase(game, now) {
+    const count = game.questions.length;
+    const round = quizRules.questionSeconds + quizRules.revealSeconds;
+    const elapsed = now - game.created_at - quizRules.introSeconds;
+    if (elapsed < 0) return { phase: "intro", index: -1, left: -elapsed };
+    const index = Math.floor(elapsed / round);
+    if (index >= count) return { phase: "finished", index: count, left: 0 };
+    const within = elapsed - index * round;
+    if (within < quizRules.questionSeconds) return { phase: "question", index, left: quizRules.questionSeconds - within, within };
+    return { phase: "reveal", index, left: round - within };
+  }
+
+  /** Очки викторины по ответам: сумма за все вопросы. */
+  function quizTotals(game, names) {
+    return Object.entries(game.answers ?? {}).map(([id, given]) => ({
+      id,
+      name: names.get(id) ?? "?",
+      score: Object.values(given).reduce((sum, answer) => sum + (answer.points ?? 0), 0),
+    }));
+  }
+
+  /** Состояние викторины для телефонов и телевизора. me = null для телевизора. */
+  function quizState(game, names, now, me) {
+    const step = quizPhase(game, now);
+    const question = game.questions[step.index];
+    const state = { phase: step.phase, index: step.index, count: game.questions.length, left: Math.max(0, Math.round(step.left)) };
+    if (question && (step.phase === "question" || step.phase === "reveal")) {
+      state.question = { text: question.text, options: question.options };
+      const given = Object.entries(game.answers ?? {}).map(([id, answers]) => ({ id, answer: answers[String(step.index)] })).filter((item) => item.answer);
+      state.answered = given.length;
+      if (step.phase === "reveal") {
+        state.correct = question.correct;
+        state.counts = question.options.map((_, index) => given.filter((item) => item.answer.choice === index).length);
+      }
+      if (me) state.mine = game.answers?.[me]?.[String(step.index)] ?? null;
+    }
+    state.scores = quizTotals(game, names).sort((a, b) => b.score - a.score);
+    return state;
+  }
+
+  /** Места и очки 6/4/2/1. «Реакция»: меньше среднее лучше; викторина: больше очков лучше. Кто не сыграл, без места. */
   function gameResults(game, names) {
-    const rows = Object.entries(game.entries ?? {}).map(([id, entry]) => ({ id, name: names.get(id) ?? "?", score: entry.score, times: entry.times }));
-    rows.sort((a, b) => a.score - b.score);
+    const isQuiz = game.kind === "quiz";
+    const rows = isQuiz
+      ? quizTotals(game, names).map((row) => ({ ...row, times: [] }))
+      : Object.entries(game.entries ?? {}).map(([id, entry]) => ({ id, name: names.get(id) ?? "?", score: entry.score, times: entry.times }));
+    const better = (a, b) => (isQuiz ? b.score - a.score : a.score - b.score);
+    rows.sort(better);
     let place = 0;
     rows.forEach((row, index) => {
-      if (index === 0 || row.score > rows[index - 1].score) place = index + 1;
+      if (index === 0 || better(rows[index - 1], row) !== 0) place = index + 1;
       row.place = place;
       row.points = rules.evening.gamePoints[place - 1] ?? 0;
     });
@@ -1140,8 +1237,10 @@ export function mountApi(app, { db, rules, attemptLimit = 30, autoEvents = true 
     const names = new Map(people.map((person) => [person.id, person.name]));
     for (const game of open.rows) {
       const played = Object.keys(game.entries ?? {}).filter((id) => names.has(id)).length;
-      const due = (await serverNow()) >= game.closes_at;
-      if (!due && played < people.length) continue;
+      const now = await serverNow();
+      const due = game.kind === "quiz" ? quizPhase(game, now).phase === "finished" : now >= game.closes_at;
+      // Викторина идёт до последнего вопроса, «Реакция» — пока не сыграют все или не выйдет время.
+      if (!due && (game.kind === "quiz" || played < people.length)) continue;
       await db.query("update games set status = 'finished', results = $2 where id = $1 and status = 'open'", [
         game.id,
         JSON.stringify(gameResults(game, names)),
@@ -1149,7 +1248,22 @@ export function mountApi(app, { db, rules, attemptLimit = 30, autoEvents = true 
     }
   }
 
-  function gameJson(game, names, me) {
+  function gameJson(game, names, me, now = Date.now() / 1000) {
+    if (game.kind === "quiz") {
+      return {
+        id: game.id,
+        kind: game.kind,
+        status: game.status,
+        day: game.day,
+        closesAt: game.closes_at,
+        delays: [],
+        falseStartMs: 0,
+        played: [],
+        mine: null,
+        results: game.status === "finished" ? game.results : gameResults(game, names),
+        quiz: quizState(game, names, now, me),
+      };
+    }
     return {
       id: game.id,
       kind: game.kind,
@@ -1171,10 +1285,11 @@ export function mountApi(app, { db, rules, attemptLimit = 30, autoEvents = true 
     await refreshGames(cup, people);
     const names = new Map(people.map((person) => [person.id, person.name]));
     const found = await db.query(`select ${GAME_COLUMNS} from games where cup_id = $1 order by created_at desc limit 10`, [cup.id]);
-    res.json({ now: await serverNow(), games: found.rows.map((game) => gameJson(game, names, req.me.id)) });
+    const now = await serverNow();
+    res.json({ now, tv: `/tv/${cup.invite_code}`, games: found.rows.map((game) => gameJson(game, names, req.me.id, now)) });
   });
 
-  // --- Начать «Реакцию» (админ). Очки идут в сегодняшний день.
+  // --- Начать игру (админ): «Реакцию» или викторину ({kind: "quiz"}). Очки идут в сегодняшний день.
   app.post("/v1/games", auth, async (req, res) => {
     adminOnly(req);
     const cup = await loadCup(req.me.cup_id);
@@ -1182,6 +1297,20 @@ export function mountApi(app, { db, rules, attemptLimit = 30, autoEvents = true 
     await refreshGames(cup, people);
     const running = await db.query("select 1 from games where cup_id = $1 and status = 'open'", [cup.id]);
     if (running.rows.length > 0) throw new ApiError(409, "game_busy", "Одна игра уже идёт");
+    if (req.body?.kind === "quiz") {
+      const date = await today(cup);
+      const general = shuffle(quizPool).slice(0, quizRules.generalQuestions).map((item) => makeQuestion(item.text, item.options));
+      const questions = shuffle([...general, ...(await dayQuestions(cup, people, date))]);
+      const seconds = quizRules.introSeconds + questions.length * (quizRules.questionSeconds + quizRules.revealSeconds);
+      const created = await db.query(
+        `insert into games (cup_id, day, kind, closes_at, delays, questions)
+         values ($1, $2::date, 'quiz', now() + make_interval(secs => $3), '[]', $4) returning ${GAME_COLUMNS}`,
+        [cup.id, date, seconds, JSON.stringify(questions)],
+      );
+      const names = new Map(people.map((person) => [person.id, person.name]));
+      res.status(201).json({ game: gameJson(created.rows[0], names, req.me.id, await serverNow()) });
+      return;
+    }
     const delays = Array.from({ length: reaction.rounds }, () => reaction.minDelayMs + randomInt(reaction.maxDelayMs - reaction.minDelayMs + 1));
     const created = await db.query(
       `insert into games (cup_id, day, kind, closes_at, delays)
@@ -1214,6 +1343,52 @@ export function mountApi(app, { db, rules, attemptLimit = 30, autoEvents = true 
     const names = new Map(people.map((person) => [person.id, person.name]));
     const game = await db.query(`select ${GAME_COLUMNS} from games where id = $1`, [id]);
     res.json({ game: gameJson(game.rows[0], names, req.me.id) });
+  });
+
+  // --- Ответ на вопрос викторины: {question, choice}. Быстрый правильный ответ стоит до 1000 очков.
+  app.post("/v1/games/:game/answer", auth, async (req, res) => {
+    const id = req.params.game;
+    if (!isUuid(id)) throw new ApiError(404, "no_game", "Такой игры нет");
+    const cup = await loadCup(req.me.cup_id);
+    const found = await db.query(`select ${GAME_COLUMNS} from games where id = $1 and cup_id = $2 and kind = 'quiz'`, [id, cup.id]);
+    const game = found.rows[0];
+    if (!game) throw new ApiError(404, "no_game", "Такой игры нет");
+    const { question, choice } = req.body ?? {};
+    const step = quizPhase(game, await serverNow());
+    if (step.phase !== "question" || step.index !== question) throw new ApiError(409, "quiz_closed", "Время на этот вопрос вышло");
+    if (!Number.isInteger(choice) || choice < 0 || choice >= game.questions[question].options.length) throw new ApiError(400, "bad_answer", "Нет такого варианта");
+    const ms = Math.round(step.within * 1000);
+    const right = choice === game.questions[question].correct;
+    const points = right ? Math.round(500 + 500 * (1 - step.within / quizRules.questionSeconds)) : 0;
+    const updated = await db.query(
+      `update games set answers = jsonb_set(answers, array[$2::text], coalesce(answers -> $2::text, '{}') || jsonb_build_object($3::text, $4::jsonb))
+       where id = $1 and status = 'open' and not coalesce(answers -> $2::text ? $3::text, false) returning id`,
+      [id, req.me.id, String(question), JSON.stringify({ choice, ms, points })],
+    );
+    if (updated.rows.length === 0) throw new ApiError(409, "quiz_answered", "Ответ на этот вопрос уже принят");
+    res.json({ ok: true });
+  });
+
+  // --- Экран для телевизора: страница по коду кубка, без входа. Показывает вопросы и счёт викторины.
+  app.get("/tv/:code", (req, res) => {
+    res.type("html").send(TV_PAGE);
+  });
+
+  app.get("/tv/:code/state", async (req, res) => {
+    const found = await db.query("select id from cups where invite_code = $1", [String(req.params.code).toUpperCase()]);
+    if (found.rows.length === 0) throw new ApiError(404, "no_cup", "Нет кубка с таким кодом");
+    const cup = await loadCup(found.rows[0].id);
+    const people = await loadPeople(cup.id);
+    await refreshGames(cup, people);
+    const names = new Map(people.map((person) => [person.id, person.name]));
+    const games = await db.query(`select ${GAME_COLUMNS} from games where cup_id = $1 and kind = 'quiz' order by created_at desc limit 1`, [cup.id]);
+    const now = await serverNow();
+    const game = games.rows[0];
+    res.json({
+      cup: cup.name,
+      people: people.map((person) => person.name),
+      quiz: game ? { status: game.status, ...quizState(game, names, now, null), results: game.status === "finished" ? game.results : null } : null,
+    });
   });
 
   /** Очки вечерних игр за день. */

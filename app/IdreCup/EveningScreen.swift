@@ -23,6 +23,7 @@ struct EveningScreen: View {
                     if terrain != nil {
                         replayButton
                     }
+                    quizCard
                     gameCard
                     if let ceremony {
                         ceremonyCards(ceremony)
@@ -43,6 +44,13 @@ struct EveningScreen: View {
             while !Task.isCancelled {
                 await load()
                 try? await Task.sleep(for: .seconds(10))
+            }
+        }
+        // Во время викторины состояние нужно каждую секунду.
+        .task(id: games?.games.first { $0.kind == "quiz" && $0.status == "open" }?.id) {
+            while !Task.isCancelled, games?.games.contains(where: { $0.kind == "quiz" && $0.status == "open" }) == true {
+                try? await Task.sleep(for: .seconds(1))
+                if let value = await session.games() { games = value }
             }
         }
         .fullScreenCover(isPresented: $showsReplay) {
@@ -116,12 +124,181 @@ struct EveningScreen: View {
         .buttonStyle(.plain)
     }
 
+
+    // MARK: - Викторина
+
+    private static let optionColors: [Color] = [Theme.pisteRed, Theme.pisteBlue, Color(red: 1, green: 0.79, blue: 0.3), Theme.pisteGreen]
+    private static let letters = ["A", "B", "C", "D"]
+
+    @ViewBuilder
+    private var quizCard: some View {
+        let open = games?.games.first { $0.kind == "quiz" && $0.status == "open" }
+        let last = games?.games.first { $0.kind == "quiz" && $0.status == "finished" && $0.day == ceremony?.date }
+        let busy = games?.games.contains { $0.status == "open" } == true
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("ВИКТОРИНА")
+                    .font(Theme.overline())
+                    .foregroundStyle(Theme.textSecondary)
+                Spacer()
+                if let state = open?.quiz, state.phase != "intro" {
+                    Text("ВОПРОС \(min(state.index + 1, state.count)) ИЗ \(state.count)")
+                        .font(Theme.overline(10))
+                        .foregroundStyle(Theme.accent)
+                }
+            }
+            if let open, let state = open.quiz {
+                quizLive(open, state)
+            } else {
+                Text("Вопросы на телевизоре, ответы на телефонах. 6 общих вопросов про Idre, горы и лыжи и до 4 про ваш сегодняшний день. На каждый 20 секунд: чем быстрее правильный ответ, тем больше очков. Места дают 6, 4, 2 и 1 очко в сегодняшний день.")
+                    .font(Theme.caption())
+                    .foregroundStyle(Theme.textSecondary)
+                if let last {
+                    results(last.results, isQuiz: true)
+                }
+                if session.isAdmin {
+                    actionButton("Начать викторину", symbol: "play.fill") {
+                        Task {
+                            if !(await session.startGame(kind: "quiz")) {
+                                failure = session.problem
+                                session.problem = nil
+                            }
+                            await load()
+                        }
+                    }
+                    .disabled(busy)
+                    .opacity(busy ? 0.4 : 1)
+                }
+            }
+            if let path = games?.tv, let link = session.tvLink(path) {
+                HStack(spacing: 8) {
+                    Image(systemName: "tv")
+                    Text("На телевизоре: \(link.host ?? "")\(link.path)")
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                    Spacer(minLength: 4)
+                    ShareLink(item: link) {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                }
+                .font(Theme.caption())
+                .foregroundStyle(Theme.accent)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+    }
+
+    @ViewBuilder
+    private func quizLive(_ game: ReactionGame, _ state: QuizState) -> some View {
+        switch state.phase {
+        case "intro":
+            Text("Начинаем через \(state.left) с")
+                .font(Theme.title(28))
+                .foregroundStyle(Theme.textPrimary)
+            Text("Смотрите на телевизор, отвечайте здесь.")
+                .font(Theme.caption())
+                .foregroundStyle(Theme.textSecondary)
+        case "question", "reveal":
+            if let question = state.question {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(question.text)
+                        .font(Theme.headline(18))
+                        .foregroundStyle(Theme.textPrimary)
+                    Spacer(minLength: 8)
+                    if state.phase == "question" {
+                        Text("\(state.left)")
+                            .font(Theme.title(26))
+                            .foregroundStyle(Theme.accent)
+                            .monospacedDigit()
+                    }
+                }
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                    ForEach(Array(question.options.enumerated()), id: \.offset) { index, option in
+                        quizOption(game, state, index: index, text: option)
+                    }
+                }
+                Text(quizNote(state))
+                    .font(Theme.caption())
+                    .foregroundStyle(Theme.accent)
+            }
+        default:
+            Text("Считаем итоги…")
+                .font(Theme.caption())
+                .foregroundStyle(Theme.textSecondary)
+        }
+        if !state.scores.isEmpty {
+            VStack(spacing: 4) {
+                ForEach(Array(state.scores.prefix(5).enumerated()), id: \.offset) { place, row in
+                    HStack {
+                        Text("\(place + 1). \(row.name)")
+                            .foregroundStyle(row.id == session.me?.id ? Theme.accent : Theme.textPrimary)
+                        Spacer()
+                        Text("\(row.score)")
+                            .monospacedDigit()
+                            .foregroundStyle(Theme.textSecondary)
+                    }
+                    .font(Theme.caption(13))
+                }
+            }
+        }
+    }
+
+    private func quizOption(_ game: ReactionGame, _ state: QuizState, index: Int, text: String) -> some View {
+        let isReveal = state.phase == "reveal"
+        let picked = state.mine?.choice == index
+        let faded = (isReveal && index != state.correct) || (state.mine != nil && !picked && !isReveal)
+        return Button {
+            guard state.phase == "question", state.mine == nil else { return }
+            Task {
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                if !(await session.answerQuiz(game, question: state.index, choice: index)) {
+                    failure = session.problem
+                    session.problem = nil
+                }
+                if let value = await session.games() { games = value }
+            }
+        } label: {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(Self.letters[index])
+                    .font(Theme.overline(11))
+                    .opacity(0.8)
+                Text(text)
+                    .font(Theme.headline(15))
+                    .multilineTextAlignment(.leading)
+                    .lineLimit(3)
+                    .minimumScaleFactor(0.7)
+            }
+            .foregroundStyle(index == 2 ? Color.black : Color.white)
+            .frame(maxWidth: .infinity, minHeight: 78, alignment: .topLeading)
+            .padding(12)
+            .background(Self.optionColors[index], in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(Color.white, lineWidth: picked ? 3 : 0)
+            )
+            .opacity(faded ? 0.3 : 1)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func quizNote(_ state: QuizState) -> String {
+        if state.phase == "reveal" {
+            guard let mine = state.mine else { return "Ты не ответил на этот вопрос." }
+            return mine.points > 0 ? "Верно! +\(mine.points)" : "Мимо. Правильный ответ: \(Self.letters[state.correct ?? 0])"
+        }
+        if state.mine != nil { return "Ответ принят. Ждём остальных…" }
+        return "Ответили: \(state.answered ?? 0)"
+    }
+
     // MARK: - «Реакция»
 
     @ViewBuilder
     private var gameCard: some View {
-        let open = games?.games.first { $0.status == "open" }
-        let last = games?.games.first { $0.status == "finished" && $0.day == ceremony?.date }
+        let open = games?.games.first { $0.kind != "quiz" && $0.status == "open" }
+        let last = games?.games.first { $0.kind != "quiz" && $0.status == "finished" && $0.day == ceremony?.date }
+        let quizRunning = games?.games.contains { $0.kind == "quiz" && $0.status == "open" } == true
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text("ИГРА «РЕАКЦИЯ»")
@@ -158,7 +335,7 @@ struct EveningScreen: View {
                 if let last {
                     results(last.results)
                 }
-                if session.isAdmin {
+                if session.isAdmin && !quizRunning {
                     actionButton(last == nil ? "Начать игру для всех" : "Ещё одна игра", symbol: "play.fill") {
                         Task {
                             if !(await session.startGame()) {
@@ -181,7 +358,7 @@ struct EveningScreen: View {
     }
 
     @ViewBuilder
-    private func results(_ rows: [ReactionGame.Result]) -> some View {
+    private func results(_ rows: [ReactionGame.Result], isQuiz: Bool = false) -> some View {
         if !rows.isEmpty {
             VStack(spacing: 6) {
                 ForEach(rows) { row in
@@ -190,7 +367,7 @@ struct EveningScreen: View {
                             .font(Theme.headline(15))
                             .foregroundStyle(row.id == session.me?.id ? Theme.accent : Theme.textPrimary)
                         Spacer()
-                        Text(ms(row.score))
+                        Text(isQuiz ? "\(Int(row.score))" : ms(row.score))
                             .font(Theme.caption())
                             .foregroundStyle(Theme.textSecondary)
                             .monospacedDigit()

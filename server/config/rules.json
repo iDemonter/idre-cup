@@ -1,5 +1,5 @@
 {
-  "version": 6,
+  "version": 7,
   "maxParticipants": 8,
   "days": 6,
   "jokersPerWeek": 1,
@@ -97,6 +97,13 @@
       "maxDelayMs": 5000,
       "falseStartMs": 1000,
       "openMinutes": 5
+    },
+    "quiz": {
+      "generalQuestions": 6,
+      "dayQuestions": 4,
+      "introSeconds": 10,
+      "questionSeconds": 20,
+      "revealSeconds": 8
     }
   },
   "resort": {

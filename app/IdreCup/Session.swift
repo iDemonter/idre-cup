@@ -318,11 +318,25 @@ final class Session: ObservableObject {
         return try? await api.send("GET", "/v1/games")
     }
 
-    /// Начать «Реакцию» (только админ).
-    func startGame() async -> Bool {
-        await attempt { api in
-            let _: GameReply = try await api.send("POST", "/v1/games", body: [:])
+    /// Начать игру (только админ): «Реакцию» или викторину (kind = "quiz").
+    func startGame(kind: String? = nil) async -> Bool {
+        let body: [String: Any] = kind.map { ["kind": $0] } ?? [:]
+        return await attempt { api in
+            let _: GameReply = try await api.send("POST", "/v1/games", body: body)
         }
+    }
+
+    /// Ответ на вопрос викторины.
+    func answerQuiz(_ game: ReactionGame, question: Int, choice: Int) async -> Bool {
+        await attempt { api in
+            let _: [String: Bool] = try await api.send("POST", "/v1/games/\(game.id)/answer", body: ["question": question, "choice": choice])
+        }
+    }
+
+    /// Полный адрес страницы викторины для телевизора.
+    func tvLink(_ path: String) -> URL? {
+        guard let server = api?.base else { return nil }
+        return URL(string: path, relativeTo: server)?.absoluteURL
     }
 
     /// Мои времена в мс; nil за фальстарт.

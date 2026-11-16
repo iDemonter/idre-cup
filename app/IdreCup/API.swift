@@ -273,10 +273,46 @@ struct ReactionGame: Decodable, Identifiable {
     let played: [String]
     let mine: Mine?
     let results: [Result]
+    /// Состояние викторины (только у kind == "quiz").
+    let quiz: QuizState?
+}
+
+/// Викторина в данный момент. Фазы: intro, question, reveal, finished.
+struct QuizState: Decodable {
+    struct Question: Decodable {
+        let text: String
+        let options: [String]
+    }
+
+    struct Answer: Decodable {
+        let choice: Int
+        let ms: Double
+        let points: Int
+    }
+
+    struct Score: Decodable, Identifiable {
+        let id: String
+        let name: String
+        let score: Int
+    }
+
+    let phase: String
+    let index: Int
+    let count: Int
+    /// Сколько секунд осталось до следующей фазы.
+    let left: Int
+    let question: Question?
+    let answered: Int?
+    let correct: Int?
+    let counts: [Int]?
+    let mine: Answer?
+    let scores: [Score]
 }
 
 struct GamesReply: Decodable {
     let now: Double
+    /// Путь страницы для телевизора: /tv/<код кубка>.
+    let tv: String?
     let games: [ReactionGame]
 }
 

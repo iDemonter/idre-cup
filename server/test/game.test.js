@@ -533,6 +533,39 @@ test("вечер: «Реакция» и итоги дня", options, async () =>
   assert.equal(ceremony.games.length, 1);
   assert.ok(ceremony.standings.length === 2);
 
+  // Викторина: вопросы по часам сервера, быстрый правильный ответ дороже.
+  const quiz = await call("POST", "/v1/games", { token: ivan.token, body: { kind: "quiz" } });
+  assert.equal(quiz.status, 201);
+  const quizId = quiz.body.game.id;
+  assert.equal(quiz.body.game?.quiz?.phase, "intro", JSON.stringify(quiz.body).slice(0, 400));
+  const count = quiz.body.game.quiz.count;
+  assert.ok(count >= 6 && count <= 10, `вопросов ${count}`);
+  const questions = (await db.query("select questions from games where id = $1", [quizId])).rows[0].questions;
+  assert.ok(questions.some((question) => question.text === "Кто сегодня был быстрее всех?"), "есть вопрос про день");
+  // Перематываем к первому вопросу: прошло 10 с вступления и 2 с вопроса.
+  const rewind = (seconds) => db.query("update games set created_at = now() - make_interval(secs => $2) where id = $1", [quizId, seconds]);
+  await rewind(12);
+  const answer = (token, choice) => call("POST", `/v1/games/${quizId}/answer`, { token, body: { question: 0, choice } });
+  assert.equal((await answer(ivan.token, questions[0].correct)).status, 200);
+  assert.equal((await answer(ivan.token, questions[0].correct)).body.error, "quiz_answered");
+  assert.equal((await answer(oleg.token, (questions[0].correct + 1) % questions[0].options.length)).status, 200);
+  let state = (await call("GET", "/v1/games", { token: oleg.token })).body.games.find((item) => item.id === quizId).quiz;
+  assert.equal(state.phase, "question");
+  assert.equal(state.correct, undefined, "правильный ответ до конца вопроса не виден");
+  await rewind(31);
+  state = (await call("GET", "/v1/games", { token: oleg.token })).body.games.find((item) => item.id === quizId).quiz;
+  assert.equal(state.phase, "reveal");
+  assert.equal(state.correct, questions[0].correct);
+  assert.ok(state.scores[0].name === "Иван" && state.scores[0].score > 800);
+  assert.equal((await answer(oleg.token, 0)).body.error, "quiz_closed");
+  const tv = await call("GET", `/tv/${ivan.cup.code}/state`);
+  assert.equal(tv.body.quiz.phase, "reveal");
+  // До конца: место по очкам, 6/4/2/1 в день.
+  await rewind(10 + count * 28 + 1);
+  const finished = (await call("GET", "/v1/games", { token: oleg.token })).body.games.find((item) => item.id === quizId);
+  assert.equal(finished.status, "finished");
+  assert.deepEqual(finished.results.map((row) => [row.name, row.points]), [["Иван", 6], ["Олег", 4]]);
+
   const replay = (await call("GET", "/v1/replay", { token: oleg.token })).body;
   assert.equal(replay.tracks.length, 2);
   const steps = replay.tracks[0].points.slice(1).map((point, index) => point[0] - replay.tracks[0].points[index][0]);

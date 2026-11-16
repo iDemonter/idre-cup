@@ -165,6 +165,13 @@ jobs:
             shoot duels 12 -section duels -serverURL $SERVER -token "$TOKEN"
             shoot evening 12 -section evening -serverURL $SERVER -token "$TOKEN"
             shoot replay 25 -section evening -replay YES -replayAt 0.93 -serverURL $SERVER -token "$TOKEN"
+            # Викторина: запускаем от имени админа; через ~12 с после старта идёт первый вопрос.
+            curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"kind":"quiz"}' $SERVER/v1/games > /dev/null || true
+            shoot quiz 13 -section evening -serverURL $SERVER -token "$TOKEN"
+            CODE=$(python3 -c "import json; print(json.load(open('demo.json'))['code'])")
+            limit 60 xcrun simctl openurl "$DEVICE" "$SERVER/tv/$CODE" || true
+            sleep 6
+            limit 60 xcrun simctl io "$DEVICE" screenshot shots/quiz-tv.png || true
             shoot duels-new 12 -section duels -newDuel YES -serverURL $SERVER -token "$TOKEN"
             shoot model-trail 25 -look Модель -preset Nord -selectTrail 28 -serverURL $SERVER -token "$TOKEN"
             shoot model-friends 25 -look Модель -preset Ost -serverURL $SERVER -token "$TOKEN"
