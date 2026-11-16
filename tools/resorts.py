@@ -10,6 +10,7 @@
 Данные © участники OpenStreetMap, лицензия ODbL.
 """
 
+import difflib
 import json
 import math
 import pathlib
@@ -24,6 +25,9 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 REGIONS = ROOT / "tools" / "resort_regions.json"
 RAW = ROOT / "data" / "osm-resorts"
 OUT = ROOT / "server" / "config" / "resorts.json"
+OFFICIAL = ROOT / "tools" / "official" / "trails.json"
+REPORT = ROOT / "tools" / "official" / "report.md"
+LEVEL = {"g": "green", "b": "blue", "r": "red", "s": "black", "o": "park"}
 
 SERVERS = [
     "https://overpass-api.de/api/interpreter",
@@ -32,11 +36,12 @@ SERVERS = [
 ]
 
 JOIN_M = 400          # трассы и подъёмники ближе этого — один курорт
-MIN_TRAIL_M = 150     # короче — не трасса для короны
+MIN_TRAIL_M = 80      # короче — не трасса для короны (на горках Стокгольма трассы по 100–150 м)
 MARGIN_M = 300        # запас территории вокруг крайних трасс
 STEP_M = 15           # точки трассы не чаще этого
 LIFT_KINDS = {"gondola", "cable_car", "chair_lift", "mixed_lift", "drag_lift", "t-bar", "j-bar", "platter", "rope_tow", "magic_carpet"}
-DIFFICULTY = {"novice": "green", "easy": "green", "intermediate": "blue", "advanced": "red", "expert": "black", "freeride": "black", "extreme": "black"}
+# Как в Швеции и Европе: grön = mycket lätt (novice), blå = lätt (easy), röd = medelsvår (intermediate), svart = svår.
+DIFFICULTY = {"novice": "green", "easy": "blue", "intermediate": "red", "advanced": "black", "expert": "black", "freeride": "black", "extreme": "black"}
 
 
 def query(bbox):
@@ -240,6 +245,68 @@ def build_region(region, elements):
     return resorts
 
 
+def norm(text):
+    text = unicodedata.normalize("NFKD", (text or "").lower())
+    return re.sub(r"[^a-z0-9]", "", "".join(ch for ch in text if not unicodedata.combining(ch)))
+
+
+def apply_official(resorts):
+    """Номера, названия и цвета с сайта курорта (tools/official/trails.json). Линии остаются из OpenStreetMap."""
+    official = json.loads(OFFICIAL.read_text(encoding="utf-8"))["resorts"] if OFFICIAL.exists() else {}
+    lines = ["# Сверка трасс с официальными списками", "", "Собирает tools/resorts.py. Линии трасс из OpenStreetMap, номера, названия и цвета с сайтов курортов.", ""]
+    for resort in resorts:
+        entry = official.get(resort["id"])
+        if not entry:
+            lines.append(f"## {resort['name']}: официального списка нет, всё из OpenStreetMap ({len(resort['trails'])} трасс)\n")
+            continue
+        wanted = entry["trails"]
+        by_ref = {w["ref"]: w for w in wanted if w["ref"]}
+        by_name = {norm(w["name"]): w for w in wanted}
+        found, extra = {}, []
+        for trail in resort["trails"]:
+            match = None
+            if trail["ref"] and trail["ref"] in by_ref:
+                # Номер совпал: название могло быть с опечаткой или сокращено («Tusenmetern»).
+                match = by_ref[trail["ref"]]
+            if not match and trail["name"]:
+                key = norm(trail["name"])
+                match = by_name.get(key)
+                if not match:
+                    near = [w for n, w in by_name.items() if len(n) >= 5 and (n in key or key in n)]
+                    if len(near) == 1:
+                        match = near[0]
+                if not match:
+                    # Опечатки: «Vildmarsstigen» → «Vildmarksstigen», «Vargbacken» → «Vargenbacken».
+                    scored = sorted((difflib.SequenceMatcher(None, key, n).ratio(), n) for n in by_name)
+                    if scored and scored[-1][0] >= 0.88:
+                        match = by_name[scored[-1][1]]
+            if not match and trail["ref"] and trail["ref"] in by_ref and not trail["name"]:
+                match = by_ref[trail["ref"]]
+            if not match:
+                extra.append(trail)
+                continue
+            mkey = match["ref"] or norm(match["name"])
+            if mkey in found and found[mkey]["length"] >= trail["length"]:
+                continue
+            trail["ref"], trail["name"] = match["ref"], match["name"]
+            if LEVEL[match["level"]] != "park":
+                trail["difficulty"] = LEVEL[match["level"]]
+            trail["official"] = True
+            trail["id"] = f"{resort['id']}:{match['ref'] or slug(match['name'])}"
+            found[mkey] = trail
+        missing = [w for w in wanted if (w["ref"] or norm(w["name"])) not in found]
+        # Оставляем официальные трассы и те из OpenStreetMap, которых нет в списке (их помечаем).
+        resort["trails"] = sorted(found.values(), key=lambda t: (int(t["ref"]) if (t["ref"] or "").isdigit() else 9999, t["name"] or "")) + extra
+        lines.append(f"## {resort['name']}: совпало {len(found)} из {len(wanted)}")
+        lines.append(f"Источник: {entry['source']}, проверено {entry['checked']}.")
+        if missing:
+            lines.append("- Нет линии в OpenStreetMap (в зачёт и на карту не попадут): " + ", ".join(f"{w['ref'] or ''} {w['name']}".strip() for w in missing))
+        if extra:
+            lines.append("- Есть в OpenStreetMap, нет в официальном списке (оставлены как есть): " + ", ".join(f"{t['ref'] or ''} {t['name'] or ''}".strip() for t in extra))
+        lines.append("")
+    return "\n".join(lines)
+
+
 def build():
     regions = json.loads(REGIONS.read_text(encoding="utf-8"))["regions"]
     result = []
@@ -252,6 +319,9 @@ def build():
         for resort in sorted(found, key=lambda r: -len(r["trails"])):
             print(f"{region['name']}: {resort['id']} «{resort['name']}» трасс {len(resort['trails'])}, подъёмников {len(resort['lifts'])}, радиус {resort['radiusKm']} км")
         result += found
+    report = apply_official(result)
+    REPORT.write_text(report, encoding="utf-8")
+    print(report)
     ids = [r["id"] for r in result]
     dup = {i for i in ids if ids.count(i) > 1}
     for resort in result:

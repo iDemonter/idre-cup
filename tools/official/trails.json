@@ -1,0 +1,847 @@
+{
+ "_": "Официальные списки трасс с сайтов курортов: номер, название, сложность (g зелёная, b синяя, r красная, s чёрная, o парк). tools/resorts.py берёт отсюда номера, названия и цвета, линии — из OpenStreetMap.",
+ "resorts": {
+  "are": {
+   "source": "https://www.skistar.com/sv/vara-skidorter/are/vinter-i-are/vader-och-backar/ (Åre by, Högzon, Åre Björnen)",
+   "checked": "2026-11-16",
+   "trails": [
+    {
+     "ref": "31",
+     "name": "Ullåmon",
+     "level": "g"
+    },
+    {
+     "ref": "37",
+     "name": "Ripan",
+     "level": "g"
+    },
+    {
+     "ref": "38",
+     "name": "Valles äventyrsbana",
+     "level": "g"
+    },
+    {
+     "ref": "39",
+     "name": "Rödhaken",
+     "level": "g"
+    },
+    {
+     "ref": "32",
+     "name": "Ullåhöa",
+     "level": "b"
+    },
+    {
+     "ref": "33",
+     "name": "Ullådraget",
+     "level": "b"
+    },
+    {
+     "ref": "34",
+     "name": "Långsvängen Lågzon",
+     "level": "b"
+    },
+    {
+     "ref": "36",
+     "name": "Ripleden",
+     "level": "b"
+    },
+    {
+     "ref": "40",
+     "name": "Röde orm",
+     "level": "b"
+    },
+    {
+     "ref": "43",
+     "name": "Liten Röd",
+     "level": "b"
+    },
+    {
+     "ref": "46",
+     "name": "Rödkulleleden",
+     "level": "b"
+    },
+    {
+     "ref": "47",
+     "name": "Worldcupleden",
+     "level": "b"
+    },
+    {
+     "ref": "48",
+     "name": "Åreleden lågzon",
+     "level": "b"
+    },
+    {
+     "ref": "50",
+     "name": "Bräckeleden",
+     "level": "b"
+    },
+    {
+     "ref": "78",
+     "name": "VM leden",
+     "level": "b"
+    },
+    {
+     "ref": "101",
+     "name": "Tottbryggan",
+     "level": "b"
+    },
+    {
+     "ref": "104",
+     "name": "Fjällblicken",
+     "level": "b"
+    },
+    {
+     "ref": "41",
+     "name": "Rödingen",
+     "level": "r"
+    },
+    {
+     "ref": "42",
+     "name": "Rödbäcken",
+     "level": "r"
+    },
+    {
+     "ref": "44",
+     "name": "Rödbranten",
+     "level": "r"
+    },
+    {
+     "ref": "55",
+     "name": "Lundsrappet",
+     "level": "r"
+    },
+    {
+     "ref": "57",
+     "name": "Gästrappet",
+     "level": "r"
+    },
+    {
+     "ref": "58",
+     "name": "VMStörtloppet",
+     "level": "r"
+    },
+    {
+     "ref": "72",
+     "name": "Worldcupbacken",
+     "level": "r"
+    },
+    {
+     "ref": "73",
+     "name": "Månbranten",
+     "level": "r"
+    },
+    {
+     "ref": "74",
+     "name": "Stjärnbacken",
+     "level": "r"
+    },
+    {
+     "ref": "75",
+     "name": "Snobbrännan",
+     "level": "r"
+    },
+    {
+     "ref": "76",
+     "name": "Tvättbrädan",
+     "level": "r"
+    },
+    {
+     "ref": "77",
+     "name": "Pelikansvängen",
+     "level": "r"
+    },
+    {
+     "ref": "102",
+     "name": "Tottbacken",
+     "level": "r"
+    },
+    {
+     "ref": "103",
+     "name": "Bibbos brant",
+     "level": "r"
+    },
+    {
+     "ref": "56",
+     "name": "Störtloppet Lågzon",
+     "level": "s"
+    },
+    {
+     "ref": "71",
+     "name": "Slalombacken",
+     "level": "s"
+    },
+    {
+     "ref": "79",
+     "name": "Hummelbranten",
+     "level": "s"
+    },
+    {
+     "ref": "51",
+     "name": "SkiStar Snow Park Svart linje",
+     "level": "o"
+    },
+    {
+     "ref": "52",
+     "name": "SkiStar Snow Park Röd linje",
+     "level": "o"
+    },
+    {
+     "ref": "53",
+     "name": "SkiStar Snow Park Blå linje",
+     "level": "o"
+    },
+    {
+     "ref": "54",
+     "name": "SkiStar Snow Park Blå linje Pepsi",
+     "level": "o"
+    },
+    {
+     "ref": "85",
+     "name": "Stendalsleden",
+     "level": "g"
+    },
+    {
+     "ref": "49",
+     "name": "Åreleden Högzon",
+     "level": "b"
+    },
+    {
+     "ref": "82",
+     "name": "Svartbergsleden",
+     "level": "b"
+    },
+    {
+     "ref": "84",
+     "name": "Tväråleden",
+     "level": "b"
+    },
+    {
+     "ref": "87",
+     "name": "Solravinen",
+     "level": "b"
+    },
+    {
+     "ref": "88",
+     "name": "Renleden",
+     "level": "b"
+    },
+    {
+     "ref": "90",
+     "name": "Kabinleden",
+     "level": "b"
+    },
+    {
+     "ref": "35",
+     "name": "Långsvängen högzon",
+     "level": "r"
+    },
+    {
+     "ref": "59",
+     "name": "Störtloppet Högzon",
+     "level": "r"
+    },
+    {
+     "ref": "60",
+     "name": "Röda Rappet",
+     "level": "r"
+    },
+    {
+     "ref": "80",
+     "name": "Tusenmetersbacken",
+     "level": "r"
+    },
+    {
+     "ref": "81",
+     "name": "Fjällbacken",
+     "level": "r"
+    },
+    {
+     "ref": "83",
+     "name": "Tväråvalvsbacken",
+     "level": "r"
+    },
+    {
+     "ref": "86",
+     "name": "Stendalsbacken",
+     "level": "r"
+    },
+    {
+     "ref": "89",
+     "name": "Långbacken",
+     "level": "r"
+    },
+    {
+     "ref": "111",
+     "name": "Hermelinbacken",
+     "level": "g"
+    },
+    {
+     "ref": "114",
+     "name": "Vargenbacken",
+     "level": "g"
+    },
+    {
+     "ref": "115",
+     "name": "Lokattsbacken",
+     "level": "g"
+    },
+    {
+     "ref": "116",
+     "name": "Mårdbacken",
+     "level": "g"
+    },
+    {
+     "ref": "117",
+     "name": "Nallebacken",
+     "level": "g"
+    },
+    {
+     "ref": "121",
+     "name": "Örnleden",
+     "level": "g"
+    },
+    {
+     "ref": "122",
+     "name": "Örnbacken",
+     "level": "g"
+    },
+    {
+     "ref": "105",
+     "name": "Björnenleden",
+     "level": "b"
+    },
+    {
+     "ref": "106",
+     "name": "Fröåsvängen",
+     "level": "b"
+    },
+    {
+     "ref": "107",
+     "name": "Sadelbacken",
+     "level": "b"
+    },
+    {
+     "ref": "109",
+     "name": "Sadelleden",
+     "level": "b"
+    },
+    {
+     "ref": "112",
+     "name": "Björnbacken",
+     "level": "b"
+    },
+    {
+     "ref": "118",
+     "name": "Järvbacken",
+     "level": "b"
+    },
+    {
+     "ref": "119",
+     "name": "Järvsvängen",
+     "level": "b"
+    },
+    {
+     "ref": "120",
+     "name": "Björnlandet",
+     "level": "b"
+    },
+    {
+     "ref": "123",
+     "name": "Getvalsbacken",
+     "level": "b"
+    },
+    {
+     "ref": "108",
+     "name": "Viksvängen",
+     "level": "r"
+    },
+    {
+     "ref": "110",
+     "name": "Högåsbacken",
+     "level": "r"
+    }
+   ]
+  },
+  "duved-tegefjall": {
+   "source": "https://www.skistar.com/sv/vara-skidorter/are/vinter-i-are/vader-och-backar/ (Duved/Tegefjäll)",
+   "checked": "2026-11-16",
+   "trails": [
+    {
+     "ref": "1",
+     "name": "Byspåret",
+     "level": "g"
+    },
+    {
+     "ref": "7",
+     "name": "Torpbacken",
+     "level": "g"
+    },
+    {
+     "ref": "8",
+     "name": "Dalbacken",
+     "level": "g"
+    },
+    {
+     "ref": "17",
+     "name": "Minitege",
+     "level": "g"
+    },
+    {
+     "ref": "11",
+     "name": "Englandsbacken",
+     "level": "b"
+    },
+    {
+     "ref": "12",
+     "name": "Gunnilbacken",
+     "level": "b"
+    },
+    {
+     "ref": "13",
+     "name": "Vildmarksstigen",
+     "level": "b"
+    },
+    {
+     "ref": "16",
+     "name": "Tegeleden",
+     "level": "b"
+    },
+    {
+     "ref": "18",
+     "name": "Fjällbacken",
+     "level": "b"
+    },
+    {
+     "ref": "19",
+     "name": "Bergesvängen",
+     "level": "b"
+    },
+    {
+     "ref": "20",
+     "name": "Lillåleden",
+     "level": "b"
+    },
+    {
+     "ref": "2",
+     "name": "Hamrebacken",
+     "level": "r"
+    },
+    {
+     "ref": "3",
+     "name": "Mullfjällsbacken",
+     "level": "r"
+    },
+    {
+     "ref": "4",
+     "name": "Träningsbacken",
+     "level": "r"
+    },
+    {
+     "ref": "9",
+     "name": "Leråbacken",
+     "level": "r"
+    },
+    {
+     "ref": "14",
+     "name": "Tegebacken",
+     "level": "r"
+    },
+    {
+     "ref": "15",
+     "name": "Tegesvängen",
+     "level": "r"
+    },
+    {
+     "ref": "6",
+     "name": "Träningsbacken Puckeln",
+     "level": "s"
+    },
+    {
+     "ref": "5",
+     "name": "Skistar Snow Park",
+     "level": "o"
+    }
+   ]
+  },
+  "vemdalsskalet": {
+   "source": "https://www.skistar.com/sv/vara-skidorter/vemdalen/vinter-i-vemdalen/vader-och-backar/ (Vemdalsskalet)",
+   "checked": "2026-11-16",
+   "trails": [
+    {
+     "ref": "1",
+     "name": "Barnbackarna",
+     "level": "g"
+    },
+    {
+     "ref": "2",
+     "name": "Nedre blåbär",
+     "level": "g"
+    },
+    {
+     "ref": "3",
+     "name": "Tunneln",
+     "level": "g"
+    },
+    {
+     "ref": "4",
+     "name": "Lätta Blåbär",
+     "level": "g"
+    },
+    {
+     "ref": "5",
+     "name": "Övre Blåbär",
+     "level": "b"
+    },
+    {
+     "ref": "15",
+     "name": "Slingan",
+     "level": "b"
+    },
+    {
+     "ref": "17",
+     "name": "Pers",
+     "level": "b"
+    },
+    {
+     "ref": "18",
+     "name": "Smygaren",
+     "level": "b"
+    },
+    {
+     "ref": "21",
+     "name": "Hildings",
+     "level": "b"
+    },
+    {
+     "ref": "23",
+     "name": "Solgläntan",
+     "level": "b"
+    },
+    {
+     "ref": "25",
+     "name": "Klockars",
+     "level": "b"
+    },
+    {
+     "ref": "6",
+     "name": "Sörbacken",
+     "level": "r"
+    },
+    {
+     "ref": "8",
+     "name": "Turisten",
+     "level": "r"
+    },
+    {
+     "ref": "9",
+     "name": "Svåra Turisten",
+     "level": "r"
+    },
+    {
+     "ref": "12",
+     "name": "Väst",
+     "level": "r"
+    },
+    {
+     "ref": "14",
+     "name": "Nääs",
+     "level": "r"
+    },
+    {
+     "ref": "19",
+     "name": "Passet",
+     "level": "r"
+    },
+    {
+     "ref": "22",
+     "name": "Träningsbacken",
+     "level": "r"
+    },
+    {
+     "ref": "7",
+     "name": "Toppbranten",
+     "level": "s"
+    },
+    {
+     "ref": "10",
+     "name": "Hovde",
+     "level": "s"
+    },
+    {
+     "ref": "11",
+     "name": "Stugbranten",
+     "level": "s"
+    },
+    {
+     "ref": "13",
+     "name": "Nääsbranten",
+     "level": "s"
+    },
+    {
+     "ref": "16",
+     "name": "Gamla Puckeln",
+     "level": "s"
+    },
+    {
+     "ref": "20",
+     "name": "Skals",
+     "level": "s"
+    },
+    {
+     "ref": "24",
+     "name": "Familjeparken",
+     "level": "o"
+    }
+   ]
+  },
+  "bjornrike": {
+   "source": "https://www.skistar.com/sv/vara-skidorter/vemdalen/vinter-i-vemdalen/vader-och-backar/ (Björnrike)",
+   "checked": "2026-11-16",
+   "trails": [
+    {
+     "ref": "1",
+     "name": "Solsvängen",
+     "level": "g"
+    },
+    {
+     "ref": "9",
+     "name": "Långsvängen",
+     "level": "g"
+    },
+    {
+     "ref": "13",
+     "name": "Bamseland",
+     "level": "g"
+    },
+    {
+     "ref": "14",
+     "name": "Nallesvängen",
+     "level": "g"
+    },
+    {
+     "ref": "3",
+     "name": "Hotellsvängen",
+     "level": "b"
+    },
+    {
+     "ref": "6",
+     "name": "Mittbacken",
+     "level": "b"
+    },
+    {
+     "ref": "10",
+     "name": "Björnstigen",
+     "level": "b"
+    },
+    {
+     "ref": "12",
+     "name": "Nedre störtloppet",
+     "level": "b"
+    },
+    {
+     "ref": "4",
+     "name": "Lillbacken",
+     "level": "r"
+    },
+    {
+     "ref": "5",
+     "name": "Dalbacken",
+     "level": "r"
+    },
+    {
+     "ref": "11",
+     "name": "Övre störtloppet",
+     "level": "r"
+    },
+    {
+     "ref": "16",
+     "name": "Kodiak",
+     "level": "r"
+    },
+    {
+     "ref": "7",
+     "name": "Storslalom",
+     "level": "s"
+    },
+    {
+     "ref": "8",
+     "name": "Snobben",
+     "level": "s"
+    },
+    {
+     "ref": "15",
+     "name": "Riket",
+     "level": "s"
+    },
+    {
+     "ref": "2",
+     "name": "SkiStar Snowpark Gråhogna",
+     "level": "o"
+    }
+   ]
+  },
+  "klovsjo-storhogna": {
+   "source": "https://www.skistar.com/sv/vara-skidorter/vemdalen/vinter-i-vemdalen/vader-och-backar/ (Klövsjö)",
+   "checked": "2026-11-16",
+   "trails": [
+    {
+     "ref": "2",
+     "name": "Barnbacken",
+     "level": "g"
+    },
+    {
+     "ref": "3",
+     "name": "Lillbacken",
+     "level": "g"
+    },
+    {
+     "ref": "6",
+     "name": "Tornvänstern",
+     "level": "g"
+    },
+    {
+     "ref": "7",
+     "name": "Flaket",
+     "level": "g"
+    },
+    {
+     "ref": "14",
+     "name": "Sol",
+     "level": "g"
+    },
+    {
+     "ref": "15",
+     "name": "Tunneln",
+     "level": "g"
+    },
+    {
+     "ref": "16",
+     "name": "Söderbacken",
+     "level": "g"
+    },
+    {
+     "ref": "20",
+     "name": "Kalles backe",
+     "level": "g"
+    },
+    {
+     "ref": "21",
+     "name": "Rastdalen",
+     "level": "g"
+    },
+    {
+     "ref": "1",
+     "name": "Katrina",
+     "level": "b"
+    },
+    {
+     "ref": "4",
+     "name": "SkiStarbacken",
+     "level": "b"
+    },
+    {
+     "ref": "8",
+     "name": "Nyingen",
+     "level": "b"
+    },
+    {
+     "ref": "13",
+     "name": "Lätta slingan",
+     "level": "b"
+    },
+    {
+     "ref": "17",
+     "name": "Fjällbacken",
+     "level": "b"
+    },
+    {
+     "ref": "19",
+     "name": "Storhogna",
+     "level": "b"
+    },
+    {
+     "ref": "5",
+     "name": "Ravinen",
+     "level": "r"
+    },
+    {
+     "ref": "18",
+     "name": "Ripbranten",
+     "level": "r"
+    },
+    {
+     "ref": "10",
+     "name": "Svartåshanget",
+     "level": "s"
+    },
+    {
+     "ref": "11",
+     "name": "Storslalombacken",
+     "level": "s"
+    },
+    {
+     "ref": "12",
+     "name": "Supersvängen",
+     "level": "s"
+    },
+    {
+     "ref": "9",
+     "name": "Parken",
+     "level": "o"
+    }
+   ]
+  },
+  "hammarbybacken": {
+   "source": "https://www.skistar.com/sv/hammarbybacken/vinter-i-hammarbybacken/liftar-pister/",
+   "checked": "2026-11-16",
+   "trails": [
+    {
+     "ref": null,
+     "name": "Vemdalen",
+     "level": "g"
+    },
+    {
+     "ref": null,
+     "name": "Sälen",
+     "level": "g"
+    },
+    {
+     "ref": null,
+     "name": "Trysil",
+     "level": "b"
+    },
+    {
+     "ref": null,
+     "name": "Åre",
+     "level": "r"
+    }
+   ]
+  },
+  "flottsbro": {
+   "source": "https://www.flottsbro.se/gora/skidakning/pistkarta/",
+   "checked": "2026-11-16",
+   "trails": [
+    {
+     "ref": null,
+     "name": "Stora backen",
+     "level": "r"
+    },
+    {
+     "ref": null,
+     "name": "Tävlingsbacken",
+     "level": "r"
+    },
+    {
+     "ref": null,
+     "name": "Familjebacken",
+     "level": "b"
+    },
+    {
+     "ref": null,
+     "name": "Barnbacken",
+     "level": "g"
+    }
+   ]
+  }
+ }
+}
