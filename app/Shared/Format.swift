@@ -53,6 +53,19 @@ enum Format {
         return "\(weekday) · \(number)"
     }
 
+    /// «15 ноября» из «2026-11-15».
+    static func date(_ iso: String) -> String {
+        let parser = DateFormatter()
+        parser.calendar = Calendar(identifier: .gregorian)
+        parser.locale = Locale(identifier: "en_US_POSIX")
+        parser.timeZone = TimeZone(identifier: "UTC")
+        parser.dateFormat = "yyyy-MM-dd"
+        guard let date = parser.date(from: iso) else { return iso }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+        return date.formatted(Date.FormatStyle(date: .omitted, time: .omitted, locale: russian, calendar: calendar, timeZone: calendar.timeZone).day().month(.wide))
+    }
+
     /// Слово по числу: plural(3, "спуск", "спуска", "спусков") = «спуска».
     static func plural(_ count: Int, _ one: String, _ few: String, _ many: String) -> String {
         let tens = count % 100

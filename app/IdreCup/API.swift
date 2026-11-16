@@ -108,6 +108,60 @@ struct CrownsReply: Decodable {
     let trails: [CrownRow]
 }
 
+/// Зачёт сезона: все курорты, очки копятся весь сезон.
+struct SeasonReply: Decodable {
+    struct Rules: Decodable {
+        let dayPoints: Int
+        let verticalPer: Int
+        let verticalMax: Int
+        let meetPoints: Int
+        let crownPoints: Int
+    }
+
+    struct Day: Decodable, Identifiable {
+        let date: String
+        let resorts: [String]
+        let vertical: Double
+        let runs: Int
+        let topSpeed: Double
+        let met: Bool
+        let points: Int
+        var id: String { date }
+    }
+
+    struct Row: Decodable, Identifiable {
+        let id: String
+        let name: String
+        let place: Int
+        let points: Int
+        let days: Int
+        let vertical: Double
+        let runs: Int
+        let topSpeed: Double
+        let bestDay: Double
+        let resorts: [String]
+        let meets: Int
+        let crowns: Int
+        let history: [Day]
+    }
+
+    struct Crown: Decodable, Identifiable {
+        let trail: String
+        let label: String?
+        let name: String?
+        let resort: String
+        let holder: CrownRow.Holder
+        let mine: Double?
+        var id: String { trail }
+    }
+
+    let from: String
+    let to: String
+    let rules: Rules
+    let rows: [Row]
+    let crowns: [Crown]
+}
+
 struct DayReply: Decodable {
     let date: String
     let dayNumber: Int?

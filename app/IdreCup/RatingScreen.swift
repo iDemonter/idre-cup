@@ -40,6 +40,7 @@ struct RatingScreen: View {
         case day = "Сегодня"
         case week = "Неделя"
         case crowns = "Короны"
+        case season = "Сезон"
     }
 
     @EnvironmentObject private var session: Session
@@ -47,6 +48,7 @@ struct RatingScreen: View {
     @State private var day: DayReply?
     @State private var standings: StandingsReply?
     @State private var crowns: CrownsReply?
+    @State private var season: SeasonReply?
     @State private var events: EventsReply?
     /// Насколько часы сервера впереди часов телефона на момент загрузки событий, секунды.
     @State private var eventsOffset: Double = 0
@@ -56,7 +58,7 @@ struct RatingScreen: View {
         // Для снимков экрана: -ratingTab week -showProfile YES.
         let defaults = UserDefaults.standard
         let asked = defaults.string(forKey: "ratingTab")
-        _mode = State(initialValue: asked == "week" ? .week : (asked == "crowns" ? .crowns : .day))
+        _mode = State(initialValue: Mode.allCases.first { "\($0)" == asked } ?? .day)
         _showsProfile = State(initialValue: defaults.bool(forKey: "showProfile"))
     }
 
@@ -123,6 +125,7 @@ struct RatingScreen: View {
                 case .day: dayList
                 case .week: weekList
                 case .crowns: crownList
+                case .season: seasonList
                 }
             }
             .padding(.horizontal, 20)
@@ -153,6 +156,7 @@ struct RatingScreen: View {
         if let reply = await freshDay { day = reply }
         if let reply = await freshStandings { standings = reply }
         if let reply = await session.crowns() { crowns = reply }
+        if let reply = await session.season() { season = reply }
         if let reply = await session.events() {
             events = reply
             eventsOffset = reply.now - Date().timeIntervalSince1970
@@ -385,6 +389,99 @@ struct RatingScreen: View {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .stroke(Theme.accent.opacity(isMine ? 0.7 : 0), lineWidth: 1.5)
         )
+    }
+
+    // MARK: - Сезон
+
+    /// Сезон: каждый катается где хочет, очки копятся с начала до конца сезона.
+    @ViewBuilder
+    private var seasonList: some View {
+        if let season {
+            let rules = season.rules
+            note("Сезон \(Format.date(season.from)) – \(Format.date(season.to)): Idre, Åre, Vemdalen, горки Стокгольма. День на склоне +\(rules.dayPoints), +1 за каждые \(rules.verticalPer) м перепада (до \(rules.verticalMax)), катались вместе на одном курорте +\(rules.meetPoints), корона сезона +\(rules.crownPoints).")
+            VStack(spacing: 8) {
+                ForEach(season.rows) { row in
+                    rowCard(
+                        place: row.days > 0 ? row.place : nil,
+                        person: person(row.id, row.name),
+                        detail: row.days > 0
+                            ? "\(row.days) \(Format.plural(row.days, "день", "дня", "дней")) · \(Format.meters(row.vertical)) м · \(Format.kmh(row.topSpeed)) км/ч"
+                            : "ещё не катался в этом сезоне",
+                        points: String(row.points),
+                        footnote: seasonFootnote(row)
+                    )
+                }
+            }
+            if let mine = season.rows.first(where: { $0.id == session.me?.id }), !mine.history.isEmpty {
+                sectionTitle("МОИ ДНИ")
+                VStack(spacing: 6) {
+                    ForEach(mine.history) { day in
+                        HStack(alignment: .firstTextBaseline) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("\(Format.date(day.date)) · \(day.resorts.joined(separator: ", "))")
+                                    .font(Theme.headline(14))
+                                    .foregroundStyle(Theme.textPrimary)
+                                    .lineLimit(1)
+                                Text("\(Format.meters(day.vertical)) м · \(day.runs) \(Format.plural(day.runs, "спуск", "спуска", "спусков")) · \(Format.kmh(day.topSpeed)) км/ч\(day.met ? " · вместе 🤝" : "")")
+                                    .font(Theme.caption())
+                                    .foregroundStyle(Theme.textSecondary)
+                            }
+                            Spacer()
+                            Text("+\(day.points)")
+                                .font(Theme.headline(16))
+                                .foregroundStyle(Theme.accent)
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    }
+                }
+            }
+            if !season.crowns.isEmpty {
+                sectionTitle("КОРОНЫ СЕЗОНА · \(season.crowns.count)")
+                VStack(spacing: 6) {
+                    ForEach(season.crowns) { crown in
+                        let isMine = crown.holder.id == session.me?.id
+                        HStack(spacing: 10) {
+                            Image(systemName: "crown.fill")
+                                .foregroundStyle(isMine ? Theme.accent : Theme.textSecondary)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text([crown.label, crown.name].compactMap { $0 }.joined(separator: " "))
+                                    .font(Theme.headline(14))
+                                    .foregroundStyle(Theme.textPrimary)
+                                    .lineLimit(1)
+                                Text("\(crown.resort) · \(crown.holder.name ?? "?") \(Format.lap(crown.holder.seconds))\(crown.mine.map { isMine ? "" : " · моё \(Format.lap($0))" } ?? "")")
+                                    .font(Theme.caption())
+                                    .foregroundStyle(Theme.textSecondary)
+                                    .lineLimit(1)
+                            }
+                            Spacer()
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    }
+                }
+            }
+        } else {
+            ProgressView().tint(Theme.accent).frame(maxWidth: .infinity).padding(.top, 40)
+        }
+    }
+
+    private func seasonFootnote(_ row: SeasonReply.Row) -> String? {
+        var parts: [String] = []
+        if !row.resorts.isEmpty { parts.append(row.resorts.joined(separator: ", ")) }
+        if row.meets > 0 { parts.append("🤝 \(row.meets)") }
+        if row.crowns > 0 { parts.append("👑 \(row.crowns)") }
+        if row.bestDay > 0 { parts.append("лучший день \(Format.meters(row.bestDay)) м") }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+    private func sectionTitle(_ text: String) -> some View {
+        Text(text)
+            .font(Theme.overline())
+            .foregroundStyle(Theme.textSecondary)
+            .padding(.top, 6)
     }
 
     private func place(_ value: Int?) -> String {

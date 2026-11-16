@@ -301,6 +301,11 @@ final class Session: ObservableObject {
         return try? await api.send("GET", "/v1/crowns")
     }
 
+    func season() async -> SeasonReply? {
+        guard let api, phase == .signedIn else { return nil }
+        return try? await api.send("GET", "/v1/season")
+    }
+
     // MARK: - Вечер
 
     func ceremony() async -> Ceremony? {
