@@ -291,7 +291,7 @@ struct MyDayScreen: View {
                     .font(Theme.headline(15))
                     .foregroundStyle(Theme.textPrimary)
                 if let trail = trail(for: segment) {
-                    Text("\(trail.number) \(trail.name) · \(Format.lap(trail.seconds))")
+                    Text("\(Format.trail(trail.number)) \(trail.name) · \(Format.lap(trail.seconds))")
                         .font(Theme.caption())
                         .foregroundStyle(Theme.accent)
                         .lineLimit(1)

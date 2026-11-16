@@ -110,7 +110,10 @@
     "name": "Idre Fjäll",
     "lat": 61.8881353,
     "lon": 12.8587081,
-    "radiusKm": 4.5
+    "radiusKm": 4.5,
+    "extraAreas": [
+      { "name": "Idre Himmelfjäll", "lat": 61.899, "lon": 12.77, "radiusKm": 2.5 }
+    ]
   },
   "track": {
     "reversalMeters": 10,

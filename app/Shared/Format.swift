@@ -4,6 +4,11 @@ import Foundation
 enum Format {
     static let russian = Locale(identifier: "ru_RU")
 
+    /// Номер трассы для людей. У Idre Himmelfjäll в данных номер = 100 + номер с его карты: показываем «H6».
+    static func trail(_ number: Int) -> String {
+        number > 100 ? "H\(number - 100)" : String(number)
+    }
+
     /// Скорость в км/ч из м/с, один знак после запятой.
     static func kmh(_ metersPerSecond: Double) -> String {
         (metersPerSecond * 3.6).formatted(.number.precision(.fractionLength(1)).locale(russian))

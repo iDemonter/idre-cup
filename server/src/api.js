@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs";
 import express from "express";
 import { analyze, meters } from "./analyzer.js";
 import { scoreDay } from "./scoring.js";
-import { loadTrails, matchRun, toMeters } from "./trails.js";
+import { loadTrails, matchRun, toMeters, trailLabel } from "./trails.js";
 import { TV_PAGE } from "./tv.js";
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // без похожих O/0 и I/1
@@ -76,6 +76,12 @@ export function mountApi(app, { db, rules, attemptLimit = 30, autoEvents = true 
   };
   const resort = { lat: rules.resort.lat, lon: rules.resort.lon };
   const trails = loadTrails(resort);
+  // Территория кубка: круг вокруг вершины Idre Fjäll и дополнительные зоны (Idre Himmelfjäll).
+  const areas = [
+    { lat: rules.resort.lat, lon: rules.resort.lon, radiusKm: rules.resort.radiusKm },
+    ...(rules.resort.extraAreas ?? []),
+  ];
+  const onTerritory = (point) => areas.some((area) => meters(area, point) <= area.radiusKm * 1000);
 
   // --- Защита от перебора кодов: не больше attemptLimit (30) попыток создать или войти за 10 минут с одного адреса.
   const attempts = new Map();
@@ -401,7 +407,7 @@ export function mountApi(app, { db, rules, attemptLimit = 30, autoEvents = true 
   // --- Итоги по набору точек: скорость, перепад, спуски и пройденные трассы.
   function summarize(rows, cup) {
     // Вне территории курорта точки в зачёт не идут (кроме кубков с выключенной территорией).
-    const points = cup.geofence ? rows.filter((point) => meters(resort, point) <= rules.resort.radiusKm * 1000) : rows;
+    const points = cup.geofence ? rows.filter((point) => onTerritory(point)) : rows;
     const full = analyze(points, trackRules);
     // Какие трассы пройдены на каждом спуске и за сколько: для корон, автогонок и дуэлей.
     const trailRuns = [];
@@ -1168,7 +1174,7 @@ export function mountApi(app, { db, rules, attemptLimit = 30, autoEvents = true 
       const now = after.holders.get(trail.number);
       if (!now || now.id === before.holders.get(trail.number)?.id || names.length < 2) continue;
       const holder = personName.get(now.id);
-      questions.push(makeQuestion(`Кто сегодня забрал корону трассы ${trail.number} ${trail.name}?`, [holder, ...others(holder)]));
+      questions.push(makeQuestion(`Кто сегодня забрал корону трассы ${trailLabel(trail.number)} ${trail.name}?`, [holder, ...others(holder)]));
       break;
     }
     return shuffle(questions.filter((question) => question.options.length >= 2)).slice(0, quizRules.dayQuestions);
@@ -1416,7 +1422,7 @@ export function mountApi(app, { db, rules, attemptLimit = 30, autoEvents = true 
          order by floor(extract(epoch from ts) / 5), ts`,
         [person.id, date, cup.timezone],
       );
-      const points = (cup.geofence ? found.rows.filter((point) => meters(resort, point) <= rules.resort.radiusKm * 1000) : found.rows).map(
+      const points = (cup.geofence ? found.rows.filter((point) => onTerritory(point)) : found.rows).map(
         (point) => [Math.round(point.t), Math.round(point.lat * 1e6) / 1e6, Math.round(point.lon * 1e6) / 1e6],
       );
       if (points.length > 0) tracks.push({ id: person.id, name: person.name, points });

@@ -30,7 +30,7 @@ NO_CROWN = {2, 3, 4, 9, 12, 36}
 SUMMIT = (61.8881353, 12.8587081)  # Gränjåsvålen, 891 м
 RADIUS_KM = 2.6                    # всё дальше относится к Idre Himmelfjäll
 
-# Соседний курорт Idre Himmelfjäll: на карте он есть, в зачёт кубка его трассы пока не идут.
+# Соседний курорт Idre Himmelfjäll: его пронумерованные трассы тоже зачётные (решено 16.11.2026).
 HIMMEL = (61.8990, 12.7700)        # середина его трасс
 HIMMEL_SUMMIT = (61.9087842, 12.7803565)   # Hemmeråsen, 869 м
 HIMMEL_RADIUS_KM = 3.2
@@ -277,7 +277,7 @@ def write_trails(longest):
 
     trails = []
     for number, piste in sorted(longest.items()):
-        if number in NO_CROWN or number >= HIMMEL_OFFSET:
+        if number in NO_CROWN:
             continue
         coords = piste["coords"]
         if height(coords[0]) < height(coords[-1]):

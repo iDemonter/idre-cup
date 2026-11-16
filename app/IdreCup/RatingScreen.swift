@@ -334,7 +334,7 @@ struct RatingScreen: View {
                     .font(Theme.overline())
                     .foregroundStyle(Theme.textSecondary)
                     .padding(.top, 6)
-                Text(free.map { "\($0.number) \($0.name)" }.joined(separator: " · "))
+                Text(free.map { "\(Format.trail($0.number)) \($0.name)" }.joined(separator: " · "))
                     .font(Theme.caption())
                     .foregroundStyle(Theme.textSecondary)
             }
@@ -347,7 +347,7 @@ struct RatingScreen: View {
         let holder = row.holder
         let isMine = holder?.id == session.me?.id
         return HStack(spacing: 12) {
-            Text(String(row.number))
+            Text(Format.trail(row.number))
                 .font(Theme.headline(15))
                 .foregroundStyle(Theme.textPrimary)
                 .frame(width: 34, height: 34)

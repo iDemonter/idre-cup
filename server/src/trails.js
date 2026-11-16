@@ -103,3 +103,8 @@ export function matchRun(run, trails, rules = standardGates) {
     .sort((a, b) => a.start - b.start)
     .map(({ number, start, end, seconds }) => ({ number, start, end, seconds: Math.round(seconds * 10) / 10 }));
 }
+
+/** Номер трассы для людей: у Idre Himmelfjäll в данных номер = 100 + номер с его карты, показываем «H6». */
+export function trailLabel(number) {
+  return number > 100 ? `H${number - 100}` : String(number);
+}

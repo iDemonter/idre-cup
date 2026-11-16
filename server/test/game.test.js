@@ -584,3 +584,16 @@ test("территория: трек вдали от курорта в зачё�
   await call("PATCH", "/v1/cup", { token: admin.token, body: { geofence: false } });
   assert.equal((await call("GET", "/v1/day", { token: admin.token })).body.rows[0].runs, 1);
 });
+
+test("Himmelfjäll: его трассы в территории кубка и дают корону", options, async () => {
+  const today = new Date().toISOString().slice(0, 10);
+  const admin = (await call("POST", "/v1/cups", { body: { cupName: "Himmel", name: "Иван", startsOn: today } })).body;
+  assert.equal(admin.cup.geofence, true, "территория включена");
+  const start = Math.floor(Date.now() / 1000) - 900;
+  await call("POST", "/v1/tracks", { token: admin.token, body: { points: trailRide(112, start, 12) } });
+
+  assert.equal((await call("GET", "/v1/day", { token: admin.token })).body.rows[0].runs, 1);
+  const crown = (await call("GET", "/v1/crowns", { token: admin.token })).body.trails.find((item) => item.number === 112);
+  assert.equal(crown.name, "Fridabranten");
+  assert.equal(crown.holder.name, "Иван");
+});

@@ -41,7 +41,7 @@ extension Duel {
 
     var title: String {
         switch kind {
-        case "race": return trail.map { "Гонка · \($0.number) \($0.name)" } ?? "Гонка"
+        case "race": return trail.map { "Гонка · \(Format.trail($0.number)) \($0.name)" } ?? "Гонка"
         case "speed": return "Скорость"
         default: return "Выносливость"
         }
@@ -654,7 +654,7 @@ private struct NewDuelSheet: View {
         } else {
             Picker("Трасса", selection: $trail) {
                 ForEach(trails) { row in
-                    Text("\(row.number) · \(row.name)").tag(row.number)
+                    Text("\(Format.trail(row.number)) · \(row.name)").tag(row.number)
                 }
             }
             .pickerStyle(.menu)

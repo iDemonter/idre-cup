@@ -399,7 +399,7 @@ struct EveningScreen: View {
                     ForEach(day.crowns) { crown in
                         line(
                             "crown.fill",
-                            "\(crown.number) \(crown.name)",
+                            "\(Format.trail(crown.number)) \(crown.name)",
                             crown.from.map { "\(crown.holder) отобрал у \($0) · \(Format.lap(crown.seconds))" } ?? "\(crown.holder) · \(Format.lap(crown.seconds))"
                         )
                     }
