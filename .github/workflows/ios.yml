@@ -162,6 +162,7 @@ jobs:
             shoot rating-week 12 -section rating -ratingTab week -serverURL $SERVER -token "$TOKEN"
             shoot rating-crowns 12 -section rating -ratingTab crowns -serverURL $SERVER -token "$TOKEN"
             shoot rating-season 12 -section rating -ratingTab season -serverURL $SERVER -token "$TOKEN"
+            shoot day-conditions 15 -section day -serverURL $SERVER -token "$TOKEN"
             shoot profile 12 -section rating -showProfile YES -serverURL $SERVER -token "$TOKEN"
             shoot duels 12 -section duels -serverURL $SERVER -token "$TOKEN"
             shoot evening 12 -section evening -serverURL $SERVER -token "$TOKEN"

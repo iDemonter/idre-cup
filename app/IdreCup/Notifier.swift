@@ -11,7 +11,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
 
     private static let category = "record"
     private static let startAction = "start"
-    private static let morningPrefix = "morning-"
+    static let morningPrefix = "morning-"
 
     /// Вызывается при запуске: без этого уведомления не показываются, пока приложение на экране.
     func install() {

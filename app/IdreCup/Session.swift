@@ -1,3 +1,4 @@
+import CoreLocation
 import Foundation
 import UIKit
 
@@ -299,6 +300,13 @@ final class Session: ObservableObject {
     func crowns() async -> CrownsReply? {
         guard let api, phase == .signedIn else { return nil }
         return try? await api.send("GET", "/v1/crowns")
+    }
+
+    /// Условия на курорте: где сейчас телефон, иначе Idre Fjäll.
+    func conditions(near place: CLLocationCoordinate2D?) async -> ConditionsReply? {
+        guard let api, phase == .signedIn else { return nil }
+        let query = place.map { String(format: "?lat=%.4f&lon=%.4f", $0.latitude, $0.longitude) } ?? ""
+        return try? await api.send("GET", "/v1/conditions" + query)
     }
 
     func season() async -> SeasonReply? {

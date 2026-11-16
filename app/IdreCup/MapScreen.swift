@@ -22,6 +22,8 @@ struct MapScreen: View {
     /// Курорты сезона вне Idre и открытый сейчас из них (рисуется поверх Apple Maps).
     @State private var otherResorts: [ResortSummary] = []
     @State private var otherResort: ResortDetail?
+    /// Какие лифты Idre Fjäll сейчас работают (с сайта курорта): закрытые на карте блёклые.
+    @State private var idreConditions: ConditionsReply?
     @State private var distance: Double = MapScreen.overviewDistance
     @State private var selectedID: Int?
     /// Выбранное на модели место: ресторан, прокат, ски-центр.
@@ -230,6 +232,10 @@ struct MapScreen: View {
                 await loadFriendPhotos()
                 // Своя точка на карте: без записи трека место узнаём раз в 15 секунд.
                 tracker.locateOnce()
+                // Статус лифтов: сервер обновляет его раз в 10 минут, чаще спрашивать незачем.
+                if idreConditions == nil || Int(Date().timeIntervalSince1970) % 300 < 15 {
+                    idreConditions = await session.conditions(near: nil) ?? idreConditions
+                }
                 try? await Task.sleep(for: .seconds(15))
             }
         }
@@ -251,7 +257,7 @@ struct MapScreen: View {
         Map(position: $position) {
             ForEach(data.lifts) { lift in
                 MapPolyline(coordinates: lift.coordinates)
-                    .stroke(Color.white.opacity(0.75), style: StrokeStyle(lineWidth: 1.5, lineCap: .round, dash: [5, 5]))
+                    .stroke(liftColor(lift), style: StrokeStyle(lineWidth: 1.5, lineCap: .round, dash: [5, 5]))
             }
 
             if let other = otherResort {
@@ -696,6 +702,12 @@ struct MapScreen: View {
         if piste.lit { parts.append("освещена") }
         if piste.isApproximate { parts.append("линия примерная") }
         return parts.joined(separator: " · ")
+    }
+
+    /// Открытый лифт белый, закрытый блёклый красный, без данных как раньше.
+    private func liftColor(_ lift: Lift) -> Color {
+        guard let code = lift.code, let status = idreConditions?.lift(code: code) else { return Color.white.opacity(0.75) }
+        return status.isClosed ? Theme.pisteRed.opacity(0.45) : Color.white.opacity(status.isOpen ? 0.95 : 0.75)
     }
 
     /// «Другие курорты»: Åre, Vemdalen, горки Стокгольма. Открываются на Apple Maps с трассами из OpenStreetMap.

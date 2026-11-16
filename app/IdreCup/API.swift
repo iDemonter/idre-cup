@@ -170,6 +170,17 @@ struct DayReply: Decodable {
     let pairs: [DayPair]?
     let myTrails: [MyTrail]?
     let rows: [DayRow]
+    /// Кто сегодня катается на другом курорте: без очков кубка.
+    let elsewhere: [Elsewhere]?
+}
+
+struct Elsewhere: Decodable, Identifiable {
+    let id: String
+    let name: String
+    let resort: String
+    let vertical: Double
+    let runs: Int
+    let topSpeed: Double
 }
 
 struct StandingRow: Decodable, Identifiable {

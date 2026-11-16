@@ -233,20 +233,30 @@ export function summarizeForecast(json, timezone, now = new Date()) {
       precipitation: next?.details?.precipitation_amount ?? 0,
     };
   });
-  const daytime = hours.filter((hour) => hour.local.slice(0, 10) === today && hour.local.slice(11, 13) >= "09" && hour.local.slice(11, 13) <= "16");
-  const pick = daytime.length ? daytime : hours.slice(0, 8);
-  if (!pick.length) return null;
-  const symbols = pick.map((hour) => hour.symbol).filter(Boolean);
-  const common = symbols.sort((a, b) => symbols.filter((x) => x === b).length - symbols.filter((x) => x === a).length)[0] ?? null;
-  return {
-    day: {
+  // Дневное время 9–16 на дату; если часов на сегодня уже не осталось, берём ближайшие 8.
+  const summary = (date, fallback) => {
+    const daytime = hours.filter((hour) => hour.local.slice(0, 10) === date && hour.local.slice(11, 13) >= "09" && hour.local.slice(11, 13) <= "16");
+    const pick = daytime.length ? daytime : fallback ? hours.slice(0, 8) : [];
+    if (!pick.length) return null;
+    const symbols = pick.map((hour) => hour.symbol).filter(Boolean);
+    const count = (code) => symbols.filter((x) => x === code).length;
+    const common = [...symbols].sort((a, b) => count(b) - count(a))[0] ?? null;
+    return {
+      date,
       min: Math.round(Math.min(...pick.map((hour) => hour.temp))),
       max: Math.round(Math.max(...pick.map((hour) => hour.temp))),
       wind: Math.round(Math.max(...pick.map((hour) => hour.wind))),
       precipitation: Math.round(pick.reduce((sum, hour) => sum + hour.precipitation, 0) * 10) / 10,
       symbol: common,
       text: symbolText(common),
-    },
+    };
+  };
+  const tomorrow = local(new Date(now.getTime() + 86_400_000)).slice(0, 10);
+  const day = summary(today, true);
+  if (!day) return null;
+  return {
+    day,
+    tomorrow: summary(tomorrow, false),
     hours: hours.filter((hour) => new Date(hour.time) >= new Date(now.getTime() - 3_600_000)).slice(0, 12).map(({ local: _, ...hour }) => ({ ...hour, text: symbolText(hour.symbol) })),
   };
 }

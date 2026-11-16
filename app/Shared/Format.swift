@@ -53,6 +53,20 @@ enum Format {
         return "\(weekday) · \(number)"
     }
 
+    /// Температура с настоящим минусом: «−12», «0», «3».
+    static func degrees(_ value: Double) -> String {
+        let rounded = Int(value.rounded())
+        return rounded < 0 ? "−\(-rounded)" : String(rounded)
+    }
+
+    /// Час по Стокгольму из «2026-11-16T13:00:00Z»: «14».
+    static func hour(_ iso: String) -> String {
+        guard let date = ISO8601DateFormatter().date(from: iso) else { return "" }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Europe/Stockholm") ?? .current
+        return String(calendar.component(.hour, from: date))
+    }
+
     /// «15 ноября» из «2026-11-15».
     static func date(_ iso: String) -> String {
         let parser = DateFormatter()

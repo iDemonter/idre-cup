@@ -226,6 +226,20 @@ struct RatingScreen: View {
                     )
                 }
             }
+            if let others = day.elsewhere, !others.isEmpty {
+                sectionTitle("В ДРУГИХ МЕСТАХ")
+                VStack(spacing: 8) {
+                    ForEach(Array(others.enumerated()), id: \.offset) { _, other in
+                        rowCard(
+                            place: nil,
+                            person: person(other.id, other.name),
+                            detail: "\(Format.kmh(other.topSpeed)) км/ч · \(Format.meters(other.vertical)) м · \(other.runs) \(Format.plural(other.runs, "спуск", "спуска", "спусков"))",
+                            points: "",
+                            footnote: "\(other.resort) · в зачёт недели не идёт, в сезон идёт"
+                        )
+                    }
+                }
+            }
         } else {
             ProgressView().tint(Theme.accent).frame(maxWidth: .infinity).padding(.top, 40)
         }

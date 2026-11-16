@@ -9,6 +9,8 @@ struct MyDayScreen: View {
     @ObservedObject private var link = PhoneLink.shared
     /// Мои пройденные трассы за день с сервера: ими подписываются спуски.
     @State private var trails: [MyTrail] = []
+    /// Погода, лифты и снег на курорте, где сейчас телефон (иначе Idre Fjäll).
+    @State private var conditions: ConditionsReply?
     /// Показать демо-день (трек строит RootView: ему известны трассы и рельеф).
     let startDemo: () -> Void
 
@@ -16,6 +18,9 @@ struct MyDayScreen: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 header
+                if let conditions {
+                    ConditionsStrip(conditions: conditions)
+                }
                 if tracker.isDemo {
                     demoBanner
                 }
@@ -50,6 +55,22 @@ struct MyDayScreen: View {
                     trails = day.myTrails ?? []
                 }
                 try? await Task.sleep(for: .seconds(30))
+            }
+        }
+        .task(id: session.phase == .signedIn) {
+            // Условия меняются медленно: раз в 5 минут хватает (сервер сам ходит на сайты не чаще раза в 10 минут).
+            while !Task.isCancelled && session.phase == .signedIn {
+                if let fresh = await session.conditions(near: tracker.here) {
+                    conditions = fresh
+                    ConditionsAlerts.updateMorning(fresh)
+                    ConditionsAlerts.scheduleClosing(fresh, recording: tracker.isRecording && !tracker.isDemo)
+                }
+                try? await Task.sleep(for: .seconds(300))
+            }
+        }
+        .onChange(of: tracker.isRecording) { _, recording in
+            if let conditions {
+                ConditionsAlerts.scheduleClosing(conditions, recording: recording && !tracker.isDemo)
             }
         }
     }
