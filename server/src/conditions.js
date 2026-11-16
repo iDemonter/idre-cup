@@ -173,6 +173,41 @@ export function parseSkistar(lines) {
   };
 }
 
+// --- Ski Stockholm (Väsjöbacken, Ekebyhovsbacken): счётчики и часы по дням недели, без статуса каждого лифта.
+const WEEKDAYS = ["Söndag", "Måndag", "Tisdag", "Onsdag", "Torsdag", "Fredag", "Lördag"];
+export function parseSkiStockholm(lines) {
+  const count = (label) => {
+    const value = after(lines, label)?.match(/(\d+)\s*\/\s*(\d+)/);
+    return value ? { open: Number(value[1]), total: Number(value[2]) } : null;
+  };
+  const hours = [];
+  const from = lines.indexOf("Ordinarie öppettider");
+  if (from >= 0) {
+    for (let index = from + 1; index < Math.min(lines.length - 1, from + 20); index += 1) {
+      const day = WEEKDAYS.indexOf(lines[index]);
+      if (day < 0) continue;
+      const parsed = parseHours(lines[index + 1]);
+      if (parsed) hours.push({ name: lines[index], code: null, ...parsed, days: [day] });
+    }
+  }
+  const list = (title, until) => {
+    const at = lines.indexOf(title);
+    if (at < 0) return [];
+    const end = lines.indexOf(until, at);
+    return lines.slice(at + 1, end < 0 ? at + 12 : end);
+  };
+  return {
+    lifts: count("Öppna liftar"),
+    pistes: count("Öppna nedfarter"),
+    liftList: list("Liftar", "Park").map((name) => ({ code: name, name, status: null, hours: [] })),
+    pisteList: list("Nedfarter", "Liftar").map((name) => ({ ref: null, name, status: null })),
+    hours,
+    season: null,
+    weather: null,
+    snow: null,
+  };
+}
+
 /** Несколько зон SkiStar → один курорт: лифты и трассы вместе, погода и снег с первой зоны. */
 export function mergeSkistar(parts) {
   const sum = (key) => {
@@ -191,7 +226,7 @@ export function mergeSkistar(parts) {
   };
 }
 
-/** Последний лифт закрывается (без вечерних: позже 20:00 — это вечернее катание). */
+/** Последний лифт закрывается (вечернее катание после 20:00 не считается, если днём лифты работают). */
 export function closingTime(status, weekday) {
   const times = [];
   for (const lift of status.liftList ?? []) {
@@ -202,8 +237,9 @@ export function closingTime(status, weekday) {
   for (const rule of status.hours ?? []) {
     if (!rule.days || rule.days.includes(weekday)) times.push(rule.closes);
   }
+  // Если днём ничего нет (горки в городе работают по вечерам), берём вечернее закрытие.
   const day = times.filter((time) => time <= "20:00").sort();
-  return day.at(-1) ?? null;
+  return day.at(-1) ?? times.sort().at(-1) ?? null;
 }
 
 // --- Прогноз MET Norway (api.met.no, locationforecast compact): сводка на день и ближайшие часы.

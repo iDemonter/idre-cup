@@ -289,7 +289,7 @@ def apply_official(resorts):
             if mkey in found and found[mkey]["length"] >= trail["length"]:
                 continue
             trail["ref"], trail["name"] = match["ref"], match["name"]
-            if LEVEL[match["level"]] != "park":
+            if LEVEL.get(match["level"], "park") != "park":
                 trail["difficulty"] = LEVEL[match["level"]]
             trail["official"] = True
             trail["id"] = f"{resort['id']}:{match['ref'] or slug(match['name'])}"

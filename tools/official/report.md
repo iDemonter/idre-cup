@@ -30,13 +30,18 @@
 ## Flottsbro: совпало 4 из 4
 Источник: https://www.flottsbro.se/gora/skidakning/pistkarta/, проверено 2026-11-16.
 
-## Väsjöbacken: официального списка нет, всё из OpenStreetMap (6 трасс)
+## Väsjöbacken: совпало 4 из 4
+Источник: https://www.skistockholm.se/vasjobacken (цветов на сайте нет), проверено 2026-11-16.
+- Есть в OpenStreetMap, нет в официальном списке (оставлены как есть): Barnbacken, Sollenkollen
 
 ## Bruket (Järfälla): официального списка нет, всё из OpenStreetMap (0 трасс)
 
 ## Hammarbybacken: совпало 4 из 4
 Источник: https://www.skistar.com/sv/hammarbybacken/vinter-i-hammarbybacken/liftar-pister/, проверено 2026-11-16.
 
-## Ekebyhovsbacken: официального списка нет, всё из OpenStreetMap (4 трасс)
+## Ekebyhovsbacken: совпало 3 из 6
+Источник: https://www.skistockholm.se/ekebyhovsbacken (цветов на сайте нет), проверено 2026-11-16.
+- Нет линии в OpenStreetMap (в зачёт и на карту не попадут): Barnbacken, Knattebacken, Café-stigen
+- Есть в OpenStreetMap, нет в официальном списке (оставлены как есть): Sjötunabacken
 
 ## Humbacken (Sigtuna): официального списка нет, всё из OpenStreetMap (1 трасс)

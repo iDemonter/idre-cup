@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { closingTime, htmlLines, parseHours, parseIdre, parseSkistar, summarizeForecast } from "../src/conditions.js";
+import { closingTime, htmlLines, parseHours, parseIdre, parseSkiStockholm, parseSkistar, summarizeForecast } from "../src/conditions.js";
 
 const lines = (name) => readFileSync(new URL(`./fixtures/${name}`, import.meta.url), "utf8").split("\n").filter(Boolean);
 
@@ -51,4 +51,14 @@ test("прогноз MET Norway: сводка на день", () => {
   assert.ok(forecast.day.min <= forecast.day.max);
   assert.equal(forecast.day.text, "небольшой снег");
   assert.ok(forecast.hours.length <= 12);
+});
+
+test("Ski Stockholm (Väsjöbacken): счётчики и часы по дням недели", () => {
+  const status = parseSkiStockholm(lines("skistockholm-vasjobacken.txt"));
+  assert.deepEqual(status.pistes, { open: 3, total: 5 });
+  assert.deepEqual(status.lifts, { open: 4, total: 5 });
+  assert.equal(status.liftList.length, 5);
+  assert.deepEqual(status.pisteList.map((piste) => piste.name), ["Familjebacken", "Slingan", "Huvudbacken", "Klubbacken"]);
+  assert.equal(closingTime(status, 6), "16:00", "суббота 10–16");
+  assert.equal(closingTime(status, 2), "21:00", "будни: горка работает только вечером, до 21:00");
 });

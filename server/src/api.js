@@ -10,7 +10,7 @@ import { scoreDay } from "./scoring.js";
 import { loadTrails, matchRun, toMeters, trailLabel } from "./trails.js";
 import { TV_PAGE } from "./tv.js";
 import { loadResorts, resortOf, seasonDay, seasonTable } from "./season.js";
-import { closingTime, htmlLines, mergeSkistar, parseIdre, parseSkistar, summarizeForecast } from "./conditions.js";
+import { closingTime, htmlLines, mergeSkistar, parseIdre, parseSkiStockholm, parseSkistar, summarizeForecast } from "./conditions.js";
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // без похожих O/0 и I/1
 const MAX_BATCH = 5000;
@@ -1816,6 +1816,7 @@ export function mountApi(app, { db, rules, attemptLimit = 30, autoEvents = true,
     if (!source) return null;
     return cached(`status|${resortId}`, conditionsConfig.refreshMinutes, async () => {
       if (source.kind === "idre") return { ...parseIdre(htmlLines(await getText(source.url))), source: source.url, fetchedAt: new Date().toISOString() };
+      if (source.kind === "skistockholm") return { ...parseSkiStockholm(htmlLines(await getText(source.url))), source: source.url, fetchedAt: new Date().toISOString() };
       const parts = [];
       for (const url of source.urls) parts.push(parseSkistar(htmlLines(await getText(url))));
       return { ...mergeSkistar(parts), source: source.urls[0].replace(/[^/]+\/SimpleView\/$/, ""), fetchedAt: new Date().toISOString() };

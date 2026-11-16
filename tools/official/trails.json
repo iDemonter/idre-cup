@@ -1,5 +1,5 @@
 {
- "_": "Официальные списки трасс с сайтов курортов: номер, название, сложность (g зелёная, b синяя, r красная, s чёрная, o парк). tools/resorts.py берёт отсюда номера, названия и цвета, линии — из OpenStreetMap.",
+ "_": "Официальные списки трасс с сайтов курортов: номер, название, сложность (g зелёная, b синяя, r красная, s чёрная, o парк, ? цвета на сайте нет — остаётся из OpenStreetMap). tools/resorts.py берёт отсюда номера, названия и цвета, линии — из OpenStreetMap.",
  "resorts": {
   "are": {
    "source": "https://www.skistar.com/sv/vara-skidorter/are/vinter-i-are/vader-och-backar/ (Åre by, Högzon, Åre Björnen)",
@@ -840,6 +840,68 @@
      "ref": null,
      "name": "Barnbacken",
      "level": "g"
+    }
+   ]
+  },
+  "vasjobacken": {
+   "source": "https://www.skistockholm.se/vasjobacken (цветов на сайте нет)",
+   "checked": "2026-11-16",
+   "trails": [
+    {
+     "ref": null,
+     "name": "Familjebacken",
+     "level": "?"
+    },
+    {
+     "ref": null,
+     "name": "Slingan",
+     "level": "?"
+    },
+    {
+     "ref": null,
+     "name": "Huvudbacken",
+     "level": "?"
+    },
+    {
+     "ref": null,
+     "name": "Klubbacken",
+     "level": "?"
+    }
+   ]
+  },
+  "ekebyhovsbacken": {
+   "source": "https://www.skistockholm.se/ekebyhovsbacken (цветов на сайте нет)",
+   "checked": "2026-11-16",
+   "trails": [
+    {
+     "ref": null,
+     "name": "Barnbacken",
+     "level": "?"
+    },
+    {
+     "ref": null,
+     "name": "Knattebacken",
+     "level": "?"
+    },
+    {
+     "ref": null,
+     "name": "Långsvängen",
+     "level": "?"
+    },
+    {
+     "ref": null,
+     "name": "Träningsbacken",
+     "level": "?"
+    },
+    {
+     "ref": null,
+     "name": "Café-stigen",
+     "level": "?"
+    },
+    {
+     "ref": null,
+     "name": "Tävlingsbacken",
+     "level": "?"
     }
    ]
   }

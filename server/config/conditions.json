@@ -1,17 +1,59 @@
 {
-  "_": "Откуда сервер берёт состояние курортов (лифты, трассы, часы, погода, снег). kind: idre — страница Idre Fjäll, skistar — зоны SkiStar (SimpleView). Прогноз погоды для всех курортов из каталога берётся у MET Norway по координатам.",
+  "_": "Откуда сервер берёт состояние курортов (лифты, трассы, часы, погода, снег). kind: idre — страница Idre Fjäll, skistar — зоны SkiStar (SimpleView), skistockholm — горки Ski Stockholm (счётчики и часы по дням). Прогноз погоды для всех курортов из каталога берётся у MET Norway по координатам.",
   "refreshMinutes": 10,
   "forecastMinutes": 30,
   "sources": [
-    { "resort": "idre-fjall", "kind": "idre", "url": "https://www.idrefjall.se/om-oss/information/vader/" },
-    { "resort": "are", "kind": "skistar", "urls": [
-      "https://www.skistar.com/sv/vara-skidorter/are/vinter-i-are/vader-och-backar/are-by/SimpleView/",
-      "https://www.skistar.com/sv/vara-skidorter/are/vinter-i-are/vader-och-backar/hogzon/SimpleView/",
-      "https://www.skistar.com/sv/vara-skidorter/are/vinter-i-are/vader-och-backar/bjornen/SimpleView/"
-    ] },
-    { "resort": "duved-tegefjall", "kind": "skistar", "urls": ["https://www.skistar.com/sv/vara-skidorter/are/vinter-i-are/vader-och-backar/duved-tegefjall/SimpleView/"] },
-    { "resort": "vemdalsskalet", "kind": "skistar", "urls": ["https://www.skistar.com/sv/vara-skidorter/vemdalen/vinter-i-vemdalen/vader-och-backar/vemdalsskalet/SimpleView/"] },
-    { "resort": "bjornrike", "kind": "skistar", "urls": ["https://www.skistar.com/sv/vara-skidorter/vemdalen/vinter-i-vemdalen/vader-och-backar/bjornrike/SimpleView/"] },
-    { "resort": "klovsjo-storhogna", "kind": "skistar", "urls": ["https://www.skistar.com/sv/vara-skidorter/vemdalen/vinter-i-vemdalen/vader-och-backar/klovsjo/SimpleView/"] }
+    {
+      "resort": "idre-fjall",
+      "kind": "idre",
+      "url": "https://www.idrefjall.se/om-oss/information/vader/"
+    },
+    {
+      "resort": "are",
+      "kind": "skistar",
+      "urls": [
+        "https://www.skistar.com/sv/vara-skidorter/are/vinter-i-are/vader-och-backar/are-by/SimpleView/",
+        "https://www.skistar.com/sv/vara-skidorter/are/vinter-i-are/vader-och-backar/hogzon/SimpleView/",
+        "https://www.skistar.com/sv/vara-skidorter/are/vinter-i-are/vader-och-backar/bjornen/SimpleView/"
+      ]
+    },
+    {
+      "resort": "duved-tegefjall",
+      "kind": "skistar",
+      "urls": [
+        "https://www.skistar.com/sv/vara-skidorter/are/vinter-i-are/vader-och-backar/duved-tegefjall/SimpleView/"
+      ]
+    },
+    {
+      "resort": "vemdalsskalet",
+      "kind": "skistar",
+      "urls": [
+        "https://www.skistar.com/sv/vara-skidorter/vemdalen/vinter-i-vemdalen/vader-och-backar/vemdalsskalet/SimpleView/"
+      ]
+    },
+    {
+      "resort": "bjornrike",
+      "kind": "skistar",
+      "urls": [
+        "https://www.skistar.com/sv/vara-skidorter/vemdalen/vinter-i-vemdalen/vader-och-backar/bjornrike/SimpleView/"
+      ]
+    },
+    {
+      "resort": "klovsjo-storhogna",
+      "kind": "skistar",
+      "urls": [
+        "https://www.skistar.com/sv/vara-skidorter/vemdalen/vinter-i-vemdalen/vader-och-backar/klovsjo/SimpleView/"
+      ]
+    },
+    {
+      "resort": "vasjobacken",
+      "kind": "skistockholm",
+      "url": "https://www.skistockholm.se/vasjobacken"
+    },
+    {
+      "resort": "ekebyhovsbacken",
+      "kind": "skistockholm",
+      "url": "https://www.skistockholm.se/ekebyhovsbacken"
+    }
   ]
 }
