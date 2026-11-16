@@ -1,3 +1,4 @@
+import AppIntents
 import SwiftUI
 
 /// Карточка записи для экрана блокировки.
@@ -54,9 +55,30 @@ struct RideLockScreenView: View {
                 if let rival = state.duelWith, let end = state.duelEnds, end > Date() {
                     countdown("flag.checkered.2.crossed", "Дуэль: \(rival)", until: end)
                 }
+                // Управление записью прямо с экрана блокировки, без разблокировки телефона.
+                HStack(spacing: 8) {
+                    if state.paused {
+                        control("Дальше", "play.fill", intent: ResumeRecordingIntent(), filled: true)
+                    } else {
+                        control("Пауза", "pause.fill", intent: PauseRecordingIntent(), filled: false)
+                    }
+                    control("Стоп", "stop.fill", intent: StopRecordingIntent(), filled: false)
+                }
             }
         }
         .padding(16)
+    }
+
+    private func control(_ title: String, _ symbol: String, intent: some LiveActivityIntent, filled: Bool) -> some View {
+        Button(intent: intent) {
+            Label(title, systemImage: symbol)
+                .font(Theme.headline(14))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(filled ? Theme.onAccent : Theme.textPrimary)
+        .background(filled ? Theme.accent : Theme.raised, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     /// Строка «что идёт · осталось 12:40».

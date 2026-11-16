@@ -102,7 +102,7 @@ struct MapScreen: View {
         session.people.first { $0.id == friend.id } ?? Person(id: friend.id, name: friend.name ?? "?", isAdmin: false, avatar: nil)
     }
 
-    /// Друзья для 3D-модели: место, буква и фото, если оно уже скачано.
+    /// Друзья для 3D-модели: место, значок и фото, если оно уже скачано.
     private var friendMarks: [FriendMark] {
         session.friends.map { friend in
             let who = person(for: friend)
@@ -111,9 +111,9 @@ struct MapScreen: View {
             return FriendMark(
                 id: friend.id,
                 coordinate: CLLocationCoordinate2D(latitude: friend.lat, longitude: friend.lon),
-                letter: String(who.name.prefix(1)).uppercased(),
+                icon: session.icon(for: who.id),
                 photo: photo,
-                photoKey: photo == nil ? "буква-\(who.name.prefix(1))" : key
+                photoKey: photo == nil ? "значок-\(session.icon(for: who.id).symbol)" : key
             )
         }
     }

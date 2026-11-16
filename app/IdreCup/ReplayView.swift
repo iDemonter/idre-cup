@@ -118,9 +118,9 @@ struct ReplayView: View {
             return FriendMark(
                 id: track.id,
                 coordinate: spot.coordinate,
-                letter: String(track.name.prefix(1)).uppercased(),
+                icon: session.icon(for: track.id),
                 photo: photo,
-                photoKey: photo == nil ? "буква" : "фото"
+                photoKey: photo == nil ? "значок" : "фото"
             )
         }
     }

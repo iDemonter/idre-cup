@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Аватар участника: его картинка или первая буква имени. Свой выделен акцентом.
+/// Аватар участника: его картинка или значок (свой цвет и символ). Свой выделен акцентом.
 struct AvatarView: View {
     @EnvironmentObject private var session: Session
     let person: Person
@@ -16,11 +16,13 @@ struct AvatarView: View {
                     .resizable()
                     .scaledToFill()
             } else {
-                Text(String(person.name.prefix(1)).uppercased())
-                    .font(.system(size: size * 0.44, weight: .heavy, design: .rounded))
-                    .foregroundStyle(isMe ? Theme.onAccent : Theme.textPrimary)
+                // Без фото: свой цвет и символ участника, как на карте.
+                let icon = session.icon(for: person.id)
+                Image(systemName: icon.symbol)
+                    .font(.system(size: size * 0.44, weight: .bold))
+                    .foregroundStyle(Color(icon.ink))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(isMe ? Theme.accent : Theme.raised)
+                    .background(Color(icon.color))
             }
         }
         .frame(width: size, height: size)

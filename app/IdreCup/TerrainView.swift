@@ -7,7 +7,8 @@ import UIKit
 struct FriendMark: Equatable {
     let id: String
     let coordinate: CLLocationCoordinate2D
-    let letter: String
+    /// Значок участника без фото.
+    let icon: PersonIcon
     let photo: UIImage?
     /// Меняется вместе с аватаром: по нему модель понимает, что кружок пора перерисовать.
     let photoKey: String
@@ -408,7 +409,7 @@ struct TerrainView: UIViewRepresentable {
             return node
         }
 
-        /// Друзья: кружок с аватаром или буквой на месте последней точки каждого.
+        /// Друзья: кружок с аватаром или значком на месте последней точки каждого.
         func showFriends(_ marks: [FriendMark]) {
             friends = marks
             var next: [String: (node: SCNNode, photoKey: String)] = [:]
@@ -418,7 +419,7 @@ struct TerrainView: UIViewRepresentable {
                 var entry = friendNodes[mark.id]
                 if entry == nil || entry?.photoKey != mark.photoKey {
                     entry?.node.removeFromParentNode()
-                    let node = Self.badgeNode(image: Self.friendImage(letter: mark.letter, photo: mark.photo))
+                    let node = Self.badgeNode(image: Self.friendImage(icon: mark.icon, photo: mark.photo))
                     node.renderingOrder = 110
                     touchable.addChildNode(node)
                     entry = (node, mark.photoKey)
@@ -437,8 +438,8 @@ struct TerrainView: UIViewRepresentable {
             friendLock.unlock()
         }
 
-        /// Кружок друга: фото или буква, тёмная обводка, чтобы читался на снегу.
-        private static func friendImage(letter: String, photo: UIImage?) -> UIImage {
+        /// Кружок друга: фото или значок, белая обводка, чтобы читался на снегу.
+        private static func friendImage(icon: PersonIcon, photo: UIImage?) -> UIImage {
             let side: CGFloat = 96
             return UIGraphicsImageRenderer(size: CGSize(width: side, height: side)).image { context in
                 let box = CGRect(x: 6, y: 6, width: side - 12, height: side - 12)
@@ -448,14 +449,11 @@ struct TerrainView: UIViewRepresentable {
                 if let photo {
                     photo.draw(in: box)
                 } else {
-                    UIColor(Theme.raised).setFill()
+                    icon.color.setFill()
                     circle.fill()
-                    let label = NSAttributedString(string: letter, attributes: [
-                        .font: roundedFont(size: side * 0.42),
-                        .foregroundColor: UIColor.white,
-                    ])
-                    let size = label.size()
-                    label.draw(at: CGPoint(x: (side - size.width) / 2, y: (side - size.height) / 2))
+                    if let symbol = icon.image(side: side) {
+                        symbol.draw(at: CGPoint(x: (side - symbol.size.width) / 2, y: (side - symbol.size.height) / 2))
+                    }
                 }
                 context.cgContext.restoreGState()
                 UIColor.white.setStroke()
