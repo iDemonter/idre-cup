@@ -642,3 +642,39 @@ test("сезон: дни на курортах, встреча, короны, т
   assert.equal(himmel.trails.find((trail) => trail.id === "idre:112").name, "Fridabranten");
   assert.equal((await call("GET", "/v1/resorts/nowhere", { token: ivan.token })).status, 404);
 });
+
+test("сезон: курорт из каталога (Hammarbybacken), трасса засчитана в любую сторону линии", options, async () => {
+  const catalog = JSON.parse(readFileSync(new URL("../config/resorts.json", import.meta.url), "utf8")).resorts;
+  const hill = catalog.find((resort) => resort.id === "hammarbybacken");
+  assert.ok(hill, "Hammarbybacken есть в каталоге");
+  const trail = [...hill.trails].sort((a, b) => b.length - a.length)[0];
+  // Едем по линии в обратную сторону: направление в OpenStreetMap не обязано быть сверху вниз.
+  const coords = [...trail.coords].reverse();
+  const day = (offset) => new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
+  const me = (await call("POST", "/v1/cups", { body: { cupName: "Горка", name: "Иван" } })).body;
+  await call("PATCH", "/v1/cup", { token: me.token, body: { seasonFrom: day(-3), seasonTo: day(3) } });
+  const start = Math.floor(Date.now() / 1000) - 1200;
+  const points = [];
+  let t = start;
+  let walked = 0;
+  for (let index = 1; index < coords.length; index += 1) {
+    const [lat1, lon1] = coords[index - 1];
+    const [lat2, lon2] = coords[index];
+    const length = Math.hypot((lat2 - lat1) * 111_320, (lon2 - lon1) * 56_800);
+    for (let done = 0; done < length; done += 6) {
+      const share = done / length;
+      points.push([t, lat1 + (lat2 - lat1) * share, lon1 + (lon2 - lon1) * share, 90 - ((walked + done) / trail.length) * 60, 6, 5]);
+      t += 1;
+    }
+    walked += length;
+  }
+  points.push([t, ...coords.at(-1), 30, 6, 5]);
+  await call("POST", "/v1/tracks", { token: me.token, body: { points } });
+
+  const season = (await call("GET", "/v1/season", { token: me.token })).body;
+  assert.deepEqual(season.rows[0].resorts, ["Hammarbybacken"]);
+  assert.equal(season.rows[0].days, 1);
+  const crown = season.crowns.find((item) => item.trail === trail.id);
+  assert.ok(crown, `корона на ${trail.name}`);
+  assert.equal(crown.resort, "Hammarbybacken");
+});

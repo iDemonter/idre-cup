@@ -185,6 +185,10 @@ def build_region(region, elements):
                 gap = 0
             if gap < best:
                 best, name = gap, area["name"]
+        # Своё имя из tools/resort_regions.json: точка, которая лежит внутри этого курорта.
+        own = [(dist(center, item["at"]), item["name"]) for item in region.get("names", []) if dist(center, item["at"]) <= radius]
+        if own:
+            name = min(own)[1]
         if name is None:
             named = sorted((length(p["points"]), p["tags"].get("name")) for p in pistes if p["tags"].get("name"))
             name = f"{region['name']} · {named[-1][1]}" if named else region["name"]
