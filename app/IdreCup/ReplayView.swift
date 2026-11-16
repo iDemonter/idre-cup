@@ -44,7 +44,10 @@ struct ReplayView: View {
             panel
         }
         .background(Theme.base.ignoresSafeArea())
-        .task { await load() }
+        // Повтор могут открыть раньше, чем приложение вошло в кубок: загружаем, как только вошло.
+        .task(id: session.phase == .signedIn) {
+            if session.phase == .signedIn { await load() }
+        }
         .task {
             // Шаг анимации 15 раз в секунду.
             while !Task.isCancelled {
@@ -180,7 +183,7 @@ struct ReplayView: View {
                     }
                 }
                 .buttonStyle(.plain)
-            } else if didLoad {
+            } else if didLoad || session.phase == .signedOut {
                 Text("За сегодня треков нет: повтор появится после первых спусков.")
                     .font(Theme.caption())
                     .foregroundStyle(Theme.textSecondary)
