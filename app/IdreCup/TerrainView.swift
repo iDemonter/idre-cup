@@ -223,7 +223,7 @@ struct TerrainView: UIViewRepresentable {
             for piste in data.labelled {
                 let title = piste.badgeText
                 let outline = piste.difficulty == "black" ? UIColor.white : UIColor.white.withAlphaComponent(0.75)
-                let image = Self.badgeImage(text: title, fill: UIColor(piste.color), outline: outline, isRound: piste.difficulty == "green", fontScale: 0.46)
+                let image = Self.badgeImage(text: title, fill: UIColor(piste.color), outline: outline, form: PisteForm(difficulty: piste.difficulty))
                 addBadge(image: image, at: frame.local(piste.mid), above: 10, name: "piste-\(piste.id)", size: 26, rank: 100_000 + (piste.show ?? 0), number: piste.number)
             }
 
@@ -759,19 +759,21 @@ struct TerrainView: UIViewRepresentable {
 
         // MARK: - Картинки значков
 
-        private static func badgeImage(text: String, fill: UIColor, outline: UIColor, isRound: Bool, fontScale: CGFloat) -> UIImage {
+        private static func badgeImage(text: String, fill: UIColor, outline: UIColor, form: PisteForm) -> UIImage {
             let side: CGFloat = 64
             return UIGraphicsImageRenderer(size: CGSize(width: side, height: side)).image { _ in
                 let box = CGRect(x: 3, y: 3, width: side - 6, height: side - 6)
-                let path = UIBezierPath(roundedRect: box, cornerRadius: isRound ? box.width / 2 : box.width * 0.3)
+                // Предложение 11: форма по сложности, как на карте Apple.
+                let path = form.bezier(in: box)
                 fill.setFill()
                 path.fill()
                 outline.setStroke()
                 path.lineWidth = 4
+                if form == .unknown { path.setLineDash([6, 4], count: 2, phase: 0) }
                 path.stroke()
 
                 let label = NSAttributedString(string: text, attributes: [
-                    .font: roundedFont(size: side * fontScale),
+                    .font: roundedFont(size: side * form.fontScale),
                     .foregroundColor: UIColor.white,
                 ])
                 let size = label.size()

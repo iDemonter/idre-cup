@@ -181,6 +181,7 @@ jobs:
             shoot model-trail 25 -look Модель -preset Nord -selectTrail 28 -serverURL $SERVER -token "$TOKEN"
             shoot model-friends 25 -look Модель -preset Ost -serverURL $SERVER -token "$TOKEN"
             shoot satellite-friends 30 -look Спутник -preset Ost -serverURL $SERVER -token "$TOKEN"
+            shoot map-resorts 15 -look Модель -resortPicker YES -serverURL $SERVER -token "$TOKEN"
           fi
 
       # Live Activity: карточка экрана блокировки (та же вёрстка, показанная внутри приложения)
