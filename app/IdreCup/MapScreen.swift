@@ -22,6 +22,9 @@ struct MapScreen: View {
     /// Курорты сезона вне Idre и открытый сейчас из них (рисуется поверх Apple Maps).
     @State private var otherResorts: [ResortSummary] = []
     @State private var otherResort: ResortDetail?
+    /// Предложение 11: лист выбора курорта и условия на открытом курорте (часы, сколько открыто).
+    @State private var showsPicker = UserDefaults.standard.bool(forKey: "resortPicker")
+    @State private var otherConditions: ConditionsReply?
     /// Какие лифты Idre Fjäll сейчас работают (с сайта курорта): закрытые на карте блёклые.
     @State private var idreConditions: ConditionsReply?
     @State private var distance: Double = MapScreen.overviewDistance
@@ -275,12 +278,7 @@ struct MapScreen: View {
                 }
                 ForEach(other.trails.filter { $0.label != nil }) { trail in
                     Annotation("", coordinate: trail.mid) {
-                        Text(trail.label ?? "")
-                            .font(Theme.caption(10))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 2)
-                            .background(trail.color, in: Capsule())
+                        ShapedPisteBadge(text: trail.label ?? "", difficulty: trail.difficulty, color: trail.color, size: 24)
                     }
                 }
             }
@@ -374,12 +372,22 @@ struct MapScreen: View {
                     .minimumScaleFactor(0.8)
                     .font(Theme.overline())
                     .foregroundStyle(Theme.textSecondary)
-                Text("Карта трасс")
-                    .font(Theme.title())
-                    .foregroundStyle(Theme.textPrimary)
+                // Предложение 11: название курорта — кнопка выбора курорта.
+                ResortSwitcher(title: otherResort?.name ?? "Idre Fjäll") { showsPicker = true }
             }
             Spacer()
             lookMenu
+        }
+        .task(id: session.phase == .signedIn) {
+            if otherResorts.isEmpty { otherResorts = await session.resorts() }
+        }
+        .sheet(isPresented: $showsPicker) {
+            ResortPickerSheet(resorts: otherResorts, here: tracker.here) { choice in
+                Task { await choose(choice) }
+            }
+            .environmentObject(session)
+            .presentationDetents([.medium, .large])
+            .preferredColorScheme(.dark)
         }
         .padding(.horizontal, 20)
         .padding(.top, 8)
@@ -396,6 +404,11 @@ struct MapScreen: View {
 
     /// «IDRE FJÄLL · 41 ТРАССА · HIMMELFJÄLL · 25».
     private var mapOverline: String {
+        if let other = otherResort {
+            let count = other.trails.count
+            let kind = other.region == "Stockholm" ? "ГОРКА" : "КУРОРТ"
+            return "\(other.region.uppercased()) · \(kind) · \(count) \(Format.plural(count, "ТРАССА", "ТРАССЫ", "ТРАСС"))"
+        }
         let neighbour = data.labelled.filter { $0.resort == "himmel" }.count
         let own = "IDRE FJÄLL · \(pisteCountTitle)"
         return neighbour > 0 ? "\(own) · HIMMELFJÄLL · \(neighbour)" : "\(own) НА КАРТЕ"
@@ -456,6 +469,10 @@ struct MapScreen: View {
                     .padding(.horizontal, 20)
             }
 
+            if let other = otherResort {
+                // Предложение 11: у горки или курорта вместо чипов зон — сегодняшние часы и список трасс.
+                HillInfoSheet(resort: other, conditions: otherConditions)
+            } else {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     homeChip
@@ -471,9 +488,9 @@ struct MapScreen: View {
                     presetChip(MapScreen.areaName, model: MapScreen.modelArea) {
                         MapScreen.areaCamera(for: data)
                     }
-                    otherResortsChip
                 }
                 .padding(.horizontal, 20)
+            }
             }
 
             ScrollView(.horizontal, showsIndicators: false) {
@@ -710,34 +727,32 @@ struct MapScreen: View {
         return status.isClosed ? Theme.pisteRed.opacity(0.45) : Color.white.opacity(status.isOpen ? 0.95 : 0.75)
     }
 
-    /// «Другие курорты»: Åre, Vemdalen, горки Стокгольма. Открываются на Apple Maps с трассами из OpenStreetMap.
-    @ViewBuilder
-    private var otherResortsChip: some View {
-        let list = otherResorts.filter { !$0.isIdre }
-        let isActive = otherResort != nil && activePreset == otherResort?.name
-        Menu {
-            ForEach(Dictionary(grouping: list, by: \.region).keys.sorted(), id: \.self) { region in
-                Section(region) {
-                    ForEach(list.filter { $0.region == region }.sorted { $0.trails > $1.trails }) { resort in
-                        Button("\(resort.name) · \(resort.trails) \(Format.plural(resort.trails, "трасса", "трассы", "трасс"))") {
-                            Task { await openResort(resort) }
-                        }
-                    }
-                }
+    /// Выбор в листе курортов: Idre (обзор или Himmelfjäll) или другой курорт из каталога.
+    private func choose(_ choice: ResortChoice) async {
+        switch choice {
+        case .idre(let zone):
+            // Возвращаемся с другого курорта: снова своя 3D-модель.
+            if otherResort != nil, terrain != nil { look = .model }
+            otherResort = nil
+            otherConditions = nil
+            if let zone, let found = data.zones.first(where: { $0.name == zone }) {
+                apply(preset: found.name, model: MapScreen.modelCamera(for: found, in: data), camera: MapScreen.mapCamera(for: found))
+            } else {
+                apply(preset: MapScreen.overviewName, model: MapScreen.modelOverview(id: 0), camera: MapScreen.overviewCamera(for: data))
             }
-        } label: {
-            HStack(spacing: 4) {
-                Text(isActive ? (otherResort?.name ?? "") : "Другие курорты")
-                Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold))
-            }
-            .font(Theme.caption())
-            .foregroundStyle(isActive ? Theme.onAccent : Theme.textSecondary)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .background(isActive ? Theme.accent : Theme.raised, in: Capsule())
+        case .other(let summary):
+            await openResort(summary)
+            otherConditions = await session.conditions(near: summary.coordinate)
         }
-        .task(id: session.phase == .signedIn) {
-            if otherResorts.isEmpty { otherResorts = await session.resorts() }
+    }
+
+    private func apply(preset name: String, model: ModelCamera, camera: MapCamera) {
+        activePreset = name
+        var next = model
+        next.id = modelCamera.id + 1
+        modelCamera = next
+        withAnimation(.easeInOut(duration: 1.2)) {
+            position = .camera(camera)
         }
     }
 
@@ -824,19 +839,8 @@ private struct PisteBadge: View {
     var size: CGFloat = 26
 
     var body: some View {
-        let isRound = piste.difficulty == "green"
-        let radius = isRound ? size / 2 : size * 0.3
-        let needsOutline = piste.difficulty == "black"
-        let title = piste.badgeText
-        return Text(title)
-            .font(.system(size: size * 0.46, weight: .heavy, design: .rounded))
-            .foregroundStyle(Color.white)
-            .frame(width: size, height: size)
-            .background(piste.color, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .stroke(isSelected ? Theme.accent : Color.white.opacity(needsOutline ? 0.9 : 0.55), lineWidth: isSelected ? 3 : 1.5)
-            )
+        // Предложение 11: форма по сложности (круг, квадрат, шестиугольник, ромб).
+        ShapedPisteBadge(text: piste.badgeText, difficulty: piste.difficulty, color: piste.color, size: size, isSelected: isSelected)
     }
 }
 
