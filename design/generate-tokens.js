@@ -115,7 +115,7 @@ push("    /// На стекле — только Palette.textPrimary и Palette.
 push("    @ViewBuilder");
 push("    func glassBackground<S: Shape>(in shape: S) -> some View {");
 push("        #if compiler(>=6.2)");
-push("        if #available(iOS 26.0, *) {");
+push("        if #available(iOS 26.0, watchOS 26.0, *) {");
 push("            glassEffect(.regular.tint(Palette.glassTint), in: shape)");
 push("        } else {");
 push("            background(Palette.materialTint, in: shape).background(.ultraThinMaterial, in: shape)");

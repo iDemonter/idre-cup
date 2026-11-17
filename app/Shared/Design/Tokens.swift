@@ -174,7 +174,7 @@ extension View {
     @ViewBuilder
     func glassBackground<S: Shape>(in shape: S) -> some View {
         #if compiler(>=6.2)
-        if #available(iOS 26.0, *) {
+        if #available(iOS 26.0, watchOS 26.0, *) {
             glassEffect(.regular.tint(Palette.glassTint), in: shape)
         } else {
             background(Palette.materialTint, in: shape).background(.ultraThinMaterial, in: shape)
