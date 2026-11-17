@@ -167,6 +167,7 @@ jobs:
             shoot profile 12 -section rating -showProfile YES -serverURL $SERVER -token "$TOKEN"
             shoot duels 12 -section duels -serverURL $SERVER -token "$TOKEN"
             shoot evening 12 -section evening -serverURL $SERVER -token "$TOKEN"
+            shoot evening-stories 15 -section evening -stories YES -serverURL $SERVER -token "$TOKEN"
             shoot replay 25 -section evening -replay YES -replayAt 0.93 -serverURL $SERVER -token "$TOKEN"
             # Викторина: запускаем от имени админа; через ~12 с после старта идёт первый вопрос.
             curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"kind":"quiz"}' $SERVER/v1/games > /dev/null || true

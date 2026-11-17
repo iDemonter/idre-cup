@@ -8,6 +8,8 @@ struct EveningScreen: View {
     /// Повтор дня на модели. Для снимков экрана: -replay YES.
     @State private var showsReplay = UserDefaults.standard.bool(forKey: "replay")
     @State private var ceremony: Ceremony?
+    /// Итоги дня историями на весь экран. Для снимков экрана: -stories YES.
+    @State private var showsStories = UserDefaults.standard.bool(forKey: "stories")
     @State private var games: GamesReply?
     @State private var didLoad = false
     @State private var playing: ReactionGame?
@@ -20,6 +22,9 @@ struct EveningScreen: View {
                 if session.phase != .signedIn {
                     note("Вечер идёт внутри кубка. Войдите в кубок в разделе «Рейтинг».")
                 } else {
+                    if let ceremony, ceremony.rows.contains(where: { $0.runs > 0 }) {
+                        storiesButton
+                    }
                     if terrain != nil {
                         replayButton
                     }
@@ -98,6 +103,36 @@ struct EveningScreen: View {
     private var overline: String {
         if let number = ceremony?.dayNumber { return "ИТОГИ ДНЯ \(number)" }
         return "ИТОГИ ДНЯ И ИГРЫ"
+    }
+
+    /// Предложение 6: итоги дня по одной награде на весь экран, финал с конфетти. Можно показать всем на ТВ через AirPlay.
+    private var storiesButton: some View {
+        Button {
+            showsStories = true
+        } label: {
+            HStack(spacing: Spacing.m) {
+                Image(systemName: "sparkles.rectangle.stack.fill")
+                    .font(.system(size: 24, weight: .bold))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Итоги дня")
+                        .font(Typo.headline)
+                    Text("По одной награде на экран, в конце лучший день")
+                        .font(Typo.caption1)
+                        .opacity(0.8)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+            }
+            .foregroundStyle(Palette.onAccent)
+            .padding(Spacing.l)
+            .background(Palette.accent, in: RoundedRectangle(cornerRadius: Radius.card + 2, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .fullScreenCover(isPresented: $showsStories) {
+            if let ceremony {
+                CeremonyStories(ceremony: ceremony, people: session.people)
+            }
+        }
     }
 
     private var replayButton: some View {

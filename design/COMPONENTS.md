@@ -122,7 +122,7 @@
 | RankDelta | Изменение: Вверх / Вниз / Без изменений | 4 · подиум и стрелки | новое | [35:192](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=35-192) |
 | PodiumView | — | 4 · подиум и стрелки | новое | [35:207](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=35-207) |
 | SkeletonView | Вид: Строка / Карточка | 7 · загрузка · `StateViews.swift` · `SkeletonRow`, `SkeletonCard`, `SkeletonList` | есть | [35:243](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=35-243) |
-| StoryCard | Слайд: Награда / Победитель | 6 · церемония | новое | [35:329](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=35-329) |
+| StoryCard | Слайд: Награда / Победитель | 6 · церемония · `app/IdreCup/CeremonyStories.swift` · `CeremonyStories`, `ConfettiView` (кнопка «Итоги дня» в `EveningScreen`) | есть | [35:329](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=35-329) |
 | MapSheet | Высота: Малая / Средняя / Большая | 2 · карта на весь экран | новое | [35:473](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=35-473) |
 | RecordControl | Состояние: Выкл / Запись | 9 · Controls · `app/IdreCupLive/RideWidget.swift` · `RecordControl` | есть | [35:483](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=35-483) |
 | RideWidget | Размер: Маленький / Средний / Экран блокировки | 9 · виджет · `app/IdreCupLive/RideWidget.swift` · `RideWidget` | есть | [35:510](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=35-510) |
