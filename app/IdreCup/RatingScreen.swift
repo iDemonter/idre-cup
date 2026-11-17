@@ -265,17 +265,25 @@ struct RatingScreen: View {
             if standings.dates.isEmpty {
                 note("Зачёт начнётся с первого дня с треками.")
             }
+            // Предложение 4: подиум топ-3, ниже остальные со стрелкой «сколько мест отыграл за сегодня».
+            let showsPodium = standings.rows.count >= 3 && standings.rows[0].points > 0
+            let changes = standings.placeChanges
+            if showsPodium {
+                PodiumView(rows: Array(standings.rows.prefix(3)), person: { person($0.id, $0.name) }, myID: session.me?.id)
+            }
             VStack(spacing: 8) {
-                ForEach(standings.rows) { row in
+                ForEach(showsPodium ? Array(standings.rows.dropFirst(3)) : standings.rows) { row in
                     rowCard(
                         place: row.place,
                         person: person(row.id, row.name),
                         detail: row.days.isEmpty ? "пока без очков" : daySum(row.days, joker: row.joker),
                         points: String(row.points),
-                        footnote: weekFootnote(row, standings.jerseys)
+                        footnote: weekFootnote(row, standings.jerseys),
+                        delta: changes[row.id]
                     )
                 }
             }
+            .animation(.spring, value: standings.rows.map(\.id))
         } else {
             SkeletonList()
         }
@@ -527,13 +535,18 @@ struct RatingScreen: View {
             .background(Theme.accent.opacity(0.18), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
-    private func rowCard(place: Int?, person: Person, detail: String, points: String, footnote: String?) -> some View {
+    private func rowCard(place: Int?, person: Person, detail: String, points: String, footnote: String?, delta: Int? = nil) -> some View {
         let isMe = person.id == session.me?.id
         return HStack(spacing: 12) {
-            Text(place.map { String($0) } ?? "–")
-                .font(Theme.headline(18))
-                .foregroundStyle(place == 1 ? Theme.accent : Theme.textSecondary)
-                .frame(width: 22)
+            VStack(spacing: 0) {
+                Text(place.map { String($0) } ?? "–")
+                    .font(Theme.headline(18))
+                    .foregroundStyle(place == 1 ? Theme.accent : Theme.textSecondary)
+                if let delta {
+                    RankDelta(change: delta)
+                }
+            }
+            .frame(width: 26)
             AvatarView(person: person, size: 42)
             VStack(alignment: .leading, spacing: 2) {
                 Text(person.name)

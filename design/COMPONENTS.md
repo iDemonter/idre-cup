@@ -119,8 +119,8 @@
 
 | Компонент Figma | Варианты | Предложение | Статус | Узел |
 |---|---|---|---|---|
-| RankDelta | Изменение: Вверх / Вниз / Без изменений | 4 · подиум и стрелки | новое | [35:192](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=35-192) |
-| PodiumView | — | 4 · подиум и стрелки | новое | [35:207](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=35-207) |
+| RankDelta | Изменение: Вверх / Вниз / Без изменений | 4 · `app/IdreCup/Podium.swift` · `RankDelta` («Неделя») | есть | [35:192](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=35-192) |
+| PodiumView | — | 4 · `app/IdreCup/Podium.swift` · `PodiumView` («Неделя») | есть | [35:207](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=35-207) |
 | SkeletonView | Вид: Строка / Карточка | 7 · загрузка · `StateViews.swift` · `SkeletonRow`, `SkeletonCard`, `SkeletonList` | есть | [35:243](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=35-243) |
 | StoryCard | Слайд: Награда / Победитель | 6 · церемония · `app/IdreCup/CeremonyStories.swift` · `CeremonyStories`, `ConfettiView` (кнопка «Итоги дня» в `EveningScreen`) | есть | [35:329](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=35-329) |
 | MapSheet | Высота: Малая / Средняя / Большая | 2 · карта на весь экран | новое | [35:473](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=35-473) |
