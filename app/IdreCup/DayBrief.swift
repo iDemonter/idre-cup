@@ -85,18 +85,19 @@ struct DayBrief: View {
         }
     }
 
-    /// «Облачно, на вершине».
+    /// «Облачно»: описание ближайшего часа прогноза.
     private func headline(onTop: Bool) -> String {
-        let text = currentHour?.text.map { $0.prefix(1).uppercased() + $0.dropFirst() }
-        let place = onTop ? "на вершине" : (weather?.valley?.temp != nil ? "внизу" : "сейчас")
-        return [text, place].compactMap { $0 }.joined(separator: ", ")
+        currentHour?.text.map { $0.prefix(1).uppercased() + $0.dropFirst() } ?? "Сейчас"
     }
 
-    /// «внизу −5° · ветер 6 м/с, порывы 11».
+    /// «на вершине · внизу −5° · ветер 6 м/с, порывы 11».
     private func detail(onTop: Bool) -> String? {
         var parts: [String] = []
-        if onTop, let valley = weather?.valley?.temp {
-            parts.append("внизу \(Format.degrees(valley))°")
+        if onTop {
+            parts.append("на вершине")
+            if let valley = weather?.valley?.temp { parts.append("внизу \(Format.degrees(valley))°") }
+        } else if weather?.valley?.temp != nil {
+            parts.append("внизу")
         }
         let place = onTop ? weather?.top : weather?.valley
         if let wind = place?.wind ?? currentHour?.wind {
@@ -138,9 +139,10 @@ struct DayBrief: View {
         }()
         let pistes = status?.pistes.flatMap { $0.total > 0 ? ("\($0.open)/\($0.total)", "открыто") : nil }
         let snow: (String, String)? = {
-            guard let snow = status?.snow else { return nil }
+            // Межсезонье: нули не показываем.
+            guard let snow = status?.snow, (snow.fresh ?? snow.last24h ?? 0) > 0 || (snow.piste ?? 0) > 0 else { return nil }
             let depth = snow.piste.map { "покров \(Int($0)) см" }
-            if let fresh = snow.fresh ?? snow.last24h { return ("+\(Int(fresh)) см", depth ?? "за сутки") }
+            if let fresh = snow.fresh ?? snow.last24h, fresh > 0 { return ("+\(Int(fresh)) см", depth ?? "за сутки") }
             if let piste = snow.piste { return ("\(Int(piste)) см", "в трассе") }
             return nil
         }()
