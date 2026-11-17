@@ -28,7 +28,7 @@
 |---|---|---|---|---|
 | IdreButton | Стиль: Основная / Вторичная / Удаление × Состояние: Обычная / Нажата / Неактивна × Размер: Большая / Обычная | `MyDayScreen.swift` · `bigButton()`, `DuelsScreen.swift` · `actionLabel()`, `EveningScreen.swift` · `actionButton()` | вынести (одна вьюха или `ButtonStyle`) | [25:60](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=25-60) |
 | RecordButton | Состояние: Старт / Запись / Пауза / Демо | `MyDayScreen.swift` · `recordButton` | вынести | [25:84](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=25-84) |
-| SegmentedPicker | Выбрано: 1 / 2 / 3 | системный `Picker(.segmented)` (`RatingScreen.swift` · `Mode`, `NewDuelSheet`, `JoinView`) | есть | [25:107](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=25-107) |
+| SegmentedPicker | Выбрано: 1 / 2 / 3 / 4; свойство «Сегмент 4 виден» | системный `Picker(.segmented)` (`RatingScreen.swift` · `Mode`: Сегодня / Неделя / Короны / Сезон, `NewDuelSheet`, `JoinView`) | есть | [25:107](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=25-107) |
 | TabItem | Активна: Да / Нет | `RootView.swift` · `sectionBar` | вынести | [25:119](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=25-119) |
 | SectionBar | Стиль: Сплошной (сейчас) / Стекло (предложение 1) | `RootView.swift` · `sectionBar` | вынести | [25:172](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=25-172) |
 | ScreenHeader | Справа: Аватар / Кнопка / Закрыть / Нет | `header` в `RatingScreen`, `DuelsScreen`, `MapScreen`, `MyDayScreen`, `EveningScreen`, `ProfileScreen` | вынести | [25:197](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=25-197) |
@@ -86,6 +86,25 @@
 | HomeBadge | — | `MapScreen.swift` · `HomeBadge` | есть | [31:297](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=31-297) |
 | SummitMarker | — | `MapScreen.swift` · `SummitMarker`, `TerrainView.swift` | есть | [31:299](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=31-299) |
 | SheetBackground | — | системный `.sheet` | макет | [37:464](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=37-464) |
+
+## Условия, сезон, другие курорты
+
+Из main 16.11.2026 (сборка b591991). Экраны: «Рейтинг · Сезон», «Рейтинг · Сегодня · в других местах», «Мой день · условия», «Мой день · подробности условий», «Карта · другие курорты» на странице «Экраны — сейчас»; полоса условий добавлена и в остальные экраны «Мой день».
+
+| Компонент Figma | Варианты | Код | Статус | Узел |
+|---|---|---|---|---|
+| ConditionsStrip | — | `app/IdreCup/Conditions.swift` · `ConditionsStrip` | есть | [50:501](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=50-501) |
+| ConditionsDetails | — (лист `.medium` / `.large`) | `Conditions.swift` · `ConditionsDetails` | есть | [50:643](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=50-643) |
+| ConditionLine | — | `Conditions.swift` · `ConditionsDetails.line()` | вынести | [50:623](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=50-623) |
+| LiftStatusRow | Статус: Открыт / Закрыт / Нет данных | `Conditions.swift` · список «ЛИФТЫ» в `ConditionsDetails` | вынести | [50:638](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=50-638) |
+| HourForecast | — | `Conditions.swift` · ряд прогноза по часам | вынести | [50:639](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=50-639) |
+| LeaderboardRow (в «Сезоне» и «В других местах») | Вид: Обычная / Своя; в «В других местах» — без места и очков | `RatingScreen.swift` · `seasonList`, `dayList` (`rowCard()`) | вынести | [28:112](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=28-112) |
+| SeasonDayRow | — | `RatingScreen.swift` · `seasonList`, «МОИ ДНИ» | вынести | [50:720](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=50-720) |
+| SeasonCrownRow | Своя: Да / Нет | `RatingScreen.swift` · `seasonList`, «КОРОНЫ СЕЗОНА» | вынести | [50:735](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=50-735) |
+| OtherResortsChip | Состояние: Обычный / Выбран | `MapScreen.swift` · `otherResortsChip` | вынести | [50:743](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=50-743) |
+| OtherResortsMenu | — (системное `Menu`, разделы по регионам) | `MapScreen.swift` · `otherResortsChip`, `OtherResorts.swift` | есть (системное меню) | [50:744](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=50-744) |
+
+Расхождения макета с кодом (поправить при переходе на `Tokens.swift`): в сносках «Сезона» и «Мои дни» код пишет эмодзи 🤝 и 👑, в макете — текст «вместе 3», «корон 1» (значки только SF Symbols: `person.2.fill`, `crown.fill`); подписи `Theme.caption(10)` в полосе условий → `Typo.caption2` (11).
 
 ## Вне приложения
 
