@@ -21,11 +21,22 @@ struct MyDayScreen: View {
                 if tracker.isDemo {
                     demoBanner
                 }
-                // Предложение 3: скорость и объём одним крупным блоком, состояние записи в нём же.
-                DayHero(state: tracker.isRecording ? .recording : (tracker.isPaused ? .paused : .off), stats: tracker.stats)
-                recordButton
-                if let conditions {
-                    ConditionsStrip(conditions: conditions)
+                if isActive {
+                    // Запись или пауза: наверху скорость и объём (предложение 3), сводка свёрнута в полосу.
+                    DayHero(state: tracker.isRecording ? .recording : .paused, stats: tracker.stats)
+                    recordButton
+                    if let conditions {
+                        ConditionsStrip(conditions: conditions)
+                    }
+                } else {
+                    // До записи: сводка дня — погода, лифты, трассы, снег, прогноз (решено 17.11.2026).
+                    if let conditions {
+                        DayBrief(conditions: conditions)
+                    }
+                    recordButton
+                    if tracker.stats.pointCount > 0 || tracker.isDemo {
+                        DayHero(state: .off, stats: tracker.stats)
+                    }
                 }
                 if tracker.isDenied {
                     deniedNote
@@ -74,6 +85,9 @@ struct MyDayScreen: View {
             }
         }
     }
+
+    /// Идёт запись или пауза: тогда наверху DayHero, а не сводка дня.
+    private var isActive: Bool { tracker.isRecording || tracker.isPaused }
 
     /// Трасса, пройденная на этом спуске: её отрезок лежит внутри спуска (с запасом на сглаживание).
     private func trail(for segment: TrackSegment) -> MyTrail? {

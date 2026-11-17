@@ -44,9 +44,10 @@ struct RootView: View {
     init() {
         data = PisteData.load()
         terrain = TerrainData.load()
-        // Раздел и демо-день можно задать при запуске: -section day -demo YES (для снимков экрана).
+        // Раздел и демо-день можно задать при запуске: -section map -demo YES (для снимков экрана).
+        // По умолчанию «Мой день»: утром там вся сводка дня (решено 17.11.2026).
         let asked = UserDefaults.standard.string(forKey: "section").flatMap { Screen(rawValue: $0) }
-        _section = State(initialValue: asked ?? .map)
+        _section = State(initialValue: asked ?? .day)
     }
 
     var body: some View {

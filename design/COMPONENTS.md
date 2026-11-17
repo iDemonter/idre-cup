@@ -98,13 +98,14 @@
 | ConditionLine | — | `Conditions.swift` · `ConditionsDetails.line()` | вынести | [50:623](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=50-623) |
 | LiftStatusRow | Статус: Открыт / Закрыт / Нет данных | `Conditions.swift` · список «ЛИФТЫ» в `ConditionsDetails` | вынести | [50:638](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=50-638) |
 | HourForecast | — | `Conditions.swift` · ряд прогноза по часам | вынести | [50:639](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=50-639) |
+| DayBrief | — | `DayBrief.swift` (в «Моём дне» до записи; во время записи и на паузе вместо неё ConditionsStrip) | есть | [63:530](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=63-530) |
 | LeaderboardRow (в «Сезоне» и «В других местах») | Вид: Обычная / Своя; в «В других местах» — без места и очков | `RatingScreen.swift` · `seasonList`, `dayList` (`rowCard()`) | вынести | [28:112](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=28-112) |
 | SeasonDayRow | — | `RatingScreen.swift` · `seasonList`, «МОИ ДНИ» | вынести | [50:720](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=50-720) |
 | SeasonCrownRow | Своя: Да / Нет | `RatingScreen.swift` · `seasonList`, «КОРОНЫ СЕЗОНА» | вынести | [50:735](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=50-735) |
 | OtherResortsChip | Состояние: Обычный / Выбран | `MapScreen.swift` · `otherResortsChip` | вынести | [50:743](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=50-743) |
 | OtherResortsMenu | — (системное `Menu`, разделы по регионам) | `MapScreen.swift` · `otherResortsChip`, `OtherResorts.swift` | есть (системное меню) | [50:744](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=50-744) |
 
-Расхождения из этого раздела исправлены 17.11.2026: в сносках «Сезона» и «Мои дни» текст «вместе 3», «корон 1», как в макете; мелкие подписи 10 pt стали `Typo.caption2` (11). В сносках недели и дня эмодзи заменены значками SF Symbols (`CupSymbol` в `app/IdreCup/CupSymbol.swift`: майки, корона, джокер, гонка).
+Экраны «Мой день · сводка дня» и «Мой день · запись · сводка свёрнута» (светлая и тёмная тема) — в секции «Мой день» страницы «Экраны — сейчас», узлы 63:4841, 63:4945, 63:5049, 63:5163; при запуске приложение открывает «Мой день». Расхождения из этого раздела исправлены 17.11.2026: в сносках «Сезона» и «Мои дни» текст «вместе 3», «корон 1», как в макете; мелкие подписи 10 pt стали `Typo.caption2` (11). В сносках недели и дня эмодзи заменены значками SF Symbols (`CupSymbol` в `app/IdreCup/CupSymbol.swift`: майки, корона, джокер, гонка).
 
 ## Вне приложения
 

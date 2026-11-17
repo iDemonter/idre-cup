@@ -143,15 +143,15 @@ jobs:
             limit 60 xcrun simctl terminate "$DEVICE" com.idemonter.idrecup || true
           }
           echo "::notice::Симулятор запущен, приложение установлено"
-          shoot model-overview 25 -look Модель
-          shoot model-nord-demo 12 -look Модель -preset Nord -demo YES
-          shoot model-area 20 -look Модель -preset "Весь район"
-          shoot model-himmel 20 -look Модель -preset Himmelfjäll
-          shoot model-vast-home 12 -look Модель -preset Väst -homeLat 61.88634 -homeLon 12.83393
+          shoot model-overview 25 -section map -look Модель
+          shoot model-nord-demo 12 -section map -look Модель -preset Nord -demo YES
+          shoot model-area 20 -section map -look Модель -preset "Весь район"
+          shoot model-himmel 20 -section map -look Модель -preset Himmelfjäll
+          shoot model-vast-home 12 -section map -look Модель -preset Väst -homeLat 61.88634 -homeLon 12.83393
           # Камера нарочно поставлена вверх ногами: на снимке модель должна стоять как обычно.
-          shoot model-flip 12 -look Модель -preset Nord -flipTest YES
+          shoot model-flip 12 -section map -look Модель -preset Nord -flipTest YES
           shoot day-demo 10 -section day -demo YES
-          shoot satellite-vast-home 25 -look Спутник -preset Väst -homeLat 61.88634 -homeLon 12.83393
+          shoot satellite-vast-home 25 -section map -look Спутник -preset Väst -homeLat 61.88634 -homeLon 12.83393
 
           # Связка с сервером: демо-кубок на сервере, запущенном прямо здесь.
           if [ -f demo.json ]; then
@@ -178,10 +178,10 @@ jobs:
             limit 60 xcrun simctl io "$DEVICE" screenshot shots/quiz-tv.png || true
             limit 60 xcrun simctl terminate "$DEVICE" com.apple.mobilesafari || true
             shoot duels-new 12 -section duels -newDuel YES -serverURL $SERVER -token "$TOKEN"
-            shoot model-trail 25 -look Модель -preset Nord -selectTrail 28 -serverURL $SERVER -token "$TOKEN"
-            shoot model-friends 25 -look Модель -preset Ost -serverURL $SERVER -token "$TOKEN"
-            shoot satellite-friends 30 -look Спутник -preset Ost -serverURL $SERVER -token "$TOKEN"
-            shoot map-resorts 15 -look Модель -resortPicker YES -serverURL $SERVER -token "$TOKEN"
+            shoot model-trail 25 -section map -look Модель -preset Nord -selectTrail 28 -serverURL $SERVER -token "$TOKEN"
+            shoot model-friends 25 -section map -look Модель -preset Ost -serverURL $SERVER -token "$TOKEN"
+            shoot satellite-friends 30 -section map -look Спутник -preset Ost -serverURL $SERVER -token "$TOKEN"
+            shoot map-resorts 15 -section map -look Модель -resortPicker YES -serverURL $SERVER -token "$TOKEN"
           fi
 
       # Live Activity: карточка экрана блокировки (та же вёрстка, показанная внутри приложения)
