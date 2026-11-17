@@ -135,6 +135,11 @@ struct RatingScreen: View {
         .refreshable {
             await load()
         }
+        // Предложение 5: обогнал кого-то за день — сильный толчок.
+        .sensoryFeedback(trigger: myDayPlace) { old, new in
+            guard let old, let new, new < old else { return nil }
+            return .impact(weight: .heavy)
+        }
         .task {
             // Пока экран открыт, рейтинг обновляется сам.
             while !Task.isCancelled {
@@ -195,6 +200,12 @@ struct RatingScreen: View {
             parts.append("день \(number)")
         }
         return parts.joined(separator: " · ")
+    }
+
+    /// Моё место за сегодня (только если есть очки): по его улучшению телефон вибрирует.
+    private var myDayPlace: Int? {
+        guard let day, let index = day.rows.firstIndex(where: { $0.id == session.me?.id }), day.rows[index].points > 0 else { return nil }
+        return index + 1
     }
 
     private func person(_ id: String, _ name: String) -> Person {
@@ -388,6 +399,8 @@ struct RatingScreen: View {
                     HStack(spacing: 5) {
                         Image(systemName: "crown.fill")
                             .font(.system(size: 11, weight: .bold))
+                            // Предложение 5: корона подпрыгивает, когда её отобрали.
+                            .symbolEffect(.bounce, value: holder.id)
                         Text(holder.name ?? "?")
                             .font(Theme.caption())
                             .lineLimit(1)

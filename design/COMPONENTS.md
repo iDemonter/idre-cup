@@ -141,3 +141,14 @@
 | Стили эффектов «Стекло/Liquid Glass», «Стекло/iOS 18 · ultraThin» | `.glassBackground(in:)` | там же |
 
 Сейчас код берёт цвета из `app/Shared/Theme.swift` (тёмная тема, те же значения, что Dark). Переход на `Tokens.swift` — отдельной задачей: `Theme.base` → `Palette.base`, `Theme.textSecondary` → `Palette.textSecondary`, `Theme.accent` текстом → `Palette.accentText`, `Theme.accent.opacity(0.18)` → `Palette.accentSoft`, `Theme.raised` → `Palette.raised`, `Theme.pisteRed.opacity(0.35)` → `Palette.errorSoft`, шрифты `Theme.title(32)` → `Typo.largeTitle` и т. д.
+
+## Предложение 5 (17.11.2026): анимации и вибрация
+
+| Где | Что | Код |
+|---|---|---|
+| CrownRow | корона `.bounce` при смене короля | `RatingScreen.swift` · `crownCard` |
+| SectionBar | флажки «Дуэли» `.wiggle`, пока ждёт вызов; красная точка `.pulse` | `RootView.swift` · `sectionBar` |
+| «Сегодня» | `.impact(weight: .heavy)`, когда моё место за день улучшилось | `RatingScreen.swift` · `myDayPlace` |
+| «Дуэли» | `.success`, когда мой вызов приняли или дуэль выиграна | `DuelsScreen.swift` · `goodNews` |
+
+Майка лидера из макета пока без анимации: в «Неделе» она текстом в сноске.

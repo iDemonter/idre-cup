@@ -184,14 +184,17 @@ struct RootView: View {
                     VStack(spacing: 3) {
                         Image(systemName: item.symbol)
                             .font(.system(size: 17, weight: .bold))
+                            // Предложение 5: флажки покачиваются, пока ждёт вызов на дуэль.
+                            .symbolEffect(.wiggle, options: .repeating, isActive: item == .duels && session.duelCalls > 0)
                             .frame(width: 56, height: 30)
                             .background(isActive ? Theme.accent.opacity(0.18) : Color.clear, in: Capsule())
                             .overlay(alignment: .topTrailing) {
                                 // Кто-то вызвал на дуэль и ждёт ответа.
                                 if item == .duels && session.duelCalls > 0 {
-                                    Circle()
-                                        .fill(Theme.pisteRed)
-                                        .frame(width: 10, height: 10)
+                                    Image(systemName: "circle.fill")
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(Palette.error)
+                                        .symbolEffect(.pulse, options: .repeating)
                                         .offset(x: -8, y: 2)
                                 }
                             }

@@ -117,6 +117,10 @@ struct DuelsScreen: View {
         .refreshable {
             await load()
         }
+        // Предложение 5: вызов приняли или дуэль выиграна — «успех».
+        .sensoryFeedback(trigger: goodNews) { old, new in
+            new.count == 2 && old.count == 2 && (new[0] > old[0] || new[1] > old[1]) ? .success : nil
+        }
         .task {
             // Пока экран открыт, дуэли обновляются сами.
             while !Task.isCancelled {
@@ -163,6 +167,13 @@ struct DuelsScreen: View {
                 .font(Theme.title(32))
                 .foregroundStyle(Theme.textPrimary)
         }
+    }
+
+    /// Сколько моих дуэлей идёт и сколько выиграно: рост любого числа — хорошая новость.
+    private var goodNews: [Int] {
+        let myID = session.me?.id
+        let mine = (reply?.duels ?? []).filter { $0.involves(myID) }
+        return [mine.filter(\.isRunning).count, mine.filter { $0.isOver && $0.winner == myID }.count]
     }
 
     @ViewBuilder
