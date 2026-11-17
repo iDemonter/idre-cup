@@ -18,15 +18,15 @@ struct MyDayScreen: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 header
-                if let conditions {
-                    ConditionsStrip(conditions: conditions)
-                }
                 if tracker.isDemo {
                     demoBanner
                 }
-                speedCard
-                volumeCard
+                // Предложение 3: скорость и объём одним крупным блоком, состояние записи в нём же.
+                DayHero(state: tracker.isRecording ? .recording : (tracker.isPaused ? .paused : .off), stats: tracker.stats)
                 recordButton
+                if let conditions {
+                    ConditionsStrip(conditions: conditions)
+                }
                 if tracker.isDenied {
                     deniedNote
                 }
@@ -96,17 +96,6 @@ struct MyDayScreen: View {
                     .foregroundStyle(Theme.textPrimary)
             }
             Spacer()
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(tracker.isRecording ? Theme.onAccent : Theme.textSecondary)
-                    .frame(width: 8, height: 8)
-                Text(tracker.isRecording ? "Запись идёт" : (tracker.isPaused ? "Пауза" : "Запись выключена"))
-            }
-            .font(Theme.caption())
-            .foregroundStyle(tracker.isRecording ? Theme.onAccent : Theme.textSecondary)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(tracker.isRecording ? Theme.accent : Theme.raised, in: Capsule())
         }
     }
 
@@ -122,69 +111,6 @@ struct MyDayScreen: View {
         .background(Theme.accent.opacity(0.18), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
-    // MARK: - Скорость
-
-    private var speedCard: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("МАКС. СКОРОСТЬ · ДЕРЖАЛ 3 СЕКУНДЫ")
-                .font(Theme.overline())
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(Format.kmh(tracker.stats.runs > 0 ? tracker.stats.topSpeed : 0))
-                    .font(.system(size: 68, weight: .heavy, design: .rounded))
-                    .minimumScaleFactor(0.6)
-                    .lineLimit(1)
-                    .opacity(tracker.stats.runs > 0 ? 1 : 0.35)
-                Text("км/ч")
-                    .font(Theme.title(22))
-            }
-            Text(tracker.stats.runs > 0 ? "лучшая на спусках за день" : "появится после первого спуска")
-                .font(Theme.caption())
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .foregroundStyle(Theme.accent)
-                .background(Theme.onAccent, in: Capsule())
-        }
-        .foregroundStyle(Theme.onAccent)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(18)
-        .background(Theme.accent, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-    }
-
-    // MARK: - Объём
-
-    private var volumeCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Объём")
-                .font(Theme.headline(19))
-                .foregroundStyle(Theme.textPrimary)
-            HStack(alignment: .top, spacing: 8) {
-                volumeItem("mountain.2.fill", Format.meters(tracker.stats.vertical) + " м", "перепад")
-                volumeItem("arrow.triangle.2.circlepath", String(tracker.stats.runs), Format.plural(tracker.stats.runs, "спуск", "спуска", "спусков"))
-                volumeItem("point.topleft.down.to.point.bottomright.curvepath", Format.km(tracker.stats.runDistance) + " км", "на спусках")
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(18)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-    }
-
-    private func volumeItem(_ symbol: String, _ value: String, _ title: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Image(systemName: symbol)
-                .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(Theme.textSecondary)
-                .frame(height: 18)
-            Text(value)
-                .font(Theme.headline(20))
-                .foregroundStyle(Theme.textPrimary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-            Text(title)
-                .font(Theme.caption())
-                .foregroundStyle(Theme.textSecondary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
 
     // MARK: - Запись
 

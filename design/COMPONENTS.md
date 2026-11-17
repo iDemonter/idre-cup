@@ -46,8 +46,8 @@
 | EventCard | Состояние: Идёт / Итог | `EventsCard.swift` · `running()`, `finished()` | есть (`EventsCard`) | [28:170](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=28-170) |
 | DuelCard | Состояние: Вызов / Идёт / Итог | `DuelsScreen.swift` · `incomingCard()`, `runningCard()`, `pastRow()` | вынести | [28:214](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=28-214) |
 | StatTile | Вид: Награда / Показатель | `EveningScreen.swift` · `tile()`, `MyDayScreen.swift` · `volumeItem()` | вынести | [28:224](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=28-224) |
-| SpeedCard | Данные: Есть / Нет | `MyDayScreen.swift` · `speedCard` | вынести (в предложении 3 заменяется DayHero) | [28:240](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=28-240) |
-| VolumeCard | — | `MyDayScreen.swift` · `volumeCard` | вынести | [28:242](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=28-242) |
+| SpeedCard | Данные: Есть / Нет | — (заменён DayHero, 17.11.2026) | убран | [28:240](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=28-240) |
+| VolumeCard | — | — (заменён DayHero, 17.11.2026) | убран | [28:242](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=28-242) |
 | SegmentRow | Тип: Спуск / Подъём | `MyDayScreen.swift` · `segmentRow()` | вынести | [28:274](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=28-274) |
 | SegmentListCard | — | `MyDayScreen.swift` · `segmentList` | вынести | [37:409](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=37-409) |
 | RecordingStatusPill | Состояние: Выключена / Идёт / Пауза | `MyDayScreen.swift` · `header` | вынести | [37:460](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=37-460) |
@@ -127,7 +127,7 @@
 | RecordControl | Состояние: Выкл / Запись | 9 · Controls · `app/IdreCupLive/RideWidget.swift` · `RecordControl` | есть | [35:483](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=35-483) |
 | RideWidget | Размер: Маленький / Средний / Экран блокировки | 9 · виджет · `app/IdreCupLive/RideWidget.swift` · `RideWidget` | есть | [35:510](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=35-510) |
 | AppIcon | Вариант: Светлая / Тёмная / Tinted | 8 · иконка | новое (сейчас `Assets.xcassets/AppIcon` — одна тёмная) | [35:520](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=35-520) |
-| DayHero | Состояние: Запись / Пауза | 3 · «Мой день» крупно | новое | [42:451](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=42-451) |
+| DayHero | Состояние: Запись / Пауза | 3 · «Мой день» крупно · `app/IdreCup/DayHero.swift` (третье состояние «Запись выключена» — серая рамка, как Пауза) | есть | [42:451](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=42-451) |
 | Note | Тип: Анимация / Хаптика / Доступность | пометки на макетах | макет | [35:531](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=35-531) |
 
 ## Токены
