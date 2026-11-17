@@ -124,8 +124,8 @@
 | SkeletonView | Вид: Строка / Карточка | 7 · загрузка | новое | [35:243](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=35-243) |
 | StoryCard | Слайд: Награда / Победитель | 6 · церемония | новое | [35:329](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=35-329) |
 | MapSheet | Высота: Малая / Средняя / Большая | 2 · карта на весь экран | новое | [35:473](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=35-473) |
-| RecordControl | Состояние: Выкл / Запись | 9 · Controls | новое | [35:483](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=35-483) |
-| RideWidget | Размер: Маленький / Средний / Экран блокировки | 9 · виджет | новое | [35:510](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=35-510) |
+| RecordControl | Состояние: Выкл / Запись | 9 · Controls · `app/IdreCupLive/RideWidget.swift` · `RecordControl` | есть | [35:483](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=35-483) |
+| RideWidget | Размер: Маленький / Средний / Экран блокировки | 9 · виджет · `app/IdreCupLive/RideWidget.swift` · `RideWidget` | есть | [35:510](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=35-510) |
 | AppIcon | Вариант: Светлая / Тёмная / Tinted | 8 · иконка | новое (сейчас `Assets.xcassets/AppIcon` — одна тёмная) | [35:520](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=35-520) |
 | DayHero | Состояние: Запись / Пауза | 3 · «Мой день» крупно | новое | [42:451](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=42-451) |
 | Note | Тип: Анимация / Хаптика / Доступность | пометки на макетах | макет | [35:531](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=35-531) |

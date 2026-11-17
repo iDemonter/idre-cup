@@ -10,6 +10,8 @@ final class LiveRide {
     private var lastUpdate = Date.distantPast
     /// Запущена проверочная карточка (-liveTest YES): запись её не трогает.
     private var isTest = false
+    /// Что последний раз сказали виджету и кнопке записи: связку ключей трогаем только при смене.
+    private var sharedRecording: Bool?
 
     /// Приводит Live Activity в соответствие с записью. Вызывается при каждом пересчёте трека и раз в полминуты.
     func sync(tracker: Tracker, session: Session) {
@@ -27,6 +29,12 @@ final class LiveRide {
             eventEnds: session.eventEnds,
             paused: tracker.isPaused
         )
+        // Виджет и кнопка записи: идёт ли запись (цифры дня виджет берёт с сервера, см. Session.publishToWidget).
+        let recording = tracker.isRecording || tracker.isPaused
+        if !tracker.isDemo, recording != sharedRecording {
+            sharedRecording = recording
+            WidgetShare.update { $0.recording = recording }
+        }
         // На паузе карточка остаётся: день не закончен.
         apply(isRecording: (tracker.isRecording || tracker.isPaused) && !tracker.isDemo, cupName: session.cup?.name ?? "Idre Cup", state: state)
     }

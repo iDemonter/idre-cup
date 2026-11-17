@@ -153,7 +153,10 @@ struct RatingScreen: View {
         await session.refresh()
         async let freshDay = session.day()
         async let freshStandings = session.standings()
-        if let reply = await freshDay { day = reply }
+        if let reply = await freshDay {
+            day = reply
+            session.publishToWidget(reply)
+        }
         if let reply = await freshStandings { standings = reply }
         if let reply = await session.crowns() { crowns = reply }
         if let reply = await session.season() { season = reply }

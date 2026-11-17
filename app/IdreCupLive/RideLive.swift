@@ -2,11 +2,13 @@ import ActivityKit
 import SwiftUI
 import WidgetKit
 
-/// Расширение с Live Activity. Виджетов рабочего стола здесь нет.
+/// Расширение: Live Activity, виджет «Место в кубке» и кнопка записи для Пункта управления.
 @main
 struct IdreCupLiveBundle: WidgetBundle {
     var body: some Widget {
         RideLiveActivity()
+        RideWidget()
+        RecordControl()
     }
 }
 

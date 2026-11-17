@@ -496,6 +496,33 @@ final class Session: ObservableObject {
         let row = reply.rows[index]
         todayPoints = row.points
         todayPlace = row.points > 0 ? index + 1 : nil
+        publishToWidget(reply)
+    }
+
+    /// Место и очки за сегодня для виджета «Место в кубке» (WidgetShare).
+    func publishToWidget(_ reply: DayReply) {
+        guard let index = reply.rows.firstIndex(where: { $0.id == me?.id }) else { return }
+        let row = reply.rows[index]
+        let behind: String?
+        if row.points <= 0 {
+            behind = nil
+        } else if index == 0 {
+            behind = "лидер дня"
+        } else {
+            let ahead = reply.rows[index - 1]
+            let gap = ahead.points - row.points
+            behind = gap > 0 ? "за \(ahead.name) \(gap) \(Format.plural(gap, "очко", "очка", "очков"))" : "вровень с \(ahead.name)"
+        }
+        WidgetShare.update { snapshot in
+            snapshot.cupName = cup?.name ?? "Idre Cup"
+            snapshot.dayNumber = reply.dayNumber
+            snapshot.points = row.points
+            snapshot.place = row.points > 0 ? index + 1 : nil
+            snapshot.behind = behind
+            snapshot.topSpeed = row.topSpeed
+            snapshot.vertical = row.vertical
+            snapshot.runs = row.runs
+        }
     }
 
     /// Вызвать на дуэль. Причина отказа сервера (соперник занят, предел на день) попадает в problem.

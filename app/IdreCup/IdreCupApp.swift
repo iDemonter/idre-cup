@@ -13,6 +13,7 @@ struct IdreCupApp: App {
             case "pause": Tracker.shared.pause()
             default: Tracker.shared.stop()
             }
+            WidgetShare.update { $0.recording = Tracker.shared.isRecording || Tracker.shared.isPaused }
         }
         PhoneLink.shared.activate()
     }

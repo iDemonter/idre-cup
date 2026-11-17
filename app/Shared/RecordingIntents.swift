@@ -36,3 +36,19 @@ struct StopRecordingIntent: LiveActivityIntent {
         return .result()
     }
 }
+
+/// Кнопка «Запись трека» в Пункте управления и на экране блокировки (RecordControl).
+/// Как и кнопки Live Activity, выполняется в приложении: оно включает GPS даже из кармана (нужно разрешение «Всегда»).
+struct SetRecordingIntent: SetValueIntent, LiveActivityIntent {
+    static var title: LocalizedStringResource = "Запись трека"
+
+    @Parameter(title: "Запись")
+    var value: Bool
+
+    init() {}
+
+    func perform() async throws -> some IntentResult {
+        await RecordingCommands.run(value ? "start" : "stop")
+        return .result()
+    }
+}

@@ -41,6 +41,15 @@ targets:
         NSSupportsLiveActivitiesFrequentUpdates: true
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
+        # Префикс команды для общей связки ключей с виджетом (WidgetShare.swift).
+        AppIdentifierPrefix: $(AppIdentifierPrefix)
+    # Общая связка ключей: приложение пишет место и очки, виджет и кнопка записи читают. Первая группа — своя (токен).
+    entitlements:
+      path: IdreCup/IdreCup.entitlements
+      properties:
+        keychain-access-groups:
+          - $(AppIdentifierPrefix)com.idemonter.idrecup
+          - $(AppIdentifierPrefix)com.idemonter.idrecup.shared
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.idemonter.idrecup
@@ -50,7 +59,7 @@ targets:
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         CODE_SIGN_STYLE: Automatic
         GENERATE_INFOPLIST_FILE: false
-  # Расширение с Live Activity (экран блокировки, Dynamic Island). Общий код с приложением лежит в Shared.
+  # Расширение: Live Activity (экран блокировки, Dynamic Island), виджет «Место в кубке» и кнопка записи для Пункта управления. Общий код с приложением лежит в Shared.
   IdreCupLive:
     type: app-extension
     platform: iOS
@@ -65,6 +74,12 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
+        AppIdentifierPrefix: $(AppIdentifierPrefix)
+    entitlements:
+      path: IdreCupLive/IdreCupLive.entitlements
+      properties:
+        keychain-access-groups:
+          - $(AppIdentifierPrefix)com.idemonter.idrecup.shared
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.idemonter.idrecup.live
