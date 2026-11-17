@@ -244,7 +244,7 @@ struct RatingScreen: View {
                 }
             }
         } else {
-            ProgressView().tint(Theme.accent).frame(maxWidth: .infinity).padding(.top, 40)
+            SkeletonList()
         }
     }
 
@@ -266,7 +266,7 @@ struct RatingScreen: View {
                 }
             }
         } else {
-            ProgressView().tint(Theme.accent).frame(maxWidth: .infinity).padding(.top, 40)
+            SkeletonList()
         }
     }
 
@@ -360,7 +360,7 @@ struct RatingScreen: View {
                     .foregroundStyle(Theme.textSecondary)
             }
         } else {
-            ProgressView().tint(Theme.accent).frame(maxWidth: .infinity).padding(.top, 40)
+            SkeletonList()
         }
     }
 
@@ -481,7 +481,7 @@ struct RatingScreen: View {
                 }
             }
         } else {
-            ProgressView().tint(Theme.accent).frame(maxWidth: .infinity).padding(.top, 40)
+            SkeletonList()
         }
     }
 

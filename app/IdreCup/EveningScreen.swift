@@ -30,7 +30,7 @@ struct EveningScreen: View {
                     } else if didLoad {
                         note("Итоги дня не загрузились: нет связи или сервер ещё не обновлён.")
                     } else {
-                        ProgressView().tint(Theme.accent).frame(maxWidth: .infinity).padding(.top, 30)
+                        SkeletonList(rows: 2)
                     }
                 }
             }

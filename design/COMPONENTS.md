@@ -32,7 +32,7 @@
 | TabItem | Активна: Да / Нет | `RootView.swift` · `sectionBar` | вынести | [25:119](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=25-119) |
 | SectionBar | Стиль: Сплошной (сейчас) / Стекло (предложение 1) | `RootView.swift` · `sectionBar` | вынести | [25:172](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=25-172) |
 | ScreenHeader | Справа: Аватар / Кнопка / Закрыть / Нет | `header` в `RatingScreen`, `DuelsScreen`, `MapScreen`, `MyDayScreen`, `EveningScreen`, `ProfileScreen` | вынести | [25:197](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=25-197) |
-| NoticeBanner | Тип: Подсказка / Предупреждение / Ошибка / Нет связи / Демо | `note()`, `warning()` в `RatingScreen`, `DuelsScreen`; `MyDayScreen` · `demoBanner`, `deniedNote` | вынести; «Нет связи» — новое | [25:214](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=25-214) |
+| NoticeBanner | Тип: Подсказка / Предупреждение / Ошибка / Нет связи / Демо | `note()`, `warning()` в `RatingScreen`, `DuelsScreen`; `MyDayScreen` · `demoBanner`, `deniedNote`; «Нет связи» — `StateViews.swift` · `NoticeBanner` (в `RootView`) | вынести; «Нет связи» — есть | [25:214](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=25-214) |
 | MapChip | Стиль: Обычный / Выбран / Жильё | `MapScreen.swift` · `presetChip()`, `homeChip` | вынести | [25:225](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=25-225) |
 | IconButton | Вид: Закрыть / Ещё / Поделиться | `MapScreen.swift` · кнопка в `pisteCard()`, `ProfileScreen.swift` | вынести | [25:233](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=25-233) |
 | FieldView | Состояние: Пусто / Заполнено / Фокус | `RatingScreen.swift` · `JoinView.field()` | вынести | [25:241](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=25-241) |
@@ -53,7 +53,7 @@
 | RecordingStatusPill | Состояние: Выключена / Идёт / Пауза | `MyDayScreen.swift` · `header` | вынести | [37:460](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=37-460) |
 | RecordingCard | — | `MyDayScreen.swift` · `recordingCard` | вынести | [37:461](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=37-461) |
 | PisteCard | Вид: Трасса / Место | `MapScreen.swift` · `pisteCard()`, `placeCard()` | вынести | [28:295](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=28-295) |
-| EmptyState | — | нет (сейчас `note()` и `ProgressView`) | новое | [28:297](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=28-297) |
+| EmptyState | — | `StateViews.swift` · `EmptyState` (пока в «Дуэлях») | есть | [28:297](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=28-297) |
 
 ## Вечер и игры
 
@@ -121,7 +121,7 @@
 |---|---|---|---|---|
 | RankDelta | Изменение: Вверх / Вниз / Без изменений | 4 · подиум и стрелки | новое | [35:192](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=35-192) |
 | PodiumView | — | 4 · подиум и стрелки | новое | [35:207](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=35-207) |
-| SkeletonView | Вид: Строка / Карточка | 7 · загрузка | новое | [35:243](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=35-243) |
+| SkeletonView | Вид: Строка / Карточка | 7 · загрузка · `StateViews.swift` · `SkeletonRow`, `SkeletonCard`, `SkeletonList` | есть | [35:243](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=35-243) |
 | StoryCard | Слайд: Награда / Победитель | 6 · церемония | новое | [35:329](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=35-329) |
 | MapSheet | Высота: Малая / Средняя / Большая | 2 · карта на весь экран | новое | [35:473](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=35-473) |
 | RecordControl | Состояние: Выкл / Запись | 9 · Controls · `app/IdreCupLive/RideWidget.swift` · `RecordControl` | есть | [35:483](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=35-483) |

@@ -174,10 +174,7 @@ struct DuelsScreen: View {
         } else if didLoad {
             note("Не удалось загрузить дуэли: нет связи или сервер ещё не обновлён. Потяните экран вниз, чтобы попробовать снова.")
         } else {
-            ProgressView()
-                .tint(Theme.accent)
-                .frame(maxWidth: .infinity)
-                .padding(.top, 40)
+            SkeletonList(rows: 3)
         }
     }
 
@@ -203,7 +200,16 @@ struct DuelsScreen: View {
         ForEach(outgoing) { duel in
             outgoingCard(duel)
         }
-        challengeButton(isBusy: isBusy, left: reply.left)
+        if reply.duels.isEmpty, reply.left > 0 {
+            EmptyState(
+                symbol: "flag.2.crossed.fill",
+                title: "Дуэлей пока нет",
+                text: "Брось вызов другу: гонка по трассе, скорость или выносливость. Победитель забирает \(reply.stake) очков.",
+                button: "Вызвать на дуэль"
+            ) { showsNew = true }
+        } else {
+            challengeButton(isBusy: isBusy, left: reply.left)
+        }
         if !others.isEmpty {
             sectionTitle("ЖДУТ ОТВЕТА")
             ForEach(others) { duel in

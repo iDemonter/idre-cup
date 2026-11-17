@@ -33,6 +33,7 @@ struct RootView: View {
     }
 
     @ObservedObject private var tracker = Tracker.shared
+    @ObservedObject private var network = NetworkMonitor.shared
     @StateObject private var homeStore = HomeStore()
     @StateObject private var session = Session()
     @State private var section: Screen
@@ -72,6 +73,14 @@ struct RootView: View {
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             sectionBar
+        }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            // Предложение 7: без сети жёлтый баннер. Трек пишется дальше, точки уйдут, когда появится связь.
+            if network.isOffline {
+                NoticeBanner(text: tracker.isRecording
+                    ? "Нет связи. Запись идёт, трек уйдёт на сервер, когда появится сеть."
+                    : "Нет связи. Показываем последние данные, обновим, когда появится сеть.")
+            }
         }
         .environmentObject(tracker)
         .environmentObject(homeStore)
