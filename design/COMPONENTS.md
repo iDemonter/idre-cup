@@ -80,7 +80,7 @@
 | AdminCard | — | `ProfileScreen.swift` · `adminCard()` | вынести | [31:220](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=31-220) |
 | OpponentCell | Выбран: Нет / Да | `DuelsScreen.swift` · `NewDuelSheet.opponentButton()` | вынести | [31:245](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=31-245) |
 | PickerRow | — | `DuelsScreen.swift` · `trailPicker` | вынести | [31:246](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=31-246) |
-| MapLegend | — | `MapScreen.swift` · `bottomPanel` (легенда) | вынести | [31:250](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=31-250) |
+| MapLegend | — | `MapScreen.swift` · `bottomPanel` (легенда; сложность — формами `PisteShape`, как на значках) | вынести | [31:250](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=31-250) |
 | MapBottomPanel | Вид: Чипы / Карточка трассы | `MapScreen.swift` · `bottomPanel` | есть (функция) | [37:408](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=37-408) |
 | MapControlButton | Стиль: Сплошной / Стекло × Вид: Где я / Вид | `MapScreen.swift` · `lookMenu`, кнопки карты Apple | вынести; стекло — новое | [31:296](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=31-296) |
 | HomeBadge | — | `MapScreen.swift` · `HomeBadge` | есть | [31:297](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=31-297) |
@@ -104,7 +104,7 @@
 | OtherResortsChip | Состояние: Обычный / Выбран | `MapScreen.swift` · `otherResortsChip` | вынести | [50:743](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=50-743) |
 | OtherResortsMenu | — (системное `Menu`, разделы по регионам) | `MapScreen.swift` · `otherResortsChip`, `OtherResorts.swift` | есть (системное меню) | [50:744](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=50-744) |
 
-Расхождения макета с кодом (поправить при переходе на `Tokens.swift`): в сносках «Сезона» и «Мои дни» код пишет эмодзи 🤝 и 👑, в макете — текст «вместе 3», «корон 1» (значки только SF Symbols: `person.2.fill`, `crown.fill`); подписи `Theme.caption(10)` в полосе условий → `Typo.caption2` (11).
+Расхождения из этого раздела исправлены 17.11.2026: в сносках «Сезона» и «Мои дни» текст «вместе 3», «корон 1», как в макете; мелкие подписи 10 pt стали `Typo.caption2` (11). В сносках недели и дня эмодзи заменены значками SF Symbols (`CupSymbol` в `app/IdreCup/CupSymbol.swift`: майки, корона, джокер, гонка).
 
 ## Вне приложения
 
@@ -145,7 +145,7 @@
 | Текстовые стили «Текст/…», «Цифры/…» | `Typo.*`, `.overlineStyle()` | там же |
 | Стили эффектов «Стекло/Liquid Glass», «Стекло/iOS 18 · ultraThin» | `.glassBackground(in:)` | там же |
 
-Сейчас код берёт цвета из `app/Shared/Theme.swift` (тёмная тема, те же значения, что Dark). Переход на `Tokens.swift` — отдельной задачей: `Theme.base` → `Palette.base`, `Theme.textSecondary` → `Palette.textSecondary`, `Theme.accent` текстом → `Palette.accentText`, `Theme.accent.opacity(0.18)` → `Palette.accentSoft`, `Theme.raised` → `Palette.raised`, `Theme.pisteRed.opacity(0.35)` → `Palette.errorSoft`, шрифты `Theme.title(32)` → `Typo.largeTitle` и т. д.
+С 17.11.2026 весь код (приложение, Live Activity, часы) берёт цвета, шрифты и радиусы только из `Tokens.swift`; `Theme.swift` удалён. Тема пока принудительно тёмная (`.preferredColorScheme(.dark)`), поэтому на экране ничего не поменялось: значения Dark совпадают со старыми. Светлая тема включится, когда уберём это ограничение. Шрифты теперь по стилям Dynamic Type и растут с настройкой размера текста. Исключения: размеры значков SF Symbols внутри кружков и крупные цифры `DayHero` (96) и историй (54) — задаются по месту.
 
 ## Предложение 5 (17.11.2026): анимации и вибрация
 

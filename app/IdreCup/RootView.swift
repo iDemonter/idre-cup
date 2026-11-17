@@ -187,7 +187,7 @@ struct RootView: View {
                             // Предложение 5: флажки покачиваются, пока ждёт вызов на дуэль.
                             .symbolEffect(.wiggle, options: .repeating, isActive: item == .duels && session.duelCalls > 0)
                             .frame(width: 56, height: 30)
-                            .background(isActive ? Theme.accent.opacity(0.18) : Color.clear, in: Capsule())
+                            .background(isActive ? Palette.accentSoft : Color.clear, in: Capsule())
                             .overlay(alignment: .topTrailing) {
                                 // Кто-то вызвал на дуэль и ждёт ответа.
                                 if item == .duels && session.duelCalls > 0 {
@@ -199,9 +199,9 @@ struct RootView: View {
                                 }
                             }
                         Text(item.title)
-                            .font(Theme.caption(11))
+                            .font(Typo.caption2)
                     }
-                    .foregroundStyle(isActive ? Theme.accent : Theme.textSecondary)
+                    .foregroundStyle(isActive ? Palette.accentText : Palette.textSecondary)
                     .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.plain)
@@ -210,10 +210,10 @@ struct RootView: View {
         .padding(.horizontal, 12)
         .padding(.top, 8)
         .padding(.bottom, 4)
-        .background(Theme.surface.ignoresSafeArea(edges: .bottom))
+        .background(Palette.surface.ignoresSafeArea(edges: .bottom))
         .overlay(alignment: .top) {
             Rectangle()
-                .fill(Theme.border.opacity(0.6))
+                .fill(Palette.border.opacity(0.6))
                 .frame(height: 1)
         }
     }

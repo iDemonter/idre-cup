@@ -107,8 +107,8 @@ struct LivePreview: View {
     var body: some View {
         VStack(spacing: 16) {
             Text("LIVE ACTIVITY · ЭКРАН БЛОКИРОВКИ")
-                .font(Theme.overline())
-                .foregroundStyle(Theme.textSecondary)
+                .font(Typo.overline)
+                .foregroundStyle(Palette.textSecondary)
             card(LivePreview.sample, isStale: false)
             card(RideAttributes.ContentState(topSpeed: 0, vertical: 0, runs: 0), isStale: false)
             card(LivePreview.sample, isStale: true)
@@ -120,6 +120,6 @@ struct LivePreview: View {
 
     private func card(_ state: RideAttributes.ContentState, isStale: Bool) -> some View {
         RideLockScreenView(cupName: "Idre Cup 2027", startedAt: Date().addingTimeInterval(-4_980), state: state, isStale: isStale)
-            .background(Theme.base, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .background(Palette.base, in: RoundedRectangle(cornerRadius: Radius.cardLarge, style: .continuous))
     }
 }

@@ -50,7 +50,7 @@ struct TerrainView: UIViewRepresentable {
         let view = SCNView(frame: .zero)
         let coordinator = context.coordinator
         view.scene = coordinator.scene
-        view.backgroundColor = UIColor(Theme.base)
+        view.backgroundColor = UIColor(Palette.base)
         view.antialiasingMode = .multisampling4X
         view.pointOfView = coordinator.cameraNode
         view.delegate = coordinator
@@ -173,7 +173,7 @@ struct TerrainView: UIViewRepresentable {
         }
 
         private func buildScene() {
-            scene.background.contents = UIColor(Theme.base)
+            scene.background.contents = UIColor(Palette.base)
 
             let lens = SCNCamera()
             lens.fieldOfView = 50
@@ -191,7 +191,7 @@ struct TerrainView: UIViewRepresentable {
 
             for lift in data.lifts {
                 let line = lift.coords.map { frame.local($0) }
-                let geometry = ribbon(line, width: 7, lift: 16, color: UIColor(Theme.raised))
+                let geometry = ribbon(line, width: 7, lift: 16, color: UIColor(Palette.raised))
                 touchable.addChildNode(SCNNode(geometry: geometry))
             }
 
@@ -212,7 +212,7 @@ struct TerrainView: UIViewRepresentable {
             // Вершины с высотой. Если в данных их нет, остаётся значок на вершине курорта.
             let peaks = data.peaks ?? []
             if peaks.isEmpty {
-                let summit = Self.symbolImage("mountain.2.fill", fill: UIColor(Theme.accent), tint: UIColor(Theme.onAccent))
+                let summit = Self.symbolImage("mountain.2.fill", fill: UIColor(Palette.accent), tint: UIColor(Palette.onAccent))
                 addBadge(image: summit, at: (0, 0), above: 10, name: nil, size: 24, rank: 1_000_000, number: nil)
             }
             for (index, peak) in peaks.enumerated() {
@@ -243,7 +243,7 @@ struct TerrainView: UIViewRepresentable {
 
                 // Полезные места: светлый кружок с рисунком. Появляются вблизи, когда есть место.
                 for (index, place) in scenery.places.enumerated() {
-                    let image = Self.symbolImage(place.symbol, fill: UIColor.white, tint: UIColor(Theme.base))
+                    let image = Self.symbolImage(place.symbol, fill: UIColor.white, tint: UIColor(Palette.base))
                     addBadge(image: image, at: (place.east, place.north), above: 30, name: "place-\(index)", size: 20, rank: 3_000 - Double(index), number: nil)
                 }
                 // Названия районов посёлка.
@@ -254,7 +254,7 @@ struct TerrainView: UIViewRepresentable {
             }
 
             // Жильё: звёздочка, видна всегда.
-            let star = Self.symbolImage("star.fill", fill: UIColor(Theme.accent), tint: UIColor(Theme.onAccent))
+            let star = Self.symbolImage("star.fill", fill: UIColor(Palette.accent), tint: UIColor(Palette.onAccent))
             let homeMark = addBadge(image: star, at: (0, 0), above: 14, name: nil, size: 28, rank: 3_000_000, number: nil, always: true)
             homeMark.isHidden = true
             homeNode = homeMark
@@ -324,7 +324,7 @@ struct TerrainView: UIViewRepresentable {
                 material.diffuse.contents = image
                 material.diffuse.mipFilter = .linear
             } else {
-                material.diffuse.contents = UIColor(Theme.textSecondary)
+                material.diffuse.contents = UIColor(Palette.textSecondary)
             }
             geometry.materials = [material]
             return geometry
@@ -570,7 +570,7 @@ struct TerrainView: UIViewRepresentable {
             let segments = piste.number == nil ? [piste] : data.pistes.filter { $0.number == piste.number }
             for segment in segments {
                 let line = segment.coords.map { frame.local($0) }
-                let geometry = ribbon(line, width: 64, lift: 3.4, color: UIColor(Theme.accent))
+                let geometry = ribbon(line, width: 64, lift: 3.4, color: UIColor(Palette.accent))
                 highlightNode.addChildNode(SCNNode(geometry: geometry))
             }
         }
@@ -596,7 +596,7 @@ struct TerrainView: UIViewRepresentable {
             if piece.count > 1 { pieces.append(piece) }
 
             for line in pieces {
-                trackNode.addChildNode(SCNNode(geometry: ribbon(line, width: 14, lift: 9, color: UIColor(Theme.accent))))
+                trackNode.addChildNode(SCNNode(geometry: ribbon(line, width: 14, lift: 9, color: UIColor(Palette.accent))))
             }
 
         }
@@ -788,7 +788,7 @@ struct TerrainView: UIViewRepresentable {
                 let path = UIBezierPath(ovalIn: box)
                 fill.setFill()
                 path.fill()
-                UIColor(Theme.base).setStroke()
+                UIColor(Palette.base).setStroke()
                 path.lineWidth = 5
                 path.stroke()
 
@@ -811,7 +811,7 @@ struct TerrainView: UIViewRepresentable {
             let size = CGSize(width: ceil(textSize.width) + 28, height: height)
             let image = UIGraphicsImageRenderer(size: size).image { _ in
                 let plate = UIBezierPath(roundedRect: CGRect(origin: .zero, size: size).insetBy(dx: 1, dy: 1), cornerRadius: height / 2)
-                UIColor(Theme.base).withAlphaComponent(0.78).setFill()
+                UIColor(Palette.base).withAlphaComponent(0.78).setFill()
                 plate.fill()
                 label.draw(at: CGPoint(x: 14, y: (height - textSize.height) / 2))
             }
@@ -824,7 +824,7 @@ struct TerrainView: UIViewRepresentable {
             return UIGraphicsImageRenderer(size: CGSize(width: side, height: side)).image { _ in
                 let box = CGRect(x: 6, y: 6, width: side - 12, height: side - 12)
                 let path = UIBezierPath(ovalIn: box)
-                UIColor(Theme.accent).setFill()
+                UIColor(Palette.accent).setFill()
                 path.fill()
                 UIColor.white.setStroke()
                 path.lineWidth = 8

@@ -217,7 +217,7 @@ struct MapScreen: View {
                 appleMap
             }
         }
-        .background(Theme.base.ignoresSafeArea())
+        .background(Palette.base.ignoresSafeArea())
         .safeAreaInset(edge: .top, spacing: 0) {
             header
         }
@@ -285,7 +285,7 @@ struct MapScreen: View {
 
             ForEach(selectedSegments) { piste in
                 MapPolyline(coordinates: piste.coordinates)
-                    .stroke(Theme.accent.opacity(0.7), style: StrokeStyle(lineWidth: 14, lineCap: .round, lineJoin: .round))
+                    .stroke(Palette.accent.opacity(0.7), style: StrokeStyle(lineWidth: 14, lineCap: .round, lineJoin: .round))
             }
 
             ForEach(data.outlinedPistes) { piste in
@@ -345,7 +345,7 @@ struct MapScreen: View {
             // Свой трек за день.
             ForEach(trackLines) { line in
                 MapPolyline(coordinates: line.coordinates)
-                    .stroke(Theme.accent, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
+                    .stroke(Palette.accent, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
             }
 
             UserAnnotation()
@@ -370,8 +370,8 @@ struct MapScreen: View {
                 Text(mapOverline)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
-                    .font(Theme.overline())
-                    .foregroundStyle(Theme.textSecondary)
+                    .font(Typo.overline)
+                    .foregroundStyle(Palette.textSecondary)
                 // Предложение 11: название курорта — кнопка выбора курорта.
                 ResortSwitcher(title: otherResort?.name ?? "Idre Fjäll") { showsPicker = true }
             }
@@ -394,7 +394,7 @@ struct MapScreen: View {
         .padding(.bottom, 12)
         .background(
             LinearGradient(
-                colors: [Theme.base.opacity(0.95), Theme.base.opacity(0.0)],
+                colors: [Palette.base.opacity(0.95), Palette.base.opacity(0.0)],
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -446,11 +446,11 @@ struct MapScreen: View {
                 Image(systemName: "square.3.layers.3d")
                 Text(look.rawValue)
             }
-            .font(Theme.caption())
-            .foregroundStyle(Theme.onAccent)
+            .font(Typo.caption1)
+            .foregroundStyle(Palette.onAccent)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(Theme.accent, in: Capsule())
+            .background(Palette.accent, in: Capsule())
         }
     }
 
@@ -495,16 +495,16 @@ struct MapScreen: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
-                    legendItem(Theme.pisteGreen, "очень лёгкая")
-                    legendItem(Theme.pisteBlue, "лёгкая")
-                    legendItem(Theme.pisteRed, "средняя")
-                    legendItem(Theme.pisteBlack, "сложная", outlined: true)
+                    legendItem("green", Palette.pisteGreen, "очень лёгкая")
+                    legendItem("blue", Palette.pisteBlue, "лёгкая")
+                    legendItem("red", Palette.pisteRed, "средняя")
+                    legendItem("black", Palette.pisteBlack, "сложная")
                     ForEach(LiftKind.allCases, id: \.self) { kind in
                         HStack(spacing: 5) {
                             LiftBadge(kind: kind, size: 16)
                             Text(kind.title)
-                                .font(Theme.caption(11))
-                                .foregroundStyle(Theme.textSecondary)
+                                .font(Typo.caption2)
+                                .foregroundStyle(Palette.textSecondary)
                         }
                     }
                 }
@@ -513,18 +513,18 @@ struct MapScreen: View {
 
             HStack {
                 Text(showsModel ? "Карта: © OpenStreetMap · Высоты: Copernicus DEM" : "Трассы: © участники OpenStreetMap")
-                    .font(Theme.caption(10))
-                    .foregroundStyle(Theme.textSecondary.opacity(0.8))
+                    .font(Typo.caption2)
+                    .foregroundStyle(Palette.textSecondary.opacity(0.8))
                 Spacer()
                 Text(buildLabel)
-                    .font(Theme.caption(10))
-                    .foregroundStyle(Theme.textSecondary.opacity(0.8))
+                    .font(Typo.caption2)
+                    .foregroundStyle(Palette.textSecondary.opacity(0.8))
             }
             .padding(.horizontal, 20)
         }
         .padding(.top, 12)
         .padding(.bottom, 8)
-        .background(Theme.surface.opacity(0.94))
+        .background(Palette.surface.opacity(0.94))
     }
 
     // MARK: - Жильё
@@ -572,11 +572,11 @@ struct MapScreen: View {
                 .font(.system(size: 11, weight: .bold))
             Text(title)
         }
-        .font(Theme.caption())
-        .foregroundStyle(Theme.accent)
+        .font(Typo.caption1)
+        .foregroundStyle(Palette.accentText)
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
-        .background(Theme.accent.opacity(0.18), in: Capsule())
+        .background(Palette.accentSoft, in: Capsule())
     }
 
     private var placingBanner: some View {
@@ -585,11 +585,11 @@ struct MapScreen: View {
                 HomeBadge()
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Нажмите на карту, где ваше жильё")
-                        .font(Theme.headline(15))
-                        .foregroundStyle(Theme.textPrimary)
+                        .font(Typo.subheadline)
+                        .foregroundStyle(Palette.textPrimary)
                     Text("Точнее всего на виде «Спутник»: там видны дома.")
-                        .font(Theme.caption())
-                        .foregroundStyle(Theme.textSecondary)
+                        .font(Typo.caption1)
+                        .foregroundStyle(Palette.textSecondary)
                 }
                 Spacer(minLength: 0)
             }
@@ -599,11 +599,11 @@ struct MapScreen: View {
                         placeHome(here)
                     } label: {
                         Text("Я сейчас в нём")
-                            .font(Theme.caption())
-                            .foregroundStyle(Theme.onAccent)
+                            .font(Typo.caption1)
+                            .foregroundStyle(Palette.onAccent)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 8)
-                            .background(Theme.accent, in: Capsule())
+                            .background(Palette.accent, in: Capsule())
                     }
                     .buttonStyle(.plain)
                 }
@@ -611,33 +611,33 @@ struct MapScreen: View {
                     isPlacingHome = false
                 } label: {
                     Text("Отмена")
-                        .font(Theme.caption())
-                        .foregroundStyle(Theme.textSecondary)
+                        .font(Typo.caption1)
+                        .foregroundStyle(Palette.textSecondary)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
-                        .background(Theme.raised, in: Capsule())
+                        .background(Palette.raised, in: Capsule())
                 }
                 .buttonStyle(.plain)
             }
         }
         .padding(12)
-        .background(Theme.raised.opacity(0.6), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(Palette.raised.opacity(0.6), in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
     }
 
     private func placeCard(_ place: SceneryData.Place) -> some View {
         HStack(spacing: 12) {
             Image(systemName: place.symbol)
                 .font(.system(size: 17, weight: .bold))
-                .foregroundStyle(Theme.base)
+                .foregroundStyle(Palette.base)
                 .frame(width: 40, height: 40)
                 .background(Color.white, in: Circle())
             VStack(alignment: .leading, spacing: 2) {
                 Text(place.name ?? place.kindTitle)
-                    .font(Theme.headline())
-                    .foregroundStyle(Theme.textPrimary)
+                    .font(Typo.headline)
+                    .foregroundStyle(Palette.textPrimary)
                 Text(place.kindTitle)
-                    .font(Theme.caption())
-                    .foregroundStyle(Theme.textSecondary)
+                    .font(Typo.caption1)
+                    .foregroundStyle(Palette.textSecondary)
             }
             Spacer()
             Button {
@@ -645,14 +645,14 @@ struct MapScreen: View {
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(Theme.textSecondary)
+                    .foregroundStyle(Palette.textSecondary)
                     .frame(width: 30, height: 30)
-                    .background(Theme.raised, in: Circle())
+                    .background(Palette.raised, in: Circle())
             }
             .buttonStyle(.plain)
         }
         .padding(12)
-        .background(Theme.raised.opacity(0.6), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(Palette.raised.opacity(0.6), in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
     }
 
     private func pisteCard(_ piste: Piste) -> some View {
@@ -660,21 +660,21 @@ struct MapScreen: View {
             PisteBadge(piste: piste, isSelected: false, size: 40)
             VStack(alignment: .leading, spacing: 2) {
                 Text(piste.name ?? "Трасса без названия")
-                    .font(Theme.headline())
-                    .foregroundStyle(Theme.textPrimary)
+                    .font(Typo.headline)
+                    .foregroundStyle(Palette.textPrimary)
                 Text(pisteDetails(piste))
-                    .font(Theme.caption())
-                    .foregroundStyle(Theme.textSecondary)
+                    .font(Typo.caption1)
+                    .foregroundStyle(Palette.textSecondary)
                 if let line = crownLine(piste) {
                     HStack(spacing: 5) {
                         Image(systemName: "crown.fill")
                             .font(.system(size: 10, weight: .bold))
                         Text(line)
-                            .font(Theme.caption())
+                            .font(Typo.caption1)
                             .lineLimit(1)
                             .minimumScaleFactor(0.8)
                     }
-                    .foregroundStyle(Theme.accent)
+                    .foregroundStyle(Palette.accentText)
                 }
             }
             Spacer()
@@ -683,14 +683,14 @@ struct MapScreen: View {
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(Theme.textSecondary)
+                    .foregroundStyle(Palette.textSecondary)
                     .frame(width: 30, height: 30)
-                    .background(Theme.raised, in: Circle())
+                    .background(Palette.raised, in: Circle())
             }
             .buttonStyle(.plain)
         }
         .padding(12)
-        .background(Theme.raised.opacity(0.6), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(Palette.raised.opacity(0.6), in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
         // Ключ включает вход в кубок: карточка могла открыться раньше, чем приложение узнало участника.
         .task(id: "\(piste.id)-\(session.phase == .signedIn)") {
             if let reply = await session.crowns() {
@@ -724,7 +724,7 @@ struct MapScreen: View {
     /// Открытый лифт белый, закрытый блёклый красный, без данных как раньше.
     private func liftColor(_ lift: Lift) -> Color {
         guard let code = lift.code, let status = idreConditions?.lift(code: code) else { return Color.white.opacity(0.75) }
-        return status.isClosed ? Theme.pisteRed.opacity(0.45) : Color.white.opacity(status.isOpen ? 0.95 : 0.75)
+        return status.isClosed ? Palette.error.opacity(0.45) : Color.white.opacity(status.isOpen ? 0.95 : 0.75)
     }
 
     /// Выбор в листе курортов: Idre (обзор или Himmelfjäll) или другой курорт из каталога.
@@ -779,24 +779,26 @@ struct MapScreen: View {
             }
         } label: {
             Text(name)
-                .font(Theme.caption())
-                .foregroundStyle(isActive ? Theme.onAccent : Theme.textSecondary)
+                .font(Typo.caption1)
+                .foregroundStyle(isActive ? Palette.onAccent : Palette.textSecondary)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
-                .background(isActive ? Theme.accent : Theme.raised, in: Capsule())
+                .background(isActive ? Palette.accent : Palette.raised, in: Capsule())
         }
         .buttonStyle(.plain)
     }
 
-    private func legendItem(_ color: Color, _ title: String, outlined: Bool = false) -> some View {
-        HStack(spacing: 5) {
-            Circle()
+    /// Пункт легенды: та же форма, что у значка трассы (круг, квадрат, шестиугольник, ромб).
+    private func legendItem(_ difficulty: String, _ color: Color, _ title: String) -> some View {
+        let form = PisteForm(difficulty: difficulty)
+        return HStack(spacing: 5) {
+            PisteShape(form: form)
                 .fill(color)
-                .frame(width: 10, height: 10)
-                .overlay(Circle().stroke(Color.white.opacity(outlined ? 0.85 : 0), lineWidth: 1))
+                .frame(width: 12, height: 12)
+                .overlay(PisteShape(form: form).stroke(Color.white.opacity(form == .diamond ? 0.85 : 0.5), lineWidth: 1))
             Text(title)
-                .font(Theme.caption(11))
-                .foregroundStyle(Theme.textSecondary)
+                .font(Typo.caption2)
+                .foregroundStyle(Palette.textSecondary)
         }
     }
 
@@ -819,10 +821,10 @@ private struct HomeBadge: View {
     var body: some View {
         Image(systemName: "star.fill")
             .font(.system(size: 13, weight: .bold))
-            .foregroundStyle(Theme.onAccent)
+            .foregroundStyle(Palette.onAccent)
             .frame(width: 28, height: 28)
-            .background(Theme.accent, in: Circle())
-            .overlay(Circle().stroke(Theme.base, lineWidth: 2))
+            .background(Palette.accent, in: Circle())
+            .overlay(Circle().stroke(Palette.base, lineWidth: 2))
     }
 }
 
@@ -861,9 +863,9 @@ private struct SummitMarker: View {
     var body: some View {
         Image(systemName: "mountain.2.fill")
             .font(.system(size: 11, weight: .bold))
-            .foregroundStyle(Theme.onAccent)
+            .foregroundStyle(Palette.onAccent)
             .frame(width: 24, height: 24)
-            .background(Theme.accent, in: Circle())
-            .overlay(Circle().stroke(Theme.base, lineWidth: 2))
+            .background(Palette.accent, in: Circle())
+            .overlay(Circle().stroke(Palette.base, lineWidth: 2))
     }
 }

@@ -114,12 +114,12 @@ struct ConditionsStrip: View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 6) {
                     Text(conditions.resort.name.uppercased())
-                        .font(Theme.overline())
-                        .foregroundStyle(Theme.textSecondary)
+                        .font(Typo.overline)
+                        .foregroundStyle(Palette.textSecondary)
                     Spacer()
                     Image(systemName: "chevron.right")
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Theme.textSecondary)
+                        .foregroundStyle(Palette.textSecondary)
                 }
                 HStack(alignment: .firstTextBaseline, spacing: 14) {
                     if let top = conditions.status?.weather?.top?.temp {
@@ -137,14 +137,14 @@ struct ConditionsStrip: View {
                 }
                 if let day = conditions.forecast?.day {
                     Text("Днём: \(day.summary)")
-                        .font(Theme.caption())
-                        .foregroundStyle(Theme.textSecondary)
+                        .font(Typo.caption1)
+                        .foregroundStyle(Palette.textSecondary)
                         .lineLimit(2)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(14)
-            .background(Theme.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .background(Palette.surface, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
         }
         .buttonStyle(.plain)
         .sheet(isPresented: $showsDetails) {
@@ -157,11 +157,11 @@ struct ConditionsStrip: View {
     private func value(_ big: String, _ small: String) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(big)
-                .font(Theme.title(20))
-                .foregroundStyle(Theme.textPrimary)
+                .font(Typo.title3)
+                .foregroundStyle(Palette.textPrimary)
             Text(small)
-                .font(Theme.caption(10))
-                .foregroundStyle(Theme.textSecondary)
+                .font(Typo.caption2)
+                .foregroundStyle(Palette.textSecondary)
         }
     }
 }
@@ -174,8 +174,8 @@ struct ConditionsDetails: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 Text(conditions.resort.name)
-                    .font(Theme.title(28))
-                    .foregroundStyle(Theme.textPrimary)
+                    .font(Typo.title1)
+                    .foregroundStyle(Palette.textPrimary)
                 if let status = conditions.status {
                     if let top = status.weather?.top {
                         line("Вершина", [top.temp.map { "\(Format.degrees($0))°" }, top.wind.map { "ветер \(Int($0)) м/с" }, top.gust.map { "порывы \(Int($0))" }])
@@ -191,40 +191,40 @@ struct ConditionsDetails: View {
                     }
                     if let list = status.liftList, !list.isEmpty {
                         Text("ЛИФТЫ")
-                            .font(Theme.overline())
-                            .foregroundStyle(Theme.textSecondary)
+                            .font(Typo.overline)
+                            .foregroundStyle(Palette.textSecondary)
                             .padding(.top, 4)
                         ForEach(list) { lift in
                             HStack {
                                 Circle()
-                                    .fill(lift.isOpen ? Theme.pisteGreen : (lift.isClosed ? Theme.pisteRed : Theme.textSecondary))
+                                    .fill(lift.isOpen ? Palette.success : (lift.isClosed ? Palette.error : Palette.textSecondary))
                                     .frame(width: 8, height: 8)
                                 Text(lift.code == lift.name ? lift.name : "\(lift.code) · \(lift.name)")
-                                    .font(Theme.headline(14))
-                                    .foregroundStyle(Theme.textPrimary)
+                                    .font(Typo.subheadline)
+                                    .foregroundStyle(Palette.textPrimary)
                                     .lineLimit(1)
                                 Spacer()
                                 Text(lift.today.map { "\($0.opens)–\($0.closes)" } ?? (lift.isClosed ? "закрыт" : ""))
-                                    .font(Theme.caption())
-                                    .foregroundStyle(Theme.textSecondary)
+                                    .font(Typo.caption1)
+                                    .foregroundStyle(Palette.textSecondary)
                             }
                             if let comment = lift.comment {
                                 Text(comment)
-                                    .font(Theme.caption(10))
-                                    .foregroundStyle(Theme.textSecondary)
+                                    .font(Typo.caption2)
+                                    .foregroundStyle(Palette.textSecondary)
                                     .padding(.leading, 16)
                             }
                         }
                     }
                 } else {
                     Text("Сайт курорта сейчас не отдаёт данные о лифтах. Ниже прогноз погоды.")
-                        .font(Theme.caption())
-                        .foregroundStyle(Theme.textSecondary)
+                        .font(Typo.caption1)
+                        .foregroundStyle(Palette.textSecondary)
                 }
                 if let forecast = conditions.forecast {
                     Text("ПРОГНОЗ")
-                        .font(Theme.overline())
-                        .foregroundStyle(Theme.textSecondary)
+                        .font(Typo.overline)
+                        .foregroundStyle(Palette.textSecondary)
                         .padding(.top, 4)
                     line("Сегодня", [forecast.day.summary])
                     if let tomorrow = forecast.tomorrow {
@@ -235,37 +235,37 @@ struct ConditionsDetails: View {
                             ForEach(forecast.hours) { hour in
                                 VStack(spacing: 2) {
                                     Text(Format.hour(hour.time))
-                                        .font(Theme.caption(10))
-                                        .foregroundStyle(Theme.textSecondary)
+                                        .font(Typo.caption2)
+                                        .foregroundStyle(Palette.textSecondary)
                                     Text("\(Format.degrees(hour.temp))°")
-                                        .font(Theme.headline(15))
-                                        .foregroundStyle(Theme.textPrimary)
+                                        .font(Typo.subheadline)
+                                        .foregroundStyle(Palette.textPrimary)
                                     Text("\(Int(hour.wind.rounded())) м/с")
-                                        .font(Theme.caption(10))
-                                        .foregroundStyle(Theme.textSecondary)
+                                        .font(Typo.caption2)
+                                        .foregroundStyle(Palette.textSecondary)
                                 }
                             }
                         }
                     }
                     Text("Прогноз: MET Norway (yr.no). Лифты и снег: сайт курорта.")
-                        .font(Theme.caption(10))
-                        .foregroundStyle(Theme.textSecondary.opacity(0.7))
+                        .font(Typo.caption2)
+                        .foregroundStyle(Palette.textSecondary.opacity(0.7))
                 }
             }
             .padding(20)
         }
-        .background(Theme.base.ignoresSafeArea())
+        .background(Palette.base.ignoresSafeArea())
     }
 
     private func line(_ title: String, _ parts: [String?]) -> some View {
         HStack(alignment: .firstTextBaseline) {
             Text(title)
-                .font(Theme.headline(14))
-                .foregroundStyle(Theme.textPrimary)
+                .font(Typo.subheadline)
+                .foregroundStyle(Palette.textPrimary)
                 .frame(width: 80, alignment: .leading)
             Text(parts.compactMap { $0 }.joined(separator: " · "))
-                .font(Theme.caption())
-                .foregroundStyle(Theme.textSecondary)
+                .font(Typo.caption1)
+                .foregroundStyle(Palette.textSecondary)
         }
     }
 }

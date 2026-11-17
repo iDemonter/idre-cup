@@ -35,7 +35,7 @@ struct DayHero: View {
             HStack(alignment: .firstTextBaseline, spacing: Spacing.s) {
                 Text(Format.kmh(hasRuns ? stats.topSpeed : 0))
                     .font(.system(size: 96, weight: .heavy, design: .rounded).monospacedDigit())
-                    .foregroundStyle(Palette.accent)
+                    .foregroundStyle(Palette.accentText)
                     .opacity(hasRuns ? 1 : 0.35)
                     .minimumScaleFactor(0.5)
                     .lineLimit(1)

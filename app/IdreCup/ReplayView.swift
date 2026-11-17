@@ -43,7 +43,7 @@ struct ReplayView: View {
             .overlay(alignment: .top) { header }
             panel
         }
-        .background(Theme.base.ignoresSafeArea())
+        .background(Palette.base.ignoresSafeArea())
         // Повтор могут открыть раньше, чем приложение вошло в кубок: загружаем, как только вошло.
         .task(id: session.phase == .signedIn) {
             if session.phase == .signedIn { await load() }
@@ -129,11 +129,11 @@ struct ReplayView: View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text("ПОВТОР ДНЯ")
-                    .font(Theme.overline())
-                    .foregroundStyle(Theme.textSecondary)
+                    .font(Typo.overline)
+                    .foregroundStyle(Palette.textSecondary)
                 Text(range == nil ? "—" : Format.clock(Date(timeIntervalSince1970: clock)))
-                    .font(Theme.title(34))
-                    .foregroundStyle(Theme.textPrimary)
+                    .font(Typo.numberL)
+                    .foregroundStyle(Palette.textPrimary)
                     .monospacedDigit()
             }
             Spacer()
@@ -142,9 +142,9 @@ struct ReplayView: View {
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(Theme.textPrimary)
+                    .foregroundStyle(Palette.textPrimary)
                     .frame(width: 40, height: 40)
-                    .background(Theme.raised, in: Circle())
+                    .background(Palette.raised, in: Circle())
             }
         }
         .padding(.horizontal, 20)
@@ -157,7 +157,7 @@ struct ReplayView: View {
             if let reply, let range {
                 riders(reply)
                 Slider(value: $clock, in: range)
-                    .tint(Theme.accent)
+                    .tint(Palette.accent)
                 HStack(spacing: 8) {
                     Button {
                         if clock >= range.upperBound { clock = range.lowerBound }
@@ -165,34 +165,34 @@ struct ReplayView: View {
                     } label: {
                         Image(systemName: isPlaying ? "pause.fill" : "play.fill")
                             .font(.system(size: 18, weight: .bold))
-                            .foregroundStyle(Theme.onAccent)
+                            .foregroundStyle(Palette.onAccent)
                             .frame(width: 48, height: 40)
-                            .background(Theme.accent, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .background(Palette.accent, in: RoundedRectangle(cornerRadius: Radius.control, style: .continuous))
                     }
                     ForEach(Self.speeds, id: \.self) { value in
                         Button {
                             speed = value
                         } label: {
                             Text(value == 60 ? "час/мин" : "×\(Int(value))")
-                                .font(Theme.caption(12))
-                                .foregroundStyle(speed == value ? Theme.onAccent : Theme.textPrimary)
+                                .font(Typo.caption1)
+                                .foregroundStyle(speed == value ? Palette.onAccent : Palette.textPrimary)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 40)
-                                .background(speed == value ? Theme.accent : Theme.raised, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                .background(speed == value ? Palette.accent : Palette.raised, in: RoundedRectangle(cornerRadius: Radius.control, style: .continuous))
                         }
                     }
                 }
                 .buttonStyle(.plain)
             } else if didLoad || session.phase == .signedOut {
                 Text("За сегодня треков нет: повтор появится после первых спусков.")
-                    .font(Theme.caption())
-                    .foregroundStyle(Theme.textSecondary)
+                    .font(Typo.caption1)
+                    .foregroundStyle(Palette.textSecondary)
             } else {
-                ProgressView().tint(Theme.accent).frame(maxWidth: .infinity)
+                ProgressView().tint(Palette.accent).frame(maxWidth: .infinity)
             }
         }
         .padding(16)
-        .background(Theme.surface.opacity(0.94), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .background(Palette.surface.opacity(0.94), in: RoundedRectangle(cornerRadius: Radius.cardLarge, style: .continuous))
         .padding(.horizontal, 12)
         .padding(.bottom, 8)
     }
@@ -204,13 +204,13 @@ struct ReplayView: View {
                 let spot = position(track)
                 HStack {
                     Text(track.name)
-                        .font(Theme.headline(14))
-                        .foregroundStyle(spot == nil ? Theme.textSecondary : Theme.textPrimary)
+                        .font(Typo.subheadline)
+                        .foregroundStyle(spot == nil ? Palette.textSecondary : Palette.textPrimary)
                     Spacer()
                     Text(spot.map { "\(Format.kmh($0.speed)) км/ч" } ?? "не на склоне")
-                        .font(Theme.caption())
+                        .font(Typo.caption1)
                         .monospacedDigit()
-                        .foregroundStyle(spot == nil ? Theme.textSecondary : Theme.accent)
+                        .foregroundStyle(spot == nil ? Palette.textSecondary : Palette.accentText)
                 }
             }
         }

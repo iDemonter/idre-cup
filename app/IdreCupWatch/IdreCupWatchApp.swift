@@ -9,7 +9,7 @@ struct IdreCupWatchApp: App {
         WindowGroup {
             WatchHome()
                 .environmentObject(link)
-                .tint(Theme.accent)
+                .tint(Palette.accent)
         }
     }
 }

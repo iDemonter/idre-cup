@@ -10,17 +10,17 @@ struct WatchHome: View {
             VStack(alignment: .leading, spacing: 8) {
                 status
                 Text("\(Format.kmh(link.state.speed)) км/ч")
-                    .font(Theme.title(30))
-                    .foregroundStyle(Theme.textPrimary)
+                    .font(Typo.numberL)
+                    .foregroundStyle(Palette.textPrimary)
                     .minimumScaleFactor(0.6)
                     .lineLimit(1)
                 Text("\(Format.meters(link.state.vertical)) м · \(link.state.runs) \(Format.plural(link.state.runs, "спуск", "спуска", "спусков"))")
-                    .font(Theme.caption(13))
-                    .foregroundStyle(Theme.textSecondary)
+                    .font(Typo.footnote)
+                    .foregroundStyle(Palette.textSecondary)
                 if let points = link.state.points {
                     Text(rating(points))
-                        .font(Theme.caption(13))
-                        .foregroundStyle(Theme.accent)
+                        .font(Typo.footnote)
+                        .foregroundStyle(Palette.accentText)
                 }
                 countdown("bolt.fill", link.state.event, link.state.eventEnds)
                 countdown("flag.checkered.2.crossed", link.state.duel, link.state.duelEnds)
@@ -28,8 +28,8 @@ struct WatchHome: View {
                     .padding(.top, 4)
                 if let note = link.note {
                     Text(note)
-                        .font(Theme.caption(11))
-                        .foregroundStyle(Theme.textSecondary)
+                        .font(Typo.caption2)
+                        .foregroundStyle(Palette.textSecondary)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -43,11 +43,11 @@ struct WatchHome: View {
     private var status: some View {
         HStack(spacing: 5) {
             Circle()
-                .fill(link.state.recording ? Theme.pisteRed : Theme.textSecondary)
+                .fill(link.state.recording ? Palette.error : Palette.textSecondary)
                 .frame(width: 7, height: 7)
             Text(statusText)
-                .font(Theme.overline(11))
-                .foregroundStyle(link.state.recording ? Theme.accent : Theme.textSecondary)
+                .font(Typo.overline)
+                .foregroundStyle(link.state.recording ? Palette.accentText : Palette.textSecondary)
             if link.isSending || link.isQueued {
                 Spacer(minLength: 4)
                 ProgressView()
@@ -85,13 +85,13 @@ struct WatchHome: View {
                 Image(systemName: symbol)
                     .font(.system(size: 18, weight: .bold))
                 Text(title)
-                    .font(Theme.caption(12))
+                    .font(Typo.caption1)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 6)
         }
-        .tint(filled ? Theme.accent : Theme.raised)
-        .foregroundStyle(filled ? Theme.onAccent : Theme.textPrimary)
+        .tint(filled ? Palette.accent : Palette.raised)
+        .foregroundStyle(filled ? Palette.onAccent : Palette.textPrimary)
         .buttonStyle(.borderedProminent)
         .disabled(link.isSending)
     }
@@ -107,8 +107,8 @@ struct WatchHome: View {
                 Text(end, style: .timer)
                     .monospacedDigit()
             }
-            .font(Theme.caption(11))
-            .foregroundStyle(Theme.accent)
+            .font(Typo.caption2)
+            .foregroundStyle(Palette.accentText)
         }
     }
 

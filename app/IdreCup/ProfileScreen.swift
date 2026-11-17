@@ -25,17 +25,17 @@ struct ProfileScreen: View {
             VStack(alignment: .leading, spacing: 14) {
                 HStack {
                     Text("Профиль")
-                        .font(Theme.title(28))
-                        .foregroundStyle(Theme.textPrimary)
+                        .font(Typo.title1)
+                        .foregroundStyle(Palette.textPrimary)
                     Spacer()
                     Button {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark")
                             .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(Theme.textSecondary)
+                            .foregroundStyle(Palette.textSecondary)
                             .frame(width: 32, height: 32)
-                            .background(Theme.raised, in: Circle())
+                            .background(Palette.raised, in: Circle())
                     }
                     .buttonStyle(.plain)
                 }
@@ -45,8 +45,8 @@ struct ProfileScreen: View {
                 }
                 if let problem = session.problem {
                     Text(problem)
-                        .font(Theme.caption())
-                        .foregroundStyle(Theme.pisteRed)
+                        .font(Typo.caption1)
+                        .foregroundStyle(Palette.error)
                 }
                 if let cup = session.cup {
                     cupCard(cup)
@@ -61,8 +61,8 @@ struct ProfileScreen: View {
                         Task { restoreCode = await session.restoreCode(for: me) }
                     } label: {
                         Text("Переезжаю на новый телефон: получить код возврата")
-                            .font(Theme.caption())
-                            .foregroundStyle(Theme.accent)
+                            .font(Typo.caption1)
+                            .foregroundStyle(Palette.accentText)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
                     }
@@ -73,8 +73,8 @@ struct ProfileScreen: View {
                     asksSignOut = true
                 } label: {
                     Text("Выйти из кубка на этом телефоне")
-                        .font(Theme.caption())
-                        .foregroundStyle(Theme.pisteRed)
+                        .font(Typo.caption1)
+                        .foregroundStyle(Palette.error)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
                 }
@@ -82,7 +82,7 @@ struct ProfileScreen: View {
             }
             .padding(20)
         }
-        .background(Theme.base.ignoresSafeArea())
+        .background(Palette.base.ignoresSafeArea())
         .scrollDismissesKeyboard(.interactively)
         .onAppear {
             name = session.me?.name ?? ""
@@ -178,22 +178,22 @@ struct ProfileScreen: View {
             }
 
             HStack(spacing: 8) {
-                TextField("", text: $name, prompt: Text("Имя").foregroundStyle(Theme.textSecondary.opacity(0.7)))
-                    .font(Theme.headline())
-                    .foregroundStyle(Theme.textPrimary)
+                TextField("", text: $name, prompt: Text("Имя").foregroundStyle(Palette.textSecondary.opacity(0.7)))
+                    .font(Typo.headline)
+                    .foregroundStyle(Palette.textPrimary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 12)
-                    .background(Theme.raised.opacity(0.6), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .background(Palette.raised.opacity(0.6), in: RoundedRectangle(cornerRadius: Radius.control, style: .continuous))
                 if name.trimmingCharacters(in: .whitespaces) != me.name, !name.trimmingCharacters(in: .whitespaces).isEmpty {
                     Button {
                         Task { await session.rename(me, to: name.trimmingCharacters(in: .whitespaces)) }
                     } label: {
                         Text("Сохранить")
-                            .font(Theme.caption())
-                            .foregroundStyle(Theme.onAccent)
+                            .font(Typo.caption1)
+                            .foregroundStyle(Palette.onAccent)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 12)
-                            .background(Theme.accent, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .background(Palette.accent, in: RoundedRectangle(cornerRadius: Radius.control, style: .continuous))
                     }
                     .buttonStyle(.plain)
                 }
@@ -201,7 +201,7 @@ struct ProfileScreen: View {
         }
         .frame(maxWidth: .infinity)
         .padding(18)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .background(Palette.surface, in: RoundedRectangle(cornerRadius: Radius.cardLarge, style: .continuous))
     }
 
     private func chip(_ title: String, symbol: String) -> some View {
@@ -210,11 +210,11 @@ struct ProfileScreen: View {
                 .font(.system(size: 12, weight: .bold))
             Text(title)
         }
-        .font(Theme.caption())
-        .foregroundStyle(Theme.accent)
+        .font(Typo.caption1)
+        .foregroundStyle(Palette.accentText)
         .padding(.horizontal, 14)
         .padding(.vertical, 9)
-        .background(Theme.accent.opacity(0.18), in: Capsule())
+        .background(Palette.accentSoft, in: Capsule())
     }
 
     // MARK: - Кубок
@@ -222,24 +222,24 @@ struct ProfileScreen: View {
     private func cupCard(_ cup: CupInfo) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("КУБОК")
-                .font(Theme.overline())
-                .foregroundStyle(Theme.textSecondary)
+                .font(Typo.overline)
+                .foregroundStyle(Palette.textSecondary)
             Text(cup.name)
-                .font(Theme.headline(19))
-                .foregroundStyle(Theme.textPrimary)
+                .font(Typo.title3)
+                .foregroundStyle(Palette.textPrimary)
             if let prize = cup.prize {
                 Text("Приз: \(prize)")
-                    .font(Theme.caption())
-                    .foregroundStyle(Theme.textSecondary)
+                    .font(Typo.caption1)
+                    .foregroundStyle(Palette.textSecondary)
             }
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("КОД ПРИГЛАШЕНИЯ")
-                        .font(Theme.overline(10))
-                        .foregroundStyle(Theme.textSecondary)
+                        .font(Typo.overline)
+                        .foregroundStyle(Palette.textSecondary)
                     Text(cup.code)
                         .font(.system(size: 28, weight: .heavy, design: .monospaced))
-                        .foregroundStyle(Theme.accent)
+                        .foregroundStyle(Palette.accentText)
                         .textSelection(.enabled)
                 }
                 Spacer()
@@ -249,37 +249,37 @@ struct ProfileScreen: View {
                 .buttonStyle(.plain)
             }
             .padding(14)
-            .background(Theme.raised.opacity(0.6), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .background(Palette.raised.opacity(0.6), in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
             if !cup.geofence {
                 Text("Пробный кубок: спуски считаются где угодно.")
-                    .font(Theme.caption())
-                    .foregroundStyle(Theme.textSecondary)
+                    .font(Typo.caption1)
+                    .foregroundStyle(Palette.textSecondary)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(18)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .background(Palette.surface, in: RoundedRectangle(cornerRadius: Radius.cardLarge, style: .continuous))
     }
 
     private var peopleCard: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("УЧАСТНИКИ · \(session.people.count) ИЗ 8")
-                .font(Theme.overline())
-                .foregroundStyle(Theme.textSecondary)
+                .font(Typo.overline)
+                .foregroundStyle(Palette.textSecondary)
                 .padding(.bottom, 4)
             ForEach(session.people) { person in
                 HStack(spacing: 12) {
                     AvatarView(person: person, size: 38)
                     Text(person.name)
-                        .font(Theme.headline(16))
-                        .foregroundStyle(Theme.textPrimary)
+                        .font(Typo.callout)
+                        .foregroundStyle(Palette.textPrimary)
                     if person.isAdmin {
                         Text("админ")
-                            .font(Theme.caption(10))
-                            .foregroundStyle(Theme.accent)
+                            .font(Typo.caption2)
+                            .foregroundStyle(Palette.accentText)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 3)
-                            .background(Theme.accent.opacity(0.18), in: Capsule())
+                            .background(Palette.accentSoft, in: Capsule())
                     }
                     Spacer(minLength: 0)
                     if session.isAdmin, person.id != session.me?.id {
@@ -308,9 +308,9 @@ struct ProfileScreen: View {
                         } label: {
                             Image(systemName: "ellipsis")
                                 .font(.system(size: 15, weight: .bold))
-                                .foregroundStyle(Theme.textSecondary)
+                                .foregroundStyle(Palette.textSecondary)
                                 .frame(width: 34, height: 34)
-                                .background(Theme.raised, in: Circle())
+                                .background(Palette.raised, in: Circle())
                         }
                     }
                 }
@@ -319,7 +319,7 @@ struct ProfileScreen: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(18)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .background(Palette.surface, in: RoundedRectangle(cornerRadius: Radius.cardLarge, style: .continuous))
     }
 
     // MARK: - Настройки админа
@@ -327,13 +327,13 @@ struct ProfileScreen: View {
     private func adminCard(_ cup: CupInfo) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("НАСТРОЙКИ КУБКА")
-                .font(Theme.overline())
-                .foregroundStyle(Theme.textSecondary)
+                .font(Typo.overline)
+                .foregroundStyle(Palette.textSecondary)
 
             DatePicker("Первый день", selection: $firstDay, displayedComponents: .date)
-                .font(Theme.headline(15))
-                .foregroundStyle(Theme.textPrimary)
-                .tint(Theme.accent)
+                .font(Typo.subheadline)
+                .foregroundStyle(Palette.textPrimary)
+                .tint(Palette.accent)
                 .environment(\.locale, Format.russian)
             HStack(spacing: 8) {
                 Button {
@@ -354,18 +354,18 @@ struct ProfileScreen: View {
             Text(cup.startsOn == nil
                 ? "Пока дат нет, в зачёт идут все дни с треками."
                 : "Зачёт: \(cup.days) дней подряд, в последний очки удваиваются.")
-                .font(Theme.caption())
-                .foregroundStyle(Theme.textSecondary)
+                .font(Typo.caption1)
+                .foregroundStyle(Palette.textSecondary)
 
             Toggle(isOn: Binding(
                 get: { cup.geofence },
                 set: { value in Task { await session.updateCup(["geofence": value]) } }
             )) {
                 Text("Считать только в Idre Fjäll")
-                    .font(Theme.headline(15))
-                    .foregroundStyle(Theme.textPrimary)
+                    .font(Typo.subheadline)
+                    .foregroundStyle(Palette.textPrimary)
             }
-            .tint(Theme.accent)
+            .tint(Palette.accent)
 
             Button {
                 asksNewCode = true
@@ -387,7 +387,7 @@ struct ProfileScreen: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(18)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .background(Palette.surface, in: RoundedRectangle(cornerRadius: Radius.cardLarge, style: .continuous))
     }
 }
 
@@ -410,11 +410,11 @@ private struct PlaygroundButton: View {
                         .font(.system(size: 12, weight: .bold))
                     Text("Сгенерировать")
                 }
-                .font(Theme.caption())
-                .foregroundStyle(Theme.accent)
+                .font(Typo.caption1)
+                .foregroundStyle(Palette.accentText)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 9)
-                .background(Theme.accent.opacity(0.18), in: Capsule())
+                .background(Palette.accentSoft, in: Capsule())
             }
             .buttonStyle(.plain)
             .imagePlaygroundSheet(isPresented: $isShown, concept: "Portrait of a cheerful skier in ski goggles, snowy mountain") { url in

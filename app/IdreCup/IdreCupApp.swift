@@ -22,7 +22,7 @@ struct IdreCupApp: App {
         WindowGroup {
             RootView()
                 .preferredColorScheme(.dark)
-                .tint(Theme.accent)
+                .tint(Palette.accent)
         }
     }
 }

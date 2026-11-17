@@ -113,7 +113,7 @@ struct DuelsScreen: View {
             .padding(.top, 8)
             .padding(.bottom, 24)
         }
-        .background(Theme.base.ignoresSafeArea())
+        .background(Palette.base.ignoresSafeArea())
         .refreshable {
             await load()
         }
@@ -161,11 +161,11 @@ struct DuelsScreen: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text("ОДИН НА ОДИН · СТАВКА \(reply?.stake ?? 5) ОЧКОВ")
-                .font(Theme.overline())
-                .foregroundStyle(Theme.textSecondary)
+                .font(Typo.overline)
+                .foregroundStyle(Palette.textSecondary)
             Text("Дуэли")
-                .font(Theme.title(32))
-                .foregroundStyle(Theme.textPrimary)
+                .font(Typo.largeTitle)
+                .foregroundStyle(Palette.textPrimary)
         }
     }
 
@@ -234,8 +234,8 @@ struct DuelsScreen: View {
             }
         }
         Text("Победитель забирает \(reply.stake) очков у проигравшего. Отказаться может любой, это ничего не стоит. В день не больше трёх дуэлей и не больше одной с тем же соперником.")
-            .font(Theme.caption(11))
-            .foregroundStyle(Theme.textSecondary.opacity(0.8))
+            .font(Typo.caption2)
+            .foregroundStyle(Palette.textSecondary.opacity(0.8))
             .padding(.top, 4)
     }
 
@@ -248,16 +248,16 @@ struct DuelsScreen: View {
                 AvatarView(person: person(duel.challenger), size: 46)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("\(duel.challenger.name) вызывает тебя")
-                        .font(Theme.headline(17))
-                        .foregroundStyle(Theme.textPrimary)
+                        .font(Typo.headline)
+                        .foregroundStyle(Palette.textPrimary)
                     Text(duel.title)
-                        .font(Theme.caption())
-                        .foregroundStyle(Theme.accent)
+                        .font(Typo.caption1)
+                        .foregroundStyle(Palette.accentText)
                 }
             }
             Text("\(duel.rule). Время пойдёт, как только примешь. Проигравший отдаёт \(duel.stake) очков.\(deadline(duel))")
-                .font(Theme.caption())
-                .foregroundStyle(Theme.textSecondary)
+                .font(Typo.caption1)
+                .foregroundStyle(Palette.textSecondary)
             HStack(spacing: 10) {
                 Button {
                     Task { await act(duel, "accept") }
@@ -282,16 +282,16 @@ struct DuelsScreen: View {
                 AvatarView(person: person(duel.opponent), size: 46)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Ждём ответа: \(duel.opponent.name)")
-                        .font(Theme.headline(17))
-                        .foregroundStyle(Theme.textPrimary)
+                        .font(Typo.headline)
+                        .foregroundStyle(Palette.textPrimary)
                     Text(duel.title)
-                        .font(Theme.caption())
-                        .foregroundStyle(Theme.accent)
+                        .font(Typo.caption1)
+                        .foregroundStyle(Palette.accentText)
                 }
             }
             Text("\(duel.rule).\(deadline(duel))")
-                .font(Theme.caption())
-                .foregroundStyle(Theme.textSecondary)
+                .font(Typo.caption1)
+                .foregroundStyle(Palette.textSecondary)
             Button {
                 Task { await act(duel, "cancel") }
             } label: {
@@ -312,17 +312,17 @@ struct DuelsScreen: View {
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text(duel.title)
-                    .font(Theme.headline(17))
-                    .foregroundStyle(Theme.textPrimary)
+                    .font(Typo.headline)
+                    .foregroundStyle(Palette.textPrimary)
                 Text(duel.rule)
-                    .font(Theme.caption())
-                    .foregroundStyle(Theme.textSecondary)
+                    .font(Typo.caption1)
+                    .foregroundStyle(Palette.textSecondary)
             }
             versus(duel)
             if duel.status == "counting" {
                 Text("Время вышло. Ждём остаток треков с телефонов, обычно это пара минут.")
-                    .font(Theme.caption(11))
-                    .foregroundStyle(Theme.textSecondary)
+                    .font(Typo.caption2)
+                    .foregroundStyle(Palette.textSecondary)
             }
         }
     }
@@ -331,8 +331,8 @@ struct DuelsScreen: View {
         HStack(alignment: .top, spacing: 8) {
             side(duel, duel.challenger)
             Text("VS")
-                .font(Theme.overline())
-                .foregroundStyle(Theme.textSecondary)
+                .font(Typo.overline)
+                .foregroundStyle(Palette.textSecondary)
                 .padding(.top, 16)
             side(duel, duel.opponent)
         }
@@ -343,12 +343,12 @@ struct DuelsScreen: View {
         return VStack(spacing: 4) {
             AvatarView(person: person(who), size: 46)
             Text(who.name)
-                .font(Theme.caption())
-                .foregroundStyle(Theme.textPrimary)
+                .font(Typo.caption1)
+                .foregroundStyle(Palette.textPrimary)
                 .lineLimit(1)
             Text(duel.text(who.value))
-                .font(Theme.headline(18))
-                .foregroundStyle(isAhead ? Theme.accent : Theme.textPrimary)
+                .font(Typo.headline)
+                .foregroundStyle(isAhead ? Palette.accentText : Palette.textPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
         }
@@ -358,9 +358,9 @@ struct DuelsScreen: View {
     private func countdown(to end: Double) -> some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             Text("осталось \(Format.duration(max(end - context.date.timeIntervalSince1970 - clockOffset, 0)))")
-                .font(Theme.caption())
+                .font(Typo.caption1)
                 .monospacedDigit()
-                .foregroundStyle(Theme.accent)
+                .foregroundStyle(Palette.accentText)
         }
     }
 
@@ -368,25 +368,25 @@ struct DuelsScreen: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline) {
                 Text("\(duel.challenger.name) — \(duel.opponent.name)")
-                    .font(Theme.headline(15))
-                    .foregroundStyle(Theme.textPrimary)
+                    .font(Typo.subheadline)
+                    .foregroundStyle(Palette.textPrimary)
                     .lineLimit(1)
                 Spacer(minLength: 8)
                 Text(outcome(duel))
-                    .font(Theme.caption())
-                    .foregroundStyle(duel.winner == nil ? Theme.textSecondary : Theme.accent)
+                    .font(Typo.caption1)
+                    .foregroundStyle(duel.winner == nil ? Palette.textSecondary : Palette.accentText)
                     .lineLimit(1)
             }
             Text(pastDetail(duel))
-                .font(Theme.caption())
-                .foregroundStyle(Theme.textSecondary)
+                .font(Typo.caption1)
+                .foregroundStyle(Palette.textSecondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(Palette.surface, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
     }
 
     private func outcome(_ duel: Duel) -> String {
@@ -424,18 +424,18 @@ struct DuelsScreen: View {
                     Image(systemName: "flag.checkered.2.crossed")
                     Text("Вызвать на дуэль")
                 }
-                .font(Theme.headline())
-                .foregroundStyle(Theme.onAccent)
+                .font(Typo.headline)
+                .foregroundStyle(Palette.onAccent)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
-                .background(Theme.accent, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .background(Palette.accent, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
             }
             .buttonStyle(.plain)
             .disabled(!isOpen)
             .opacity(isOpen ? 1 : 0.4)
             Text(buttonHint(isBusy: isBusy, left: left))
-                .font(Theme.caption(11))
-                .foregroundStyle(Theme.textSecondary)
+                .font(Typo.caption2)
+                .foregroundStyle(Palette.textSecondary)
         }
     }
 
@@ -463,54 +463,54 @@ struct DuelsScreen: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .background(Palette.surface, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(Theme.accent.opacity(highlight ? 0.7 : 0), lineWidth: 1.5)
+            RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
+                .stroke(Palette.accent.opacity(highlight ? 0.7 : 0), lineWidth: 1.5)
         )
     }
 
     private func tag(_ text: String) -> some View {
         Text(text)
-            .font(Theme.overline(10))
-            .foregroundStyle(Theme.onAccent)
+            .font(Typo.overline)
+            .foregroundStyle(Palette.onAccent)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .background(Theme.accent, in: Capsule())
+            .background(Palette.accent, in: Capsule())
     }
 
     private func actionLabel(_ text: String, filled: Bool) -> some View {
         Text(text)
-            .font(Theme.headline(15))
-            .foregroundStyle(filled ? Theme.onAccent : Theme.textPrimary)
+            .font(Typo.subheadline)
+            .foregroundStyle(filled ? Palette.onAccent : Palette.textPrimary)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
-            .background(filled ? Theme.accent : Theme.raised, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .background(filled ? Palette.accent : Palette.raised, in: RoundedRectangle(cornerRadius: Radius.control, style: .continuous))
     }
 
     private func sectionTitle(_ text: String) -> some View {
         Text(text)
-            .font(Theme.overline())
-            .foregroundStyle(Theme.textSecondary)
+            .font(Typo.overline)
+            .foregroundStyle(Palette.textSecondary)
             .padding(.top, 6)
     }
 
     private func note(_ text: String) -> some View {
         Text(text)
-            .font(Theme.caption())
-            .foregroundStyle(Theme.accent)
+            .font(Typo.caption1)
+            .foregroundStyle(Palette.accentText)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(12)
-            .background(Theme.accent.opacity(0.18), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .background(Palette.accentSoft, in: RoundedRectangle(cornerRadius: Radius.control, style: .continuous))
     }
 
     private func warning(_ text: String) -> some View {
         Text(text)
-            .font(Theme.caption())
-            .foregroundStyle(Theme.textPrimary)
+            .font(Typo.caption1)
+            .foregroundStyle(Palette.textPrimary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(12)
-            .background(Theme.pisteRed.opacity(0.35), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .background(Palette.errorSoft, in: RoundedRectangle(cornerRadius: Radius.control, style: .continuous))
     }
 }
 
@@ -532,8 +532,8 @@ private struct NewDuelSheet: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 Text("Новая дуэль")
-                    .font(Theme.title(28))
-                    .foregroundStyle(Theme.textPrimary)
+                    .font(Typo.title1)
+                    .foregroundStyle(Palette.textPrimary)
                     .padding(.top, 8)
                 group("СОПЕРНИК") {
                     opponents
@@ -546,8 +546,8 @@ private struct NewDuelSheet: View {
                     }
                     .pickerStyle(.segmented)
                     Text(kind.hint)
-                        .font(Theme.caption())
-                        .foregroundStyle(Theme.textSecondary)
+                        .font(Typo.caption1)
+                        .foregroundStyle(Palette.textSecondary)
                 }
                 if kind == .race {
                     group("ТРАССА") {
@@ -562,25 +562,25 @@ private struct NewDuelSheet: View {
                     }
                     .pickerStyle(.segmented)
                     Text("Время пойдёт, когда соперник примет вызов. На ответ у него \(options?.answerMinutes ?? 30) минут.")
-                        .font(Theme.caption())
-                        .foregroundStyle(Theme.textSecondary)
+                        .font(Typo.caption1)
+                        .foregroundStyle(Palette.textSecondary)
                 }
                 if let failure {
                     Text(failure)
-                        .font(Theme.caption())
-                        .foregroundStyle(Theme.textPrimary)
+                        .font(Typo.caption1)
+                        .foregroundStyle(Palette.textPrimary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(12)
-                        .background(Theme.pisteRed.opacity(0.35), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .background(Palette.errorSoft, in: RoundedRectangle(cornerRadius: Radius.control, style: .continuous))
                 }
                 sendButton
                 Text("Победитель забирает \(options?.stake ?? 5) очков у проигравшего. Отказ ничего не стоит.")
-                    .font(Theme.caption(11))
-                    .foregroundStyle(Theme.textSecondary.opacity(0.8))
+                    .font(Typo.caption2)
+                    .foregroundStyle(Palette.textSecondary.opacity(0.8))
             }
             .padding(20)
         }
-        .background(Theme.base.ignoresSafeArea())
+        .background(Palette.base.ignoresSafeArea())
         .task {
             minutes = spans(kind).first ?? 60
             // Список трасс приходит с сервера; при плохой связи пробуем снова, пока лист открыт.
@@ -626,8 +626,8 @@ private struct NewDuelSheet: View {
         let others = session.people.filter { $0.id != session.me?.id }
         if others.isEmpty {
             Text("В кубке пока никого, кроме тебя. Позови друзей кодом из профиля.")
-                .font(Theme.caption())
-                .foregroundStyle(Theme.textSecondary)
+                .font(Typo.caption1)
+                .foregroundStyle(Palette.textSecondary)
         } else {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
@@ -647,16 +647,16 @@ private struct NewDuelSheet: View {
             VStack(spacing: 6) {
                 AvatarView(person: person, size: 52)
                 Text(person.name)
-                    .font(Theme.caption())
-                    .foregroundStyle(isPicked ? Theme.accent : Theme.textPrimary)
+                    .font(Typo.caption1)
+                    .foregroundStyle(isPicked ? Palette.accentText : Palette.textPrimary)
                     .lineLimit(1)
             }
             .frame(width: 78)
             .padding(.vertical, 10)
-            .background(isPicked ? Theme.accent.opacity(0.18) : Theme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .background(isPicked ? Palette.accentSoft : Palette.surface, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(Theme.accent.opacity(isPicked ? 1 : 0), lineWidth: 1.5)
+                RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
+                    .stroke(Palette.accent.opacity(isPicked ? 1 : 0), lineWidth: 1.5)
             )
         }
         .buttonStyle(.plain)
@@ -666,8 +666,8 @@ private struct NewDuelSheet: View {
     private var trailPicker: some View {
         if trails.isEmpty {
             Text("Список трасс загружается…")
-                .font(Theme.caption())
-                .foregroundStyle(Theme.textSecondary)
+                .font(Typo.caption1)
+                .foregroundStyle(Palette.textSecondary)
         } else {
             Picker("Трасса", selection: $trail) {
                 ForEach(trails) { row in
@@ -675,11 +675,11 @@ private struct NewDuelSheet: View {
                 }
             }
             .pickerStyle(.menu)
-            .tint(Theme.accent)
+            .tint(Palette.accent)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 6)
             .padding(.vertical, 6)
-            .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .background(Palette.surface, in: RoundedRectangle(cornerRadius: Radius.control, style: .continuous))
         }
     }
 
@@ -688,11 +688,11 @@ private struct NewDuelSheet: View {
             Task { await send() }
         } label: {
             Text(opponent.map { "Вызвать: \($0.name)" } ?? "Выбери соперника")
-                .font(Theme.headline())
-                .foregroundStyle(Theme.onAccent)
+                .font(Typo.headline)
+                .foregroundStyle(Palette.onAccent)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
-                .background(Theme.accent, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .background(Palette.accent, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
         }
         .buttonStyle(.plain)
         .disabled(!canSend)
@@ -702,8 +702,8 @@ private struct NewDuelSheet: View {
     private func group<Content: View>(_ title: String, @ViewBuilder _ content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
-                .font(Theme.overline())
-                .foregroundStyle(Theme.textSecondary)
+                .font(Typo.overline)
+                .foregroundStyle(Palette.textSecondary)
             content()
         }
     }

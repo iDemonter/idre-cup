@@ -47,7 +47,7 @@ enum LiftIcon {
             return image
         }
         let side: CGFloat = 72
-        let paper = UIColor(Theme.raised)
+        let paper = UIColor(Palette.raised)
         let ink = UIColor.white
         let image = UIGraphicsImageRenderer(size: CGSize(width: side, height: side)).image { _ in
             let box = CGRect(x: 3, y: 3, width: side - 6, height: side - 6)

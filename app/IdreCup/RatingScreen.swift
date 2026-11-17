@@ -27,7 +27,7 @@ struct AvatarView: View {
         }
         .frame(width: size, height: size)
         .clipShape(Circle())
-        .overlay(Circle().stroke(isMe ? Theme.accent : Theme.border, lineWidth: size > 60 ? 3 : 2))
+        .overlay(Circle().stroke(isMe ? Palette.accent : Palette.border, lineWidth: size > 60 ? 3 : 2))
         .task(id: "\(person.id)-\(person.avatar ?? 0)") {
             image = await session.avatarImage(for: person)
         }
@@ -67,7 +67,7 @@ struct RatingScreen: View {
             switch session.phase {
             case .loading:
                 ProgressView()
-                    .tint(Theme.accent)
+                    .tint(Palette.accent)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             case .noServer:
                 noServer
@@ -77,30 +77,30 @@ struct RatingScreen: View {
                 board
             }
         }
-        .background(Theme.base.ignoresSafeArea())
+        .background(Palette.base.ignoresSafeArea())
     }
 
     private var noServer: some View {
         VStack(spacing: 14) {
             Image(systemName: "wifi.slash")
                 .font(.system(size: 34, weight: .bold))
-                .foregroundStyle(Theme.textSecondary)
+                .foregroundStyle(Palette.textSecondary)
             Text("Нет связи с сервером игры")
-                .font(Theme.headline())
-                .foregroundStyle(Theme.textPrimary)
+                .font(Typo.headline)
+                .foregroundStyle(Palette.textPrimary)
             Text("Карта и запись трека работают и так. Рейтинг появится, когда будет интернет.")
-                .font(Theme.caption())
-                .foregroundStyle(Theme.textSecondary)
+                .font(Typo.caption1)
+                .foregroundStyle(Palette.textSecondary)
                 .multilineTextAlignment(.center)
             Button {
                 Task { await session.retry() }
             } label: {
                 Text("Попробовать ещё раз")
-                    .font(Theme.caption())
-                    .foregroundStyle(Theme.onAccent)
+                    .font(Typo.caption1)
+                    .foregroundStyle(Palette.onAccent)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
-                    .background(Theme.accent, in: Capsule())
+                    .background(Palette.accent, in: Capsule())
             }
             .buttonStyle(.plain)
         }
@@ -175,12 +175,12 @@ struct RatingScreen: View {
         HStack(alignment: .center) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(overline.uppercased())
-                    .font(Theme.overline())
-                    .foregroundStyle(Theme.textSecondary)
+                    .font(Typo.overline)
+                    .foregroundStyle(Palette.textSecondary)
                     .lineLimit(1)
                 Text("Рейтинг")
-                    .font(Theme.title(32))
-                    .foregroundStyle(Theme.textPrimary)
+                    .font(Typo.largeTitle)
+                    .foregroundStyle(Palette.textPrimary)
             }
             Spacer()
             if let me = session.me {
@@ -232,9 +232,9 @@ struct RatingScreen: View {
                     rowCard(
                         place: row.points > 0 ? index + 1 : nil,
                         person: person(row.id, row.name),
-                        detail: row.runs > 0
+                        detail: Text(row.runs > 0
                             ? "\(Format.kmh(row.topSpeed)) км/ч · \(Format.meters(row.vertical)) м · \(row.runs) \(Format.plural(row.runs, "спуск", "спуска", "спусков"))"
-                            : "ещё не катался",
+                            : "ещё не катался"),
                         points: signed(row.points),
                         footnote: dayFootnote(row)
                     )
@@ -247,9 +247,9 @@ struct RatingScreen: View {
                         rowCard(
                             place: nil,
                             person: person(other.id, other.name),
-                            detail: "\(Format.kmh(other.topSpeed)) км/ч · \(Format.meters(other.vertical)) м · \(other.runs) \(Format.plural(other.runs, "спуск", "спуска", "спусков"))",
+                            detail: Text("\(Format.kmh(other.topSpeed)) км/ч · \(Format.meters(other.vertical)) м · \(other.runs) \(Format.plural(other.runs, "спуск", "спуска", "спусков"))"),
                             points: "",
-                            footnote: "\(other.resort) · в зачёт недели не идёт, в сезон идёт"
+                            footnote: Text("\(other.resort) · в зачёт недели не идёт, в сезон идёт")
                         )
                     }
                 }
@@ -276,7 +276,7 @@ struct RatingScreen: View {
                     rowCard(
                         place: row.place,
                         person: person(row.id, row.name),
-                        detail: row.days.isEmpty ? "пока без очков" : daySum(row.days, joker: row.joker),
+                        detail: row.days.isEmpty ? Text("пока без очков") : daySum(row.days, joker: row.joker),
                         points: String(row.points),
                         footnote: weekFootnote(row, standings.jerseys),
                         delta: changes[row.id]
@@ -289,18 +289,27 @@ struct RatingScreen: View {
         }
     }
 
-    /// «10 + 🃏8 + 19»: очки по дням, день под джокером отмечен картой.
-    private func daySum(_ days: [Int], joker: Int? = nil) -> String {
-        var text = ""
+    /// «10 + [карта]8 + 19»: очки по дням, день под джокером отмечен значком карты.
+    private func daySum(_ days: [Int], joker: Int? = nil) -> Text {
+        var text = Text(verbatim: "")
         for (index, value) in days.enumerated() {
-            let mark = index == joker ? "🃏" : ""
-            if index == 0 {
-                text = mark + (value < 0 ? "−\(-value)" : String(value))
-            } else {
-                text += value < 0 ? " − \(mark)\(-value)" : " + \(mark)\(value)"
-            }
+            let number = Text(verbatim: index == 0 ? (value < 0 ? "−\(-value)" : String(value)) : String(abs(value)))
+            let marked = index == joker ? Text("\(Image(systemName: CupSymbol.joker))\(number)") : number
+            let sign = index == 0 ? "" : (value < 0 ? " − " : " + ")
+            text = Text("\(text)\(sign)\(marked)")
         }
         return text
+    }
+
+    /// Подпись из частей через « · »; nil, если частей нет.
+    private func joined(_ parts: [Text]) -> Text? {
+        guard let first = parts.first else { return nil }
+        return parts.dropFirst().reduce(first) { Text("\($0) · \($1)") }
+    }
+
+    /// Значок SF Symbols и текст после него.
+    private func badge(_ symbol: String, _ text: String) -> Text {
+        Text("\(Image(systemName: symbol)) \(text)")
     }
 
     /// «Парный день: ты с Олегом. Пары: Иван + Олег 31 · Анна (одна, ×2) 24». Лучшие пары получают бонус каждому.
@@ -320,13 +329,13 @@ struct RatingScreen: View {
     }
 
     /// Майки и джокер под строкой недели.
-    private func weekFootnote(_ row: StandingRow, _ jerseys: Jerseys?) -> String? {
-        var parts: [String] = []
-        if jerseys?.leader == row.id { parts.append("🟡 майка лидера") }
-        if jerseys?.crowns == row.id { parts.append("👑 майка корон") }
-        if jerseys?.volume == row.id { parts.append("⛰ майка объёма") }
-        if row.joker != nil { parts.append("🃏 джокер сыгран") }
-        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    private func weekFootnote(_ row: StandingRow, _ jerseys: Jerseys?) -> Text? {
+        var parts: [Text] = []
+        if jerseys?.leader == row.id { parts.append(badge(CupSymbol.leader, "майка лидера")) }
+        if jerseys?.crowns == row.id { parts.append(badge(CupSymbol.crown, "майка корон")) }
+        if jerseys?.volume == row.id { parts.append(badge(CupSymbol.volume, "майка объёма")) }
+        if row.joker != nil { parts.append(badge(CupSymbol.joker, "джокер сыгран")) }
+        return joined(parts)
     }
 
     /// «+19», «−5»: в день можно уйти в минус, проиграв дуэль.
@@ -334,27 +343,27 @@ struct RatingScreen: View {
         points < 0 ? "−\(-points)" : "+\(points)"
     }
 
-    private func dayFootnote(_ row: DayRow) -> String? {
-        var parts: [String] = []
+    private func dayFootnote(_ row: DayRow) -> Text? {
+        var parts: [Text] = []
         if row.runs > 0 {
-            parts = ["скорость \(place(row.speedPlace))", "объём \(place(row.volumePlace))"]
+            parts = [Text("скорость \(place(row.speedPlace))"), Text("объём \(place(row.volumePlace))")]
         }
         if let count = row.crowns, count > 0 {
-            parts.append("👑 \(count)")
+            parts.append(badge(CupSymbol.crown, String(count)))
         }
         if let wins = row.raceWins, wins > 0 {
-            parts.append("🏁 \(wins)")
+            parts.append(badge(CupSymbol.race, String(wins)))
         }
         if let duels = row.duelPoints, duels != 0 {
-            parts.append("дуэли \(signed(duels))")
+            parts.append(Text("дуэли \(signed(duels))"))
         }
         if let events = row.eventPoints, events != 0 {
-            parts.append("события \(signed(events))")
+            parts.append(Text("события \(signed(events))"))
         }
         if let pair = row.pairPoints {
-            parts.append(row.partner.map { "пара: \($0) \(signed(pair))" } ?? "без пары \(signed(pair))")
+            parts.append(Text(row.partner.map { "пара: \($0) \(signed(pair))" } ?? "без пары \(signed(pair))"))
         }
-        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+        return joined(parts)
     }
 
     /// Короны: у каждой зачётной трассы король с лучшим временем недели. Рядом своё лучшее время.
@@ -371,12 +380,12 @@ struct RatingScreen: View {
             }
             if !free.isEmpty {
                 Text("СВОБОДНЫЕ КОРОНЫ · \(free.count)")
-                    .font(Theme.overline())
-                    .foregroundStyle(Theme.textSecondary)
+                    .font(Typo.overline)
+                    .foregroundStyle(Palette.textSecondary)
                     .padding(.top, 6)
                 Text(free.map { "\(Format.trail($0.number)) \($0.name)" }.joined(separator: " · "))
-                    .font(Theme.caption())
-                    .foregroundStyle(Theme.textSecondary)
+                    .font(Typo.caption1)
+                    .foregroundStyle(Palette.textSecondary)
             }
         } else {
             SkeletonList()
@@ -388,18 +397,18 @@ struct RatingScreen: View {
         let isMine = holder?.id == session.me?.id
         return HStack(spacing: 12) {
             Text(Format.trail(row.number))
-                .font(Theme.headline(15))
-                .foregroundStyle(Theme.textPrimary)
+                .font(Typo.subheadline)
+                .foregroundStyle(Palette.textPrimary)
                 .frame(width: 34, height: 34)
-                .background(Theme.raised, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .background(Palette.raised, in: RoundedRectangle(cornerRadius: Radius.badge, style: .continuous))
             VStack(alignment: .leading, spacing: 2) {
                 Text(row.name)
-                    .font(Theme.headline(16))
-                    .foregroundStyle(Theme.textPrimary)
+                    .font(Typo.callout)
+                    .foregroundStyle(Palette.textPrimary)
                     .lineLimit(1)
                 Text(row.mine.map { "моё время \(Format.lap($0))" } ?? "я здесь ещё не был")
-                    .font(Theme.caption())
-                    .foregroundStyle(Theme.textSecondary)
+                    .font(Typo.caption1)
+                    .foregroundStyle(Palette.textSecondary)
             }
             Spacer(minLength: 8)
             if let holder {
@@ -410,22 +419,22 @@ struct RatingScreen: View {
                             // Предложение 5: корона подпрыгивает, когда её отобрали.
                             .symbolEffect(.bounce, value: holder.id)
                         Text(holder.name ?? "?")
-                            .font(Theme.caption())
+                            .font(Typo.caption1)
                             .lineLimit(1)
                     }
-                    .foregroundStyle(Theme.accent)
+                    .foregroundStyle(Palette.accentText)
                     Text(Format.lap(holder.seconds))
-                        .font(Theme.headline(17))
-                        .foregroundStyle(Theme.textPrimary)
+                        .font(Typo.headline)
+                        .foregroundStyle(Palette.textPrimary)
                 }
             }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(Palette.surface, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Theme.accent.opacity(isMine ? 0.7 : 0), lineWidth: 1.5)
+            RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
+                .stroke(Palette.accent.opacity(isMine ? 0.7 : 0), lineWidth: 1.5)
         )
     }
 
@@ -442,9 +451,9 @@ struct RatingScreen: View {
                     rowCard(
                         place: row.days > 0 ? row.place : nil,
                         person: person(row.id, row.name),
-                        detail: row.days > 0
+                        detail: Text(row.days > 0
                             ? "\(row.days) \(Format.plural(row.days, "день", "дня", "дней")) · \(Format.meters(row.vertical)) м · \(Format.kmh(row.topSpeed)) км/ч"
-                            : "ещё не катался в этом сезоне",
+                            : "ещё не катался в этом сезоне"),
                         points: String(row.points),
                         footnote: seasonFootnote(row)
                     )
@@ -457,21 +466,21 @@ struct RatingScreen: View {
                         HStack(alignment: .firstTextBaseline) {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("\(Format.date(day.date)) · \(day.resorts.joined(separator: ", "))")
-                                    .font(Theme.headline(14))
-                                    .foregroundStyle(Theme.textPrimary)
+                                    .font(Typo.subheadline)
+                                    .foregroundStyle(Palette.textPrimary)
                                     .lineLimit(1)
-                                Text("\(Format.meters(day.vertical)) м · \(day.runs) \(Format.plural(day.runs, "спуск", "спуска", "спусков")) · \(Format.kmh(day.topSpeed)) км/ч\(day.met ? " · вместе 🤝" : "")")
-                                    .font(Theme.caption())
-                                    .foregroundStyle(Theme.textSecondary)
+                                Text("\(Format.meters(day.vertical)) м · \(day.runs) \(Format.plural(day.runs, "спуск", "спуска", "спусков")) · \(Format.kmh(day.topSpeed)) км/ч\(day.met ? " · вместе" : "")")
+                                    .font(Typo.caption1)
+                                    .foregroundStyle(Palette.textSecondary)
                             }
                             Spacer()
                             Text("+\(day.points)")
-                                .font(Theme.headline(16))
-                                .foregroundStyle(Theme.accent)
+                                .font(Typo.callout)
+                                .foregroundStyle(Palette.accentText)
                         }
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
-                        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .background(Palette.surface, in: RoundedRectangle(cornerRadius: Radius.control, style: .continuous))
                     }
                 }
             }
@@ -482,22 +491,22 @@ struct RatingScreen: View {
                         let isMine = crown.holder.id == session.me?.id
                         HStack(spacing: 10) {
                             Image(systemName: "crown.fill")
-                                .foregroundStyle(isMine ? Theme.accent : Theme.textSecondary)
+                                .foregroundStyle(isMine ? Palette.accentText : Palette.textSecondary)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text([crown.label, crown.name].compactMap { $0 }.joined(separator: " "))
-                                    .font(Theme.headline(14))
-                                    .foregroundStyle(Theme.textPrimary)
+                                    .font(Typo.subheadline)
+                                    .foregroundStyle(Palette.textPrimary)
                                     .lineLimit(1)
                                 Text("\(crown.resort) · \(crown.holder.name ?? "?") \(Format.lap(crown.holder.seconds))\(crown.mine.map { isMine ? "" : " · моё \(Format.lap($0))" } ?? "")")
-                                    .font(Theme.caption())
-                                    .foregroundStyle(Theme.textSecondary)
+                                    .font(Typo.caption1)
+                                    .foregroundStyle(Palette.textSecondary)
                                     .lineLimit(1)
                             }
                             Spacer()
                         }
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
-                        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .background(Palette.surface, in: RoundedRectangle(cornerRadius: Radius.control, style: .continuous))
                     }
                 }
             }
@@ -506,19 +515,19 @@ struct RatingScreen: View {
         }
     }
 
-    private func seasonFootnote(_ row: SeasonReply.Row) -> String? {
-        var parts: [String] = []
-        if !row.resorts.isEmpty { parts.append(row.resorts.joined(separator: ", ")) }
-        if row.meets > 0 { parts.append("🤝 \(row.meets)") }
-        if row.crowns > 0 { parts.append("👑 \(row.crowns)") }
-        if row.bestDay > 0 { parts.append("лучший день \(Format.meters(row.bestDay)) м") }
-        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    private func seasonFootnote(_ row: SeasonReply.Row) -> Text? {
+        var parts: [Text] = []
+        if !row.resorts.isEmpty { parts.append(Text(row.resorts.joined(separator: ", "))) }
+        if row.meets > 0 { parts.append(Text("вместе \(row.meets)")) }
+        if row.crowns > 0 { parts.append(Text("корон \(row.crowns)")) }
+        if row.bestDay > 0 { parts.append(Text("лучший день \(Format.meters(row.bestDay)) м")) }
+        return joined(parts)
     }
 
     private func sectionTitle(_ text: String) -> some View {
         Text(text)
-            .font(Theme.overline())
-            .foregroundStyle(Theme.textSecondary)
+            .font(Typo.overline)
+            .foregroundStyle(Palette.textSecondary)
             .padding(.top, 6)
     }
 
@@ -528,20 +537,20 @@ struct RatingScreen: View {
 
     private func note(_ text: String) -> some View {
         Text(text)
-            .font(Theme.caption())
-            .foregroundStyle(Theme.accent)
+            .font(Typo.caption1)
+            .foregroundStyle(Palette.accentText)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(12)
-            .background(Theme.accent.opacity(0.18), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .background(Palette.accentSoft, in: RoundedRectangle(cornerRadius: Radius.control, style: .continuous))
     }
 
-    private func rowCard(place: Int?, person: Person, detail: String, points: String, footnote: String?, delta: Int? = nil) -> some View {
+    private func rowCard(place: Int?, person: Person, detail: Text, points: String, footnote: Text?, delta: Int? = nil) -> some View {
         let isMe = person.id == session.me?.id
         return HStack(spacing: 12) {
             VStack(spacing: 0) {
                 Text(place.map { String($0) } ?? "–")
-                    .font(Theme.headline(18))
-                    .foregroundStyle(place == 1 ? Theme.accent : Theme.textSecondary)
+                    .font(Typo.headline)
+                    .foregroundStyle(place == 1 ? Palette.accentText : Palette.textSecondary)
                 if let delta {
                     RankDelta(change: delta)
                 }
@@ -550,33 +559,33 @@ struct RatingScreen: View {
             AvatarView(person: person, size: 42)
             VStack(alignment: .leading, spacing: 2) {
                 Text(person.name)
-                    .font(Theme.headline(16))
-                    .foregroundStyle(Theme.textPrimary)
+                    .font(Typo.callout)
+                    .foregroundStyle(Palette.textPrimary)
                     .lineLimit(1)
-                Text(detail)
-                    .font(Theme.caption())
-                    .foregroundStyle(Theme.textSecondary)
+                detail
+                    .font(Typo.caption1)
+                    .foregroundStyle(Palette.textSecondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
                 if let footnote {
-                    Text(footnote)
-                        .font(Theme.caption(10))
-                        .foregroundStyle(Theme.textSecondary.opacity(0.75))
+                    footnote
+                        .font(Typo.caption2)
+                        .foregroundStyle(Palette.textSecondary.opacity(0.75))
                         .lineLimit(3)
                 }
             }
             Spacer(minLength: 8)
             Text(points)
-                .font(Theme.title(22))
-                .foregroundStyle(Theme.accent)
+                .font(Typo.numberM)
+                .foregroundStyle(Palette.accentText)
                 .fixedSize()
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(Palette.surface, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Theme.accent.opacity(isMe ? 0.7 : 0), lineWidth: 1.5)
+            RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
+                .stroke(Palette.accent.opacity(isMe ? 0.7 : 0), lineWidth: 1.5)
         )
     }
 }
@@ -611,14 +620,14 @@ private struct JoinView: View {
             VStack(alignment: .leading, spacing: 14) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("IDRE FJÄLL · ЯНВАРЬ 2027")
-                        .font(Theme.overline())
-                        .foregroundStyle(Theme.textSecondary)
+                        .font(Typo.overline)
+                        .foregroundStyle(Palette.textSecondary)
                     Text("Idre Cup")
-                        .font(Theme.title(32))
-                        .foregroundStyle(Theme.textPrimary)
+                        .font(Typo.largeTitle)
+                        .foregroundStyle(Palette.textPrimary)
                     Text("Неделя на склоне, шесть зачётных дней. Проигравшие кормят победителя ужином.")
-                        .font(Theme.caption(13))
-                        .foregroundStyle(Theme.textSecondary)
+                        .font(Typo.footnote)
+                        .foregroundStyle(Palette.textSecondary)
                         .padding(.top, 4)
                 }
 
@@ -638,29 +647,29 @@ private struct JoinView: View {
                         .autocorrectionDisabled()
                         .font(.system(size: 20, weight: .heavy, design: .monospaced))
                     Text("Код кубка: 6 знаков. Если вы уже были в кубке и сменили телефон, введите код возврата из 8 знаков, его выдаёт админ.")
-                        .font(Theme.caption())
-                        .foregroundStyle(Theme.textSecondary)
+                        .font(Typo.caption1)
+                        .foregroundStyle(Palette.textSecondary)
                 } else {
                     field("Название кубка", text: $cupName)
                     Toggle(isOn: $anywhere) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Пробный кубок")
-                                .font(Theme.headline(15))
-                                .foregroundStyle(Theme.textPrimary)
+                                .font(Typo.subheadline)
+                                .foregroundStyle(Palette.textPrimary)
                             Text("Считать спуски где угодно, а не только в Idre Fjäll. Для проверки дома.")
-                                .font(Theme.caption())
-                                .foregroundStyle(Theme.textSecondary)
+                                .font(Typo.caption1)
+                                .foregroundStyle(Palette.textSecondary)
                         }
                     }
-                    .tint(Theme.accent)
+                    .tint(Palette.accent)
                     .padding(14)
-                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .background(Palette.surface, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
                 }
 
                 if let problem = session.problem {
                     Text(problem)
-                        .font(Theme.caption())
-                        .foregroundStyle(Theme.pisteRed)
+                        .font(Typo.caption1)
+                        .foregroundStyle(Palette.error)
                 }
 
                 Button {
@@ -676,11 +685,11 @@ private struct JoinView: View {
                     }
                 } label: {
                     Text(way == .create ? "Создать кубок" : (isRestore ? "Вернуться в кубок" : "Войти в кубок"))
-                        .font(Theme.headline())
-                        .foregroundStyle(Theme.onAccent)
+                        .font(Typo.headline)
+                        .foregroundStyle(Palette.onAccent)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
-                        .background(Theme.accent, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .background(Palette.accent, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
                 }
                 .buttonStyle(.plain)
                 .disabled(!isReady || session.isBusy)
@@ -694,11 +703,11 @@ private struct JoinView: View {
     }
 
     private func field(_ title: String, text: Binding<String>) -> some View {
-        TextField("", text: text, prompt: Text(title).foregroundStyle(Theme.textSecondary.opacity(0.7)))
-            .font(Theme.headline())
-            .foregroundStyle(Theme.textPrimary)
+        TextField("", text: text, prompt: Text(title).foregroundStyle(Palette.textSecondary.opacity(0.7)))
+            .font(Typo.headline)
+            .foregroundStyle(Palette.textPrimary)
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
-            .background(Theme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .background(Palette.surface, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
     }
 }

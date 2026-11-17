@@ -149,7 +149,7 @@ struct CeremonyStories: View {
             }
             Text(slide.value)
                 .font(.system(size: 54, weight: .heavy, design: .rounded).monospacedDigit())
-                .foregroundStyle(Palette.accent)
+                .foregroundStyle(Palette.accentText)
                 .multilineTextAlignment(.center)
                 .minimumScaleFactor(0.5)
                 .lineLimit(2)

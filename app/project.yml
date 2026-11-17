@@ -95,7 +95,7 @@ targets:
     deploymentTarget: "11.0"
     sources:
       - path: IdreCupWatch
-      - path: Shared/Theme.swift
+      - path: Shared/Design/Tokens.swift
       - path: Shared/Format.swift
     info:
       path: IdreCupWatch/Info.plist

@@ -13,7 +13,7 @@ struct RideLockScreenView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
                 Image(systemName: "figure.skiing.downhill")
-                    .foregroundStyle(Theme.accent)
+                    .foregroundStyle(Palette.accentText)
                 Text(cupName.uppercased())
                     .lineLimit(1)
                 Spacer(minLength: 8)
@@ -24,7 +24,7 @@ struct RideLockScreenView: View {
                     Text("ПАУЗА")
                 } else {
                     Circle()
-                        .fill(Theme.pisteRed)
+                        .fill(Palette.error)
                         .frame(width: 7, height: 7)
                     Text(startedAt, style: .timer)
                         .monospacedDigit()
@@ -32,8 +32,8 @@ struct RideLockScreenView: View {
                         .frame(width: 66, alignment: .trailing)
                 }
             }
-            .font(Theme.overline(11))
-            .foregroundStyle(Theme.textSecondary)
+            .font(Typo.overline)
+            .foregroundStyle(Palette.textSecondary)
 
             HStack(alignment: .top, spacing: 0) {
                 metric(Format.kmh(state.topSpeed), "км/ч макс", isMain: true)
@@ -46,8 +46,8 @@ struct RideLockScreenView: View {
 
             if isStale {
                 Text("Откройте Idre Cup: запись могла остановиться.")
-                    .font(Theme.caption(11))
-                    .foregroundStyle(Theme.textSecondary)
+                    .font(Typo.caption2)
+                    .foregroundStyle(Palette.textSecondary)
             } else {
                 if let title = state.eventTitle, let end = state.eventEnds, end > Date() {
                     countdown("bolt.fill", "Событие: \(title)", until: end)
@@ -72,13 +72,13 @@ struct RideLockScreenView: View {
     private func control(_ title: String, _ symbol: String, intent: some LiveActivityIntent, filled: Bool) -> some View {
         Button(intent: intent) {
             Label(title, systemImage: symbol)
-                .font(Theme.headline(14))
+                .font(Typo.subheadline)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 8)
         }
         .buttonStyle(.plain)
-        .foregroundStyle(filled ? Theme.onAccent : Theme.textPrimary)
-        .background(filled ? Theme.accent : Theme.raised, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .foregroundStyle(filled ? Palette.onAccent : Palette.textPrimary)
+        .background(filled ? Palette.accent : Palette.raised, in: RoundedRectangle(cornerRadius: Radius.control, style: .continuous))
     }
 
     /// Строка «что идёт · осталось 12:40».
@@ -89,26 +89,26 @@ struct RideLockScreenView: View {
                 .lineLimit(1)
             Spacer(minLength: 8)
             Text("осталось")
-                .foregroundStyle(Theme.textSecondary)
+                .foregroundStyle(Palette.textSecondary)
             Text(end, style: .timer)
                 .monospacedDigit()
                 .multilineTextAlignment(.trailing)
                 .frame(width: 66, alignment: .trailing)
         }
-        .font(Theme.caption(12))
-        .foregroundStyle(Theme.accent)
+        .font(Typo.caption1)
+        .foregroundStyle(Palette.accentText)
     }
 
     private func metric(_ value: String, _ label: String, isMain: Bool = false) -> some View {
         VStack(alignment: .leading, spacing: 1) {
             Text(value)
-                .font(Theme.title(isMain ? 26 : 22))
-                .foregroundStyle(isMain ? Theme.accent : Theme.textPrimary)
+                .font(Typo.numberM)
+                .foregroundStyle(isMain ? Palette.accentText : Palette.textPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
             Text(label)
-                .font(Theme.caption(10))
-                .foregroundStyle(Theme.textSecondary)
+                .font(Typo.caption2)
+                .foregroundStyle(Palette.textSecondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
         }

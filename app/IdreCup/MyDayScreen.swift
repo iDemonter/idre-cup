@@ -32,11 +32,11 @@ struct MyDayScreen: View {
                 }
                 if let note = tracker.autoStopNote, !tracker.isRecording {
                     Text(note)
-                        .font(Theme.caption())
-                        .foregroundStyle(Theme.accent)
+                        .font(Typo.caption1)
+                        .foregroundStyle(Palette.accentText)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(12)
-                        .background(Theme.accent.opacity(0.18), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .background(Palette.accentSoft, in: RoundedRectangle(cornerRadius: Radius.control, style: .continuous))
                 }
                 recordingCard
                 segmentList
@@ -48,7 +48,7 @@ struct MyDayScreen: View {
             .padding(.top, 8)
             .padding(.bottom, 24)
         }
-        .background(Theme.base.ignoresSafeArea())
+        .background(Palette.base.ignoresSafeArea())
         .task(id: session.phase == .signedIn) {
             while !Task.isCancelled && session.phase == .signedIn {
                 if let day = await session.day() {
@@ -89,11 +89,11 @@ struct MyDayScreen: View {
         HStack(alignment: .center) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(Format.day(Date()).uppercased())
-                    .font(Theme.overline())
-                    .foregroundStyle(Theme.textSecondary)
+                    .font(Typo.overline)
+                    .foregroundStyle(Palette.textSecondary)
                 Text("Мой день")
-                    .font(Theme.title(32))
-                    .foregroundStyle(Theme.textPrimary)
+                    .font(Typo.largeTitle)
+                    .foregroundStyle(Palette.textPrimary)
             }
             Spacer()
         }
@@ -103,12 +103,12 @@ struct MyDayScreen: View {
         HStack(spacing: 10) {
             Image(systemName: "play.circle.fill")
             Text("Демо-день: цифры выдуманы, трек проложен по трассам Nord")
-                .font(Theme.caption())
+                .font(Typo.caption1)
             Spacer(minLength: 0)
         }
-        .foregroundStyle(Theme.accent)
+        .foregroundStyle(Palette.accentText)
         .padding(12)
-        .background(Theme.accent.opacity(0.18), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(Palette.accentSoft, in: RoundedRectangle(cornerRadius: Radius.control, style: .continuous))
     }
 
 
@@ -140,11 +140,11 @@ struct MyDayScreen: View {
                     Text("Чтобы включать запись с часов, когда телефон в кармане, разреши геопозицию «Всегда». Нажми здесь.")
                         .multilineTextAlignment(.leading)
                 }
-                .font(Theme.caption())
-                .foregroundStyle(Theme.accent)
+                .font(Typo.caption1)
+                .foregroundStyle(Palette.accentText)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(12)
-                .background(Theme.accent.opacity(0.18), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .background(Palette.accentSoft, in: RoundedRectangle(cornerRadius: Radius.control, style: .continuous))
             }
             .buttonStyle(.plain)
         }
@@ -156,14 +156,14 @@ struct MyDayScreen: View {
                 Image(systemName: symbol)
                 Text(title)
             }
-            .font(Theme.headline())
-            .foregroundStyle(filled ? Theme.onAccent : Theme.textPrimary)
+            .font(Typo.headline)
+            .foregroundStyle(filled ? Palette.onAccent : Palette.textPrimary)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
-            .background(filled ? Theme.accent : Theme.raised, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .background(filled ? Palette.accent : Palette.raised, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(Theme.border, lineWidth: filled ? 0 : 1.5)
+                RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
+                    .stroke(Palette.border, lineWidth: filled ? 0 : 1.5)
             )
         }
         .buttonStyle(.plain)
@@ -178,14 +178,14 @@ struct MyDayScreen: View {
             HStack(spacing: 10) {
                 Image(systemName: "location.slash.fill")
                 Text("Нет доступа к геопозиции. Открыть настройки")
-                    .font(Theme.caption())
+                    .font(Typo.caption1)
                     .multilineTextAlignment(.leading)
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.right")
             }
-            .foregroundStyle(Theme.textPrimary)
+            .foregroundStyle(Palette.textPrimary)
             .padding(14)
-            .background(Theme.raised, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .background(Palette.raised, in: RoundedRectangle(cornerRadius: Radius.control, style: .continuous))
         }
         .buttonStyle(.plain)
     }
@@ -194,15 +194,15 @@ struct MyDayScreen: View {
     private var recordingCard: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("ЗАПИСАНО ЗА ДЕНЬ")
-                .font(Theme.overline())
-                .foregroundStyle(Theme.textSecondary)
+                .font(Typo.overline)
+                .foregroundStyle(Palette.textSecondary)
             Text("\(Format.km(tracker.stats.totalDistance)) км · в движении \(Format.duration(tracker.stats.movingTime)) · \(Format.count(tracker.stats.pointCount)) \(Format.plural(tracker.stats.pointCount, "точка", "точки", "точек"))")
-                .font(Theme.caption(13))
-                .foregroundStyle(Theme.textPrimary)
+                .font(Typo.footnote)
+                .foregroundStyle(Palette.textPrimary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(Palette.surface, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
     }
 
     // MARK: - Спуски и подъёмы
@@ -212,8 +212,8 @@ struct MyDayScreen: View {
         if !tracker.stats.segments.isEmpty {
             VStack(alignment: .leading, spacing: 0) {
                 Text("СПУСКИ И ПОДЪЁМЫ")
-                    .font(Theme.overline())
-                    .foregroundStyle(Theme.textSecondary)
+                    .font(Typo.overline)
+                    .foregroundStyle(Palette.textSecondary)
                     .padding(.bottom, 6)
                 ForEach(Array(tracker.stats.segments.reversed())) { segment in
                     segmentRow(segment)
@@ -221,7 +221,7 @@ struct MyDayScreen: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(16)
-            .background(Theme.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .background(Palette.surface, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
         }
     }
 
@@ -230,28 +230,28 @@ struct MyDayScreen: View {
         return HStack(spacing: 12) {
             Image(systemName: isRun ? "arrow.down.right" : "arrow.up.right")
                 .font(.system(size: 13, weight: .heavy))
-                .foregroundStyle(isRun ? Theme.onAccent : Theme.textSecondary)
+                .foregroundStyle(isRun ? Palette.onAccent : Palette.textSecondary)
                 .frame(width: 30, height: 30)
-                .background(isRun ? Theme.accent : Theme.raised, in: Circle())
+                .background(isRun ? Palette.accent : Palette.raised, in: Circle())
             VStack(alignment: .leading, spacing: 2) {
                 Text("\(isRun ? "Спуск" : "Подъём") · \(Format.clock(segment.start))")
-                    .font(Theme.headline(15))
-                    .foregroundStyle(Theme.textPrimary)
+                    .font(Typo.subheadline)
+                    .foregroundStyle(Palette.textPrimary)
                 if let trail = trail(for: segment) {
                     Text("\(Format.trail(trail.number)) \(trail.name) · \(Format.lap(trail.seconds))")
-                        .font(Theme.caption())
-                        .foregroundStyle(Theme.accent)
+                        .font(Typo.caption1)
+                        .foregroundStyle(Palette.accentText)
                         .lineLimit(1)
                 }
                 Text(segmentDetails(segment))
-                    .font(Theme.caption())
-                    .foregroundStyle(Theme.textSecondary)
+                    .font(Typo.caption1)
+                    .foregroundStyle(Palette.textSecondary)
             }
             Spacer(minLength: 0)
             if isRun {
                 Text(Format.kmh(segment.topSpeed))
-                    .font(Theme.headline(17))
-                    .foregroundStyle(Theme.accent)
+                    .font(Typo.headline)
+                    .foregroundStyle(Palette.accentText)
             }
         }
         .padding(.vertical, 8)
@@ -269,13 +269,13 @@ struct MyDayScreen: View {
             startDemo()
         } label: {
             Text("Показать демо-день")
-                .font(Theme.caption())
-                .foregroundStyle(Theme.textSecondary)
+                .font(Typo.caption1)
+                .foregroundStyle(Palette.textSecondary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(Theme.border, style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
+                    RoundedRectangle(cornerRadius: Radius.control, style: .continuous)
+                        .stroke(Palette.border, style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
                 )
         }
         .buttonStyle(.plain)

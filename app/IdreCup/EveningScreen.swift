@@ -43,7 +43,7 @@ struct EveningScreen: View {
             .padding(.top, 8)
             .padding(.bottom, 24)
         }
-        .background(Theme.base.ignoresSafeArea())
+        .background(Palette.base.ignoresSafeArea())
         .refreshable { await load() }
         .task {
             while !Task.isCancelled {
@@ -92,11 +92,11 @@ struct EveningScreen: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(overline)
-                .font(Theme.overline())
-                .foregroundStyle(Theme.textSecondary)
+                .font(Typo.overline)
+                .foregroundStyle(Palette.textSecondary)
             Text("Вечер")
-                .font(Theme.title(32))
-                .foregroundStyle(Theme.textPrimary)
+                .font(Typo.largeTitle)
+                .foregroundStyle(Palette.textPrimary)
         }
     }
 
@@ -144,17 +144,17 @@ struct EveningScreen: View {
                     .font(.system(size: 24, weight: .bold))
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Повтор дня на карте")
-                        .font(Theme.headline(17))
+                        .font(Typo.headline)
                     Text("Все треки за день одновременно, час за минуту")
-                        .font(Theme.caption())
+                        .font(Typo.caption1)
                         .opacity(0.8)
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
             }
-            .foregroundStyle(Theme.onAccent)
+            .foregroundStyle(Palette.onAccent)
             .padding(16)
-            .background(Theme.accent, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .background(Palette.accent, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
         }
         .buttonStyle(.plain)
     }
@@ -162,7 +162,7 @@ struct EveningScreen: View {
 
     // MARK: - Викторина
 
-    private static let optionColors: [Color] = [Theme.pisteRed, Theme.pisteBlue, Color(red: 1, green: 0.79, blue: 0.3), Theme.pisteGreen]
+    private static let optionColors: [Color] = [Palette.pisteRed, Palette.pisteBlue, Palette.warning, Palette.pisteGreen]
     private static let letters = ["A", "B", "C", "D"]
 
     @ViewBuilder
@@ -173,21 +173,21 @@ struct EveningScreen: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("ВИКТОРИНА")
-                    .font(Theme.overline())
-                    .foregroundStyle(Theme.textSecondary)
+                    .font(Typo.overline)
+                    .foregroundStyle(Palette.textSecondary)
                 Spacer()
                 if let state = open?.quiz, state.phase != "intro" {
                     Text("ВОПРОС \(min(state.index + 1, state.count)) ИЗ \(state.count)")
-                        .font(Theme.overline(10))
-                        .foregroundStyle(Theme.accent)
+                        .font(Typo.overline)
+                        .foregroundStyle(Palette.accentText)
                 }
             }
             if let open, let state = open.quiz {
                 quizLive(open, state)
             } else {
                 Text("Вопросы на телевизоре, ответы на телефонах. 6 общих вопросов про Idre, горы и лыжи и до 4 про ваш сегодняшний день. На каждый 20 секунд: чем быстрее правильный ответ, тем больше очков. Места дают 6, 4, 2 и 1 очко в сегодняшний день.")
-                    .font(Theme.caption())
-                    .foregroundStyle(Theme.textSecondary)
+                    .font(Typo.caption1)
+                    .foregroundStyle(Palette.textSecondary)
                 if let last {
                     results(last.results, isQuiz: true)
                 }
@@ -216,13 +216,13 @@ struct EveningScreen: View {
                         Image(systemName: "square.and.arrow.up")
                     }
                 }
-                .font(Theme.caption())
-                .foregroundStyle(Theme.accent)
+                .font(Typo.caption1)
+                .foregroundStyle(Palette.accentText)
             }
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .background(Palette.surface, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
     }
 
     @ViewBuilder
@@ -230,22 +230,22 @@ struct EveningScreen: View {
         switch state.phase {
         case "intro":
             Text("Начинаем через \(state.left) с")
-                .font(Theme.title(28))
-                .foregroundStyle(Theme.textPrimary)
+                .font(Typo.title1)
+                .foregroundStyle(Palette.textPrimary)
             Text("Смотрите на телевизор, отвечайте здесь.")
-                .font(Theme.caption())
-                .foregroundStyle(Theme.textSecondary)
+                .font(Typo.caption1)
+                .foregroundStyle(Palette.textSecondary)
         case "question", "reveal":
             if let question = state.question {
                 HStack(alignment: .firstTextBaseline) {
                     Text(question.text)
-                        .font(Theme.headline(18))
-                        .foregroundStyle(Theme.textPrimary)
+                        .font(Typo.headline)
+                        .foregroundStyle(Palette.textPrimary)
                     Spacer(minLength: 8)
                     if state.phase == "question" {
                         Text("\(state.left)")
-                            .font(Theme.title(26))
-                            .foregroundStyle(Theme.accent)
+                            .font(Typo.numberM)
+                            .foregroundStyle(Palette.accentText)
                             .monospacedDigit()
                     }
                 }
@@ -255,26 +255,26 @@ struct EveningScreen: View {
                     }
                 }
                 Text(quizNote(state))
-                    .font(Theme.caption())
-                    .foregroundStyle(Theme.accent)
+                    .font(Typo.caption1)
+                    .foregroundStyle(Palette.accentText)
             }
         default:
             Text("Считаем итоги…")
-                .font(Theme.caption())
-                .foregroundStyle(Theme.textSecondary)
+                .font(Typo.caption1)
+                .foregroundStyle(Palette.textSecondary)
         }
         if !state.scores.isEmpty {
             VStack(spacing: 4) {
                 ForEach(Array(state.scores.prefix(5).enumerated()), id: \.offset) { place, row in
                     HStack {
                         Text("\(place + 1). \(row.name)")
-                            .foregroundStyle(row.id == session.me?.id ? Theme.accent : Theme.textPrimary)
+                            .foregroundStyle(row.id == session.me?.id ? Palette.accentText : Palette.textPrimary)
                         Spacer()
                         Text("\(row.score)")
                             .monospacedDigit()
-                            .foregroundStyle(Theme.textSecondary)
+                            .foregroundStyle(Palette.textSecondary)
                     }
-                    .font(Theme.caption(13))
+                    .font(Typo.footnote)
                 }
             }
         }
@@ -297,10 +297,10 @@ struct EveningScreen: View {
         } label: {
             VStack(alignment: .leading, spacing: 4) {
                 Text(Self.letters[index])
-                    .font(Theme.overline(11))
+                    .font(Typo.overline)
                     .opacity(0.8)
                 Text(text)
-                    .font(Theme.headline(15))
+                    .font(Typo.subheadline)
                     .multilineTextAlignment(.leading)
                     .lineLimit(3)
                     .minimumScaleFactor(0.7)
@@ -308,9 +308,9 @@ struct EveningScreen: View {
             .foregroundStyle(index == 2 ? Color.black : Color.white)
             .frame(maxWidth: .infinity, minHeight: 78, alignment: .topLeading)
             .padding(12)
-            .background(Self.optionColors[index], in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .background(Self.optionColors[index], in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
                     .stroke(Color.white, lineWidth: picked ? 3 : 0)
             )
             .opacity(faded ? 0.3 : 1)
@@ -337,33 +337,33 @@ struct EveningScreen: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text("ИГРА «РЕАКЦИЯ»")
-                    .font(Theme.overline())
-                    .foregroundStyle(Theme.textSecondary)
+                    .font(Typo.overline)
+                    .foregroundStyle(Palette.textSecondary)
                 Spacer()
                 if open != nil {
                     Text("ИДЁТ")
-                        .font(Theme.overline(10))
-                        .foregroundStyle(Theme.onAccent)
+                        .font(Typo.overline)
+                        .foregroundStyle(Palette.onAccent)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
-                        .background(Theme.accent, in: Capsule())
+                        .background(Palette.accent, in: Capsule())
                 }
             }
             Text("Три раунда: экран красный, ждёшь зелёного и жмёшь как можно быстрее. Нажал раньше — фальстарт, секунда штрафа. Время меряет твой телефон. Места дают 6, 4, 2 и 1 очко в сегодняшний день.")
-                .font(Theme.caption())
-                .foregroundStyle(Theme.textSecondary)
+                .font(Typo.caption1)
+                .foregroundStyle(Palette.textSecondary)
             if let failure {
                 Text(failure)
-                    .font(Theme.caption())
-                    .foregroundStyle(Theme.pisteRed)
+                    .font(Typo.caption1)
+                    .foregroundStyle(Palette.error)
             }
             if let open {
                 if open.mine == nil {
                     actionButton("Играть", symbol: "hand.tap.fill") { playing = open }
                 } else {
                     Text("Ты сыграл: \(ms(open.mine?.score)). Ждём остальных: сыграли \(open.played.joined(separator: ", ")).")
-                        .font(Theme.caption())
-                        .foregroundStyle(Theme.accent)
+                        .font(Typo.caption1)
+                        .foregroundStyle(Palette.accentText)
                 }
                 results(open.results)
             } else {
@@ -382,14 +382,14 @@ struct EveningScreen: View {
                     }
                 } else if last == nil {
                     Text("Игру начинает админ кубка.")
-                        .font(Theme.caption())
-                        .foregroundStyle(Theme.textSecondary)
+                        .font(Typo.caption1)
+                        .foregroundStyle(Palette.textSecondary)
                 }
             }
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .background(Palette.surface, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
     }
 
     @ViewBuilder
@@ -399,16 +399,16 @@ struct EveningScreen: View {
                 ForEach(rows) { row in
                     HStack {
                         Text("\(row.place). \(row.name)")
-                            .font(Theme.headline(15))
-                            .foregroundStyle(row.id == session.me?.id ? Theme.accent : Theme.textPrimary)
+                            .font(Typo.subheadline)
+                            .foregroundStyle(row.id == session.me?.id ? Palette.accentText : Palette.textPrimary)
                         Spacer()
                         Text(isQuiz ? "\(Int(row.score))" : ms(row.score))
-                            .font(Theme.caption())
-                            .foregroundStyle(Theme.textSecondary)
+                            .font(Typo.caption1)
+                            .foregroundStyle(Palette.textSecondary)
                             .monospacedDigit()
                         Text("+\(row.points)")
-                            .font(Theme.headline(15))
-                            .foregroundStyle(Theme.accent)
+                            .font(Typo.subheadline)
+                            .foregroundStyle(Palette.accentText)
                             .frame(width: 34, alignment: .trailing)
                     }
                 }
@@ -491,49 +491,49 @@ struct EveningScreen: View {
     private func tile(_ title: String, _ name: String?, _ value: String?) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(Theme.overline(10))
-                .foregroundStyle(Theme.textSecondary)
+                .font(Typo.overline)
+                .foregroundStyle(Palette.textSecondary)
             Text(name ?? "—")
-                .font(Theme.headline(17))
-                .foregroundStyle(Theme.textPrimary)
+                .font(Typo.headline)
+                .foregroundStyle(Palette.textPrimary)
                 .lineLimit(1)
             Text(value ?? " ")
-                .font(Theme.title(20))
-                .foregroundStyle(Theme.accent)
+                .font(Typo.title3)
+                .foregroundStyle(Palette.accentText)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(Palette.surface, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
     }
 
     private func section<Content: View>(_ title: String, @ViewBuilder _ content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
-                .font(Theme.overline())
-                .foregroundStyle(Theme.textSecondary)
+                .font(Typo.overline)
+                .foregroundStyle(Palette.textSecondary)
             content()
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(Palette.surface, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
     }
 
     private func line(_ symbol: String, _ title: String, _ detail: String) -> some View {
         HStack(spacing: 10) {
             Image(systemName: symbol)
                 .font(.system(size: 13, weight: .bold))
-                .foregroundStyle(Theme.accent)
+                .foregroundStyle(Palette.accentText)
                 .frame(width: 20)
             Text(title)
-                .font(Theme.headline(15))
-                .foregroundStyle(Theme.textPrimary)
+                .font(Typo.subheadline)
+                .foregroundStyle(Palette.textPrimary)
                 .lineLimit(1)
             Spacer(minLength: 8)
             Text(detail)
-                .font(Theme.caption())
-                .foregroundStyle(Theme.textSecondary)
+                .font(Typo.caption1)
+                .foregroundStyle(Palette.textSecondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
         }
@@ -560,22 +560,22 @@ struct EveningScreen: View {
                 Image(systemName: symbol)
                 Text(title)
             }
-            .font(Theme.headline())
-            .foregroundStyle(Theme.onAccent)
+            .font(Typo.headline)
+            .foregroundStyle(Palette.onAccent)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
-            .background(Theme.accent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .background(Palette.accent, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
         }
         .buttonStyle(.plain)
     }
 
     private func note(_ text: String) -> some View {
         Text(text)
-            .font(Theme.caption())
-            .foregroundStyle(Theme.accent)
+            .font(Typo.caption1)
+            .foregroundStyle(Palette.accentText)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(12)
-            .background(Theme.accent.opacity(0.18), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .background(Palette.accentSoft, in: RoundedRectangle(cornerRadius: Radius.control, style: .continuous))
     }
 }
 
@@ -603,14 +603,14 @@ private struct ReactionView: View {
             background.ignoresSafeArea()
             VStack(spacing: 16) {
                 Text("РАУНД \(min(round + 1, game.delays.count)) ИЗ \(game.delays.count)")
-                    .font(Theme.overline(13))
+                    .font(Typo.footnote)
                     .foregroundStyle(.white.opacity(0.8))
                 Text(title)
-                    .font(Theme.title(40))
+                    .font(Typo.largeTitle)
                     .foregroundStyle(.white)
                     .multilineTextAlignment(.center)
                 Text(subtitle)
-                    .font(Theme.headline(17))
+                    .font(Typo.headline)
                     .foregroundStyle(.white.opacity(0.85))
                     .multilineTextAlignment(.center)
             }
@@ -621,7 +621,7 @@ private struct ReactionView: View {
         .overlay(alignment: .topTrailing) {
             if case .ready = phase, round == 0 {
                 Button("Отмена", action: onCancel)
-                    .font(Theme.headline(15))
+                    .font(Typo.subheadline)
                     .foregroundStyle(.white)
                     .padding(20)
             }
@@ -631,9 +631,9 @@ private struct ReactionView: View {
 
     private var background: Color {
         switch phase {
-        case .waiting: return Theme.pisteRed
-        case .go: return Theme.pisteGreen
-        default: return Theme.base
+        case .waiting: return Palette.error
+        case .go: return Palette.pisteGreen
+        default: return Palette.base
         }
     }
 

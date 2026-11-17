@@ -83,7 +83,7 @@ struct EventsCard: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Theme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .background(Palette.surface, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
             }
         }
     }
@@ -93,43 +93,43 @@ struct EventsCard: View {
         return VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text(event.status == "counting" ? "СОБЫТИЕ · СЧИТАЕМ ИТОГ" : "СОБЫТИЕ · ИДЁТ")
-                    .font(Theme.overline(10))
-                    .foregroundStyle(Theme.onAccent)
+                    .font(Typo.overline)
+                    .foregroundStyle(Palette.onAccent)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(Theme.accent, in: Capsule())
+                    .background(Palette.accent, in: Capsule())
                 Spacer()
                 if event.status == "active" {
                     TimelineView(.periodic(from: .now, by: 1)) { context in
                         Text("осталось \(Format.duration(max(event.endsAt - context.date.timeIntervalSince1970 - clockOffset, 0)))")
-                            .font(Theme.caption())
+                            .font(Typo.caption1)
                             .monospacedDigit()
-                            .foregroundStyle(Theme.accent)
+                            .foregroundStyle(Palette.accentText)
                     }
                 }
             }
             VStack(alignment: .leading, spacing: 3) {
                 Text(event.title)
-                    .font(Theme.headline(18))
-                    .foregroundStyle(Theme.textPrimary)
+                    .font(Typo.headline)
+                    .foregroundStyle(Palette.textPrimary)
                 Text(event.rule(leaderName: leaderName))
-                    .font(Theme.caption())
-                    .foregroundStyle(Theme.textSecondary)
+                    .font(Typo.caption1)
+                    .foregroundStyle(Palette.textSecondary)
             }
             VStack(spacing: 6) {
                 ForEach(event.entries, id: \.id) { entry in
                     HStack(spacing: 8) {
                         Image(systemName: entry.done ? "checkmark.circle.fill" : "circle")
                             .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(entry.done ? Theme.accent : Theme.border)
+                            .foregroundStyle(entry.done ? Palette.accentText : Palette.border)
                         Text(entry.name)
-                            .font(Theme.caption(13))
-                            .foregroundStyle(entry.id == myID ? Theme.accent : Theme.textPrimary)
+                            .font(Typo.footnote)
+                            .foregroundStyle(entry.id == myID ? Palette.accentText : Palette.textPrimary)
                             .lineLimit(1)
                         Spacer(minLength: 8)
                         Text(event.progress(entry))
-                            .font(Theme.caption())
-                            .foregroundStyle(entry.done ? Theme.accent : Theme.textSecondary)
+                            .font(Typo.caption1)
+                            .foregroundStyle(entry.done ? Palette.accentText : Palette.textSecondary)
                             .lineLimit(1)
                             .minimumScaleFactor(0.8)
                     }
@@ -138,10 +138,10 @@ struct EventsCard: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .background(Palette.surface, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(Theme.accent.opacity(0.7), lineWidth: 1.5)
+            RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
+                .stroke(Palette.accent.opacity(0.7), lineWidth: 1.5)
         )
     }
 
@@ -149,15 +149,15 @@ struct EventsCard: View {
         HStack(spacing: 8) {
             Image(systemName: "bolt.fill")
                 .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(Theme.accent)
+                .foregroundStyle(Palette.accentText)
             Text("\(event.title) · \(Format.clock(Date(timeIntervalSince1970: event.startsAt - clockOffset)))")
-                .font(Theme.caption())
-                .foregroundStyle(Theme.textPrimary)
+                .font(Typo.caption1)
+                .foregroundStyle(Palette.textPrimary)
                 .lineLimit(1)
             Spacer(minLength: 8)
             Text(event.outcome)
-                .font(Theme.caption())
-                .foregroundStyle(event.awards.isEmpty ? Theme.textSecondary : Theme.accent)
+                .font(Typo.caption1)
+                .foregroundStyle(event.awards.isEmpty ? Palette.textSecondary : Palette.accentText)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
         }

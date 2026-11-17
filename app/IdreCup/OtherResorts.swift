@@ -32,11 +32,11 @@ struct ResortDetail: Decodable {
         var coordinates: [CLLocationCoordinate2D] { coords.map { CLLocationCoordinate2D(latitude: $0[0], longitude: $0[1]) } }
         var color: Color {
             switch difficulty {
-            case "green": return Theme.pisteGreen
-            case "blue": return Theme.pisteBlue
-            case "red": return Theme.pisteRed
-            case "black": return Theme.pisteBlack
-            default: return Theme.textSecondary
+            case "green": return Palette.pisteGreen
+            case "blue": return Palette.pisteBlue
+            case "red": return Palette.pisteRed
+            case "black": return Palette.pisteBlack
+            default: return Palette.textSecondary
             }
         }
         var title: String { [label, name].compactMap { $0 }.joined(separator: " ") }

@@ -18,8 +18,8 @@ struct RideLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: RideAttributes.self) { context in
             RideContent(context: context)
-            .activityBackgroundTint(Theme.base)
-            .activitySystemActionForegroundColor(Theme.textPrimary)
+            .activityBackgroundTint(Palette.base)
+            .activitySystemActionForegroundColor(Palette.textPrimary)
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
@@ -28,35 +28,35 @@ struct RideLiveActivity: Widget {
                         Text("\(Format.kmh(context.state.topSpeed)) км/ч")
                             .lineLimit(1)
                     }
-                    .font(Theme.headline(16))
-                    .foregroundStyle(Theme.accent)
+                    .font(Typo.callout)
+                    .foregroundStyle(Palette.accentText)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     Text(context.attributes.startedAt, style: .timer)
-                        .font(Theme.headline(16))
+                        .font(Typo.callout)
                         .monospacedDigit()
                         .multilineTextAlignment(.trailing)
                         .frame(width: 76, alignment: .trailing)
-                        .foregroundStyle(Theme.textPrimary)
+                        .foregroundStyle(Palette.textPrimary)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     Text(summary(context.state))
-                        .font(Theme.caption(12))
-                        .foregroundStyle(Theme.textSecondary)
+                        .font(Typo.caption1)
+                        .foregroundStyle(Palette.textSecondary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
                 }
             } compactLeading: {
                 Image(systemName: "figure.skiing.downhill")
-                    .foregroundStyle(Theme.accent)
+                    .foregroundStyle(Palette.accentText)
             } compactTrailing: {
                 Text(Format.kmh(context.state.topSpeed))
-                    .font(Theme.caption(13))
+                    .font(Typo.footnote)
                     .monospacedDigit()
-                    .foregroundStyle(Theme.accent)
+                    .foregroundStyle(Palette.accentText)
             } minimal: {
                 Image(systemName: "figure.skiing.downhill")
-                    .foregroundStyle(Theme.accent)
+                    .foregroundStyle(Palette.accentText)
             }
         }
         // Своя раскладка для Smart Stack на Apple Watch.
@@ -115,15 +115,15 @@ private struct RideContent: View {
                         .multilineTextAlignment(.trailing)
                 }
             }
-            .font(Theme.overline(10))
-            .foregroundStyle(Theme.accent)
+            .font(Typo.overline)
+            .foregroundStyle(Palette.accentText)
             Text("\(Format.kmh(state.topSpeed)) км/ч")
-                .font(Theme.title(22))
-                .foregroundStyle(Theme.textPrimary)
+                .font(Typo.numberM)
+                .foregroundStyle(Palette.textPrimary)
                 .minimumScaleFactor(0.7)
             Text(line(state))
-                .font(Theme.caption(11))
-                .foregroundStyle(Theme.textSecondary)
+                .font(Typo.caption2)
+                .foregroundStyle(Palette.textSecondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
         }

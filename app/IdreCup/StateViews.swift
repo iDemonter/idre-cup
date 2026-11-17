@@ -51,9 +51,9 @@ struct SkeletonRow: View {
 struct SkeletonCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.m) {
-            RoundedRectangle(cornerRadius: 5).fill(Palette.raised).frame(width: 140, height: 10)
+            Capsule().fill(Palette.raised).frame(width: 140, height: 10)
             RoundedRectangle(cornerRadius: Radius.badge).fill(Palette.raised).frame(height: 40)
-            RoundedRectangle(cornerRadius: 9).fill(Palette.raised).frame(width: 160, height: 18)
+            Capsule().fill(Palette.raised).frame(width: 160, height: 18)
         }
         .padding(Spacing.l)
         .frame(maxWidth: .infinity, alignment: .leading)
