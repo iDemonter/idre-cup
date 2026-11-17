@@ -129,11 +129,11 @@
 | AppIcon | Вариант: Светлая / Тёмная / Tinted | 8 · `Assets.xcassets/AppIcon` (светлая и tinted рисует `tools/make_icons.py`, тёмная — прежняя) | есть (PNG; .icon из Icon Composer — после поездки, нужен Mac) | [35:520](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=35-520) |
 | DayHero | Состояние: Запись / Пауза | 3 · «Мой день» крупно · `app/IdreCup/DayHero.swift` (третье состояние «Запись выключена» — серая рамка, как Пауза) | есть | [42:451](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=42-451) |
 | Note | Тип: Анимация / Хаптика / Доступность | пометки на макетах | макет | [35:531](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=35-531) |
-| ResortSwitcher | — | 11 · курорты: шапка карты с выбором курорта (заменит `MapScreen.header`) | новое | [57:466](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=57-466) |
-| PisteBadge (формы) | Сложность: Зелёная / Синяя / Красная / Чёрная / Нет данных × Размер 26 / 40 | 11 · значки трасс: цвет + форма (круг, квадрат, шестиугольник, ромб, пунктир); заменит `PisteBadge` на всех курортах | новое | [57:502](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=57-502) |
-| ResortRow | Вид: Курорт / Горка / Здесь | 11 · строка курорта в листе выбора | новое | [57:531](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=57-531) |
-| ResortPickerSheet | — (лист .large) | 11 · выбор курорта: рядом, друзья, регионы, горки (заменит меню `otherResortsChip`) | новое | [57:532](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=57-532) |
-| HillInfoSheet | — (лист .medium) | 11 · лист горки или небольшого курорта: часы, открытые трассы, список трасс | новое | [57:619](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=57-619) |
+| ResortSwitcher | — | 11 · `ResortPicker.swift` · `ResortSwitcher` (в `MapScreen.header`) | есть | [57:466](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=57-466) |
+| PisteBadge (формы) | Сложность: Зелёная / Синяя / Красная / Чёрная / Нет данных × Размер 26 / 40 | 11 · `PisteShape.swift` · `ShapedPisteBadge`, `PisteForm` (карта Apple, 3D-модель, другие курорты) | есть | [57:502](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=57-502) |
+| ResortRow | Вид: Курорт / Горка / Здесь | 11 · `ResortPicker.swift` · `ResortRow` (вида «Здесь» пока нет: Idre всегда в «Рядом») | есть | [57:531](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=57-531) |
+| ResortPickerSheet | — (лист .large) | 11 · `ResortPicker.swift` · `ResortPickerSheet` (меню `otherResortsChip` убрано) | есть | [57:532](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=57-532) |
+| HillInfoSheet | — (лист .medium) | 11 · `ResortPicker.swift` · `HillInfoSheet` (встроен в нижнюю панель карты, не отдельный лист) | есть | [57:619](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=57-619) |
 
 ## Токены
 
