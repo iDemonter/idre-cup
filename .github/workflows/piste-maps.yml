@@ -1,0 +1,25 @@
+name: Справка — официальные карты трасс
+
+# Временный: скачивает официальные карты трасс SkiStar, чтобы по ним дорисовать трассы,
+# которых нет в OpenStreetMap. В репозиторий карты не попадают: артефакт хранится сутки и удаляется.
+on:
+  push:
+    branches: [tmp/piste-maps]
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Скачать карты
+        run: |
+          mkdir maps
+          base=https://www.skistar.com/globalassets/bilder-nya-skistar.com/kartor/pistkartor-2627/1920x1400
+          for f in are are_bjornen vemdalen_vemdalsskalet vemdalen_bjornrike vemdalen_klovsjo; do
+            curl -sSfL -o "maps/$f.jpg" "$base/1920_1400px_${f}_2627.jpg" || echo "нет $f"
+          done
+          ls -la maps
+      - uses: actions/upload-artifact@v4
+        with:
+          name: maps
+          path: maps
+          retention-days: 1
