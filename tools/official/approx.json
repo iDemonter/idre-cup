@@ -1,0 +1,270 @@
+{
+  "_": "Трассы, которых нет в OpenStreetMap: линии нарисованы от руки по официальной карте трасс курорта (панорама SkiStar 2026/27) относительно подъёмников. Только для 3D-модели и Apple Maps в приложении, пунктиром и с пометкой «линия примерная»; в зачёт сезона (короны) не идут. along — вдоль подъёмника из каталога со сдвигом offset метров (плюс — влево по ходу от первой точки подъёмника к последней); points — точки широта, долгота сверху вниз.",
+  "are": [
+    {
+      "ref": "47",
+      "name": "Worldcupleden",
+      "difficulty": "blue",
+      "points": [
+        [
+          63.4258,
+          13.0445
+        ],
+        [
+          63.4236,
+          13.0498
+        ],
+        [
+          63.4206,
+          13.0558
+        ],
+        [
+          63.4176,
+          13.0602
+        ],
+        [
+          63.4158,
+          13.0622
+        ],
+        [
+          63.4152,
+          13.069
+        ],
+        [
+          63.4146,
+          13.0765
+        ]
+      ]
+    },
+    {
+      "ref": "50",
+      "name": "Bräckeleden",
+      "difficulty": "blue",
+      "points": [
+        [
+          63.4112,
+          13.0512
+        ],
+        [
+          63.4109,
+          13.058
+        ],
+        [
+          63.4101,
+          13.065
+        ],
+        [
+          63.409,
+          13.0722
+        ]
+      ]
+    },
+    {
+      "ref": "51",
+      "name": "SkiStar Snow Park Svart linje",
+      "difficulty": "black",
+      "along": {
+        "lift": "Å21 - Bräckeliften",
+        "offset": 150,
+        "trim": [
+          0.15,
+          0.95
+        ]
+      }
+    },
+    {
+      "ref": "52",
+      "name": "SkiStar Snow Park Röd linje",
+      "difficulty": "red",
+      "along": {
+        "lift": "Å21 - Bräckeliften",
+        "offset": 100,
+        "trim": [
+          0.1,
+          0.9
+        ]
+      }
+    },
+    {
+      "ref": "53",
+      "name": "SkiStar Snow Park Blå linje",
+      "difficulty": "blue",
+      "along": {
+        "lift": "Å21 - Bräckeliften",
+        "offset": -70,
+        "trim": [
+          0.05,
+          0.9
+        ]
+      }
+    },
+    {
+      "ref": "54",
+      "name": "SkiStar Snow Park Blå linje Pepsi",
+      "difficulty": "blue",
+      "along": {
+        "lift": "Å21 - Bräckeliften",
+        "offset": -130,
+        "trim": [
+          0.1,
+          0.95
+        ]
+      }
+    },
+    {
+      "ref": "90",
+      "name": "Kabinleden",
+      "difficulty": "blue",
+      "points": [
+        [
+          63.4275,
+          13.0792
+        ],
+        [
+          63.4282,
+          13.076
+        ],
+        [
+          63.4289,
+          13.0725
+        ],
+        [
+          63.4294,
+          13.069
+        ]
+      ]
+    },
+    {
+      "ref": "83",
+      "name": "Tväråvalvsbacken",
+      "difficulty": "red",
+      "along": {
+        "lift": "H25 - Nedre Tväråvalvsliften 1",
+        "offset": 70
+      }
+    },
+    {
+      "ref": "89",
+      "name": "Långbacken",
+      "difficulty": "red",
+      "along": {
+        "lift": "Tusenmetersliften",
+        "offset": -80
+      }
+    },
+    {
+      "ref": "101",
+      "name": "Tottbryggan",
+      "difficulty": "blue",
+      "points": [
+        [
+          63.4086,
+          13.1125
+        ],
+        [
+          63.4078,
+          13.115
+        ],
+        [
+          63.4068,
+          13.1175
+        ],
+        [
+          63.4058,
+          13.1196
+        ]
+      ]
+    },
+    {
+      "ref": "103",
+      "name": "Bibbos brant",
+      "difficulty": "red",
+      "points": [
+        [
+          63.4046,
+          13.1135
+        ],
+        [
+          63.406,
+          13.113
+        ],
+        [
+          63.4074,
+          13.1124
+        ],
+        [
+          63.4085,
+          13.1119
+        ]
+      ]
+    },
+    {
+      "ref": "115",
+      "name": "Lokattsbacken",
+      "difficulty": "green",
+      "along": {
+        "lift": "B41 - Lokattsliften",
+        "offset": 30
+      }
+    },
+    {
+      "ref": "116",
+      "name": "Mårdbacken",
+      "difficulty": "green",
+      "along": {
+        "lift": "B43 - Mårdenliften",
+        "offset": 25
+      }
+    },
+    {
+      "ref": "117",
+      "name": "Nallebacken",
+      "difficulty": "green",
+      "along": {
+        "lift": "B45 - Nalleliften",
+        "offset": 25
+      }
+    },
+    {
+      "ref": "118",
+      "name": "Järvbacken",
+      "difficulty": "blue",
+      "along": {
+        "lift": "B44 - Järvenliften",
+        "offset": 50
+      }
+    },
+    {
+      "ref": "119",
+      "name": "Järvsvängen",
+      "difficulty": "blue",
+      "along": {
+        "lift": "B44 - Järvenliften",
+        "offset": -55
+      }
+    },
+    {
+      "ref": "121",
+      "name": "Örnleden",
+      "difficulty": "green",
+      "points": [
+        [
+          63.3874,
+          13.177
+        ],
+        [
+          63.3863,
+          13.1746
+        ],
+        [
+          63.3853,
+          13.1726
+        ],
+        [
+          63.3845,
+          13.1713
+        ]
+      ]
+    }
+  ]
+}

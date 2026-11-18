@@ -329,7 +329,8 @@ def main():
     scenery = build_scenery(land, forest)
 
     # Цвет по высоте: внизу холодный серо-синий, вверху белая вершина.
-    low, high = (float(v) for v in MODEL["colors"])
+    # Цвета по высоте: из настроек или от самой низкой до самой высокой точки модели.
+    low, high = (float(v) for v in MODEL.get("colors") or (np.percentile(h, 2), np.percentile(h, 99.5)))
     t = (h - low) / (high - low)
     color = np.where((t < 0.55)[..., None], blend(LOW, MID, t / 0.55), blend(MID, HIGH, (t - 0.55) / 0.45))
 

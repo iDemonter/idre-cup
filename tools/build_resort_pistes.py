@@ -18,6 +18,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 MODEL_ID = sys.argv[1]
 MODEL = json.loads((ROOT / "tools" / "models.json").read_text(encoding="utf-8"))[MODEL_ID]
 CATALOG = ROOT / "server" / "config" / "resorts.json"
+APPROX = ROOT / "tools" / "official" / "approx.json"
 LAND = ROOT / "data" / f"osm-land-{MODEL_ID}.json"
 OUT = ROOT / "app" / "IdreCup" / "Resources" / f"pistes-{MODEL_ID}.json"
 
@@ -54,6 +55,37 @@ def middle(coords):
     return coords[len(coords) // 2]
 
 
+def to_geo(east, north):
+    return [round(SUMMIT[0] + north / 111320, 6), round(SUMMIT[1] + east / LON_M, 6)]
+
+
+def along(coords, offset, trim=(0.0, 1.0)):
+    """Линия вдоль подъёмника со сдвигом offset метров (плюс — влево по ходу), обрезанная по долям длины."""
+    points = [local(p) for p in coords]
+    total = sum(math.dist(a, b) for a, b in zip(points, points[1:]))
+    start, end = trim[0] * total, trim[1] * total
+    result, walked = [], 0.0
+    steps = max(4, int(total / 60))
+    for i in range(steps + 1):
+        want = start + (end - start) * i / steps
+        walked, here = 0.0, None
+        for a, b in zip(points, points[1:]):
+            step = math.dist(a, b)
+            if walked + step >= want and step > 0:
+                t = (want - walked) / step
+                dx, dy = (b[0] - a[0]) / step, (b[1] - a[1]) / step
+                here = (a[0] + dx * step * t - dy * offset, a[1] + dy * step * t + dx * offset)
+                break
+            walked += step
+        if here is None:
+            a, b = points[-2], points[-1]
+            step = math.dist(a, b) or 1
+            dx, dy = (b[0] - a[0]) / step, (b[1] - a[1]) / step
+            here = (b[0] - dy * offset, b[1] + dx * offset)
+        result.append(to_geo(*here))
+    return result
+
+
 def nearest_zone(point):
     zones = MODEL.get("zones", [])
     if not zones:
@@ -64,7 +96,12 @@ def nearest_zone(point):
 
 def main() -> None:
     catalog = json.loads(CATALOG.read_text(encoding="utf-8"))
-    resort = next(r for r in catalog["resorts"] if r["id"] == MODEL["resort"])
+    resort = dict(next(r for r in catalog["resorts"] if r["id"] == MODEL["resort"]))
+    # Соседние курорты каталога на той же модели (Vargliften у Vemdalsskalet).
+    for extra in MODEL.get("extraResorts", []):
+        other = next(r for r in catalog["resorts"] if r["id"] == extra)
+        resort["trails"] = resort["trails"] + other["trails"]
+        resort["lifts"] = resort["lifts"] + other["lifts"]
 
     pistes = []
     for trail in resort["trails"]:
@@ -87,6 +124,32 @@ def main() -> None:
             "mid": middle(coords),
             "coords": coords,
         })
+    # Трассы, которых нет в OpenStreetMap: нарисованы от руки по официальной карте (tools/official/approx.json).
+    approx = json.loads(APPROX.read_text(encoding="utf-8")).get(MODEL_ID, []) if APPROX.exists() else []
+    lifts_by_name = {lift.get("name"): lift["coords"] for lift in resort["lifts"]}
+    for trail in approx:
+        if "points" in trail:
+            coords = trail["points"]
+        else:
+            spec = trail["along"]
+            coords = along(lifts_by_name[spec["lift"]], spec["offset"], tuple(spec.get("trim", (0.0, 1.0))))
+        pistes.append({
+            "id": len(pistes) + 1,
+            "number": None,
+            "display": trail["ref"],
+            "resort": MODEL_ID,
+            "name": trail["name"],
+            "zone": nearest_zone(middle(coords)),
+            "difficulty": trail["difficulty"],
+            "extreme": False,
+            "lit": False,
+            "length": length(coords),
+            "label": False,
+            "approx": True,
+            "mid": middle(coords),
+            "coords": coords,
+        })
+
     # Значок с номером — один на трассу (по номеру или имени), на самом длинном участке.
     # Короткие трассы видны только вблизи, чтобы значки не слипались.
     groups = {}
@@ -148,7 +211,7 @@ def main() -> None:
         "peaks": peaks,
     }
     OUT.write_text(json.dumps(result, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    print(f"{MODEL['name']}: трасс {len(pistes)} (значков {sum(p['label'] for p in pistes)}), "
+    print(f"{MODEL['name']}: трасс {len(pistes)}, из них примерных {len(approx)} (значков {sum(p['label'] for p in pistes)}), "
           f"подъёмников {len(lifts)}, вершин {len(peaks)} → {OUT}")
 
 

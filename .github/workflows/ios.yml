@@ -149,6 +149,9 @@ jobs:
           shoot model-himmel 20 -section map -look Модель -preset Himmelfjäll
           shoot model-are 30 -section map -look Модель -model are
           shoot model-are-bjornen 25 -section map -look Модель -model are -preset Björnen
+          shoot model-vemdalsskalet 25 -section map -look Модель -model vemdalsskalet
+          shoot model-bjornrike 25 -section map -look Модель -model bjornrike
+          shoot model-klovsjo 25 -section map -look Модель -model klovsjo-storhogna
           shoot model-vast-home 12 -section map -look Модель -preset Väst -homeLat 61.88634 -homeLon 12.83393
           # Камера нарочно поставлена вверх ногами: на снимке модель должна стоять как обычно.
           shoot model-flip 12 -section map -look Модель -preset Nord -flipTest YES

@@ -47,20 +47,20 @@
     "demTile": "N63_00_E013_00",
     "demBox": [
       12.995,
-      63.37,
-      13.205,
+      63.36,
+      13.215,
       63.45
     ],
     "landBox": [
-      63.377,
+      63.365,
       13.005,
       63.445,
-      13.19
+      13.205
     ],
     "bounds": [
       -4400,
-      4800,
-      -6000,
+      5400,
+      -6800,
       1500
     ],
     "exaggeration": 1.5,
@@ -121,6 +121,152 @@
           13.14
         ],
         "heading": 330
+      }
+    ]
+  },
+  "vemdalsskalet": {
+    "name": "Vemdalsskalet",
+    "summit": [
+      62.48431,
+      13.96448
+    ],
+    "demTile": [
+      "N62_00_E013_00",
+      "N62_00_E014_00"
+    ],
+    "demBox": [
+      13.898,
+      62.448,
+      14.031,
+      62.521
+    ],
+    "landBox": [
+      62.452,
+      13.906,
+      62.517,
+      14.023
+    ],
+    "bounds": [
+      -2800,
+      2800,
+      -3400,
+      3400
+    ],
+    "exaggeration": 2.0,
+    "trees": [
+      830,
+      900
+    ],
+    "areaPlaces": [
+      "locality",
+      "hamlet",
+      "neighbourhood",
+      "village"
+    ],
+    "resort": "vemdalsskalet",
+    "peaks": [],
+    "zones": [],
+    "extraResorts": [
+      "vemdalsskalet-vargliften"
+    ]
+  },
+  "bjornrike": {
+    "name": "Björnrike",
+    "summit": [
+      62.42239,
+      13.97074
+    ],
+    "demTile": [
+      "N62_00_E013_00",
+      "N62_00_E014_00"
+    ],
+    "demBox": [
+      13.909,
+      62.393,
+      14.033,
+      62.452
+    ],
+    "landBox": [
+      62.397,
+      13.917,
+      62.448,
+      14.024
+    ],
+    "bounds": [
+      -2600,
+      2600,
+      -2700,
+      2700
+    ],
+    "exaggeration": 2.0,
+    "trees": [
+      830,
+      900
+    ],
+    "areaPlaces": [
+      "locality",
+      "hamlet",
+      "neighbourhood",
+      "village"
+    ],
+    "resort": "bjornrike",
+    "peaks": [],
+    "zones": []
+  },
+  "klovsjo-storhogna": {
+    "name": "Klövsjö / Storhogna",
+    "summit": [
+      62.50155,
+      14.13698
+    ],
+    "demTile": "N62_00_E014_00",
+    "demBox": [
+      14.051,
+      62.475,
+      14.223,
+      62.528
+    ],
+    "landBox": [
+      62.479,
+      14.059,
+      62.524,
+      14.215
+    ],
+    "bounds": [
+      -3800,
+      3800,
+      -2400,
+      2400
+    ],
+    "exaggeration": 2.0,
+    "trees": [
+      830,
+      900
+    ],
+    "areaPlaces": [
+      "locality",
+      "hamlet",
+      "neighbourhood",
+      "village"
+    ],
+    "resort": "klovsjo-storhogna",
+    "peaks": [],
+    "zones": [
+      {
+        "name": "Klövsjö",
+        "center": [
+          62.4984,
+          14.1002
+        ],
+        "heading": 0
+      },
+      {
+        "name": "Storhogna",
+        "center": [
+          62.4992,
+          14.1677
+        ],
+        "heading": 0
       }
     ]
   }

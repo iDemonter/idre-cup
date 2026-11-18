@@ -40,32 +40,54 @@ struct ResortModel {
         )
     }
 
-    /// Модели других курортов, которые лежат в приложении.
-    static let bundled = ["are"]
+    /// Модели других курортов, которые лежат в приложении: id курорта в каталоге → название.
+    /// Vemdalen — три модели: курорты стоят в 5–10 км друг от друга.
+    static let names: [String: String] = [
+        "are": "Åre",
+        "vemdalsskalet": "Vemdalsskalet",
+        "bjornrike": "Björnrike",
+        "klovsjo-storhogna": "Klövsjö / Storhogna",
+    ]
+    static var bundled: [String] { Array(names.keys) }
 
     static func load(_ id: String) -> ResortModel? {
-        switch id {
-        case "are":
-            guard let terrain = TerrainData.load("terrain-are") else { return nil }
-            let data = PisteData.load("pistes-are")
-            guard !data.pistes.isEmpty else { return nil }
+        guard let name = names[id], let terrain = TerrainData.load("terrain-\(id)") else { return nil }
+        let data = PisteData.load("pistes-\(id)")
+        guard !data.pistes.isEmpty else { return nil }
+        let scenery = SceneryData.load("scenery-\(id)")
+        if id == "are" {
             return ResortModel(
-                id: "are",
-                name: "Åre",
+                id: id,
+                name: name,
                 data: data,
                 terrain: terrain,
-                scenery: SceneryData.load("scenery-are"),
+                scenery: scenery,
                 textureName: "terrain-are",
                 // С юга, из долины: внизу посёлок, вверху Åreskutan, справа Björnen.
                 overview: ModelCamera(id: 0, east: 300, north: -2_600, distance: 9_000, heading: 0, pitch: 52),
                 // Åre by и Björnen целиком, с юго-востока.
-                area: ModelCamera(id: 0, east: 900, north: -2_400, distance: 14_500, heading: 340, pitch: 48),
-                areaMapCenter: (900, -2_400),
+                area: ModelCamera(id: 0, east: 900, north: -2_800, distance: 15_000, heading: 340, pitch: 48),
+                areaMapCenter: (900, -2_800),
                 areaMapDistance: 17_000
             )
-        default:
-            return nil
         }
+        // Небольшие курорты: камера с юга на середину модели, «Весь район» — чуть дальше и выше.
+        let width = Double(terrain.cols - 1) * terrain.step
+        let height = Double(terrain.rows - 1) * terrain.step
+        let middle = (east: terrain.west + width / 2, north: terrain.north - height / 2)
+        let size = max(width, height)
+        return ResortModel(
+            id: id,
+            name: name,
+            data: data,
+            terrain: terrain,
+            scenery: scenery,
+            textureName: "terrain-\(id)",
+            overview: ModelCamera(id: 0, east: middle.east, north: middle.north, distance: size * 0.8, heading: 0, pitch: 52),
+            area: ModelCamera(id: 0, east: middle.east, north: middle.north, distance: size * 1.25, heading: 20, pitch: 46),
+            areaMapCenter: middle,
+            areaMapDistance: size * 1.6
+        )
     }
 
     /// «Весь район» на Apple Maps.

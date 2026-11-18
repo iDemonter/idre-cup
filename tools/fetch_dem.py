@@ -23,17 +23,30 @@ MODEL = json.loads((ROOT / "tools" / "models.json").read_text(encoding="utf-8"))
 # Рамка вокруг курорта: запад, юг, восток, север.
 WEST, SOUTH, EAST, NORTH = MODEL["demBox"]
 
-TILE = MODEL["demTile"]
-URL = f"https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_{TILE}_DEM/Copernicus_DSM_COG_10_{TILE}_DEM.tif"
+# Плитки Copernicus по одному градусу: «N61_00_E012_00». Если курорт на стыке плиток — список.
+TILES = MODEL["demTile"] if isinstance(MODEL["demTile"], list) else [MODEL["demTile"]]
+
+
+def url(tile: str) -> str:
+    return f"https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_{tile}_DEM/Copernicus_DSM_COG_10_{tile}_DEM.tif"
+
 
 OUT = ROOT / "data" / f"dem-{MODEL_ID}.json"
 
 
 def main() -> None:
-    with rasterio.open(URL) as source:
-        window = from_bounds(WEST, SOUTH, EAST, NORTH, source.transform).round_offsets().round_lengths()
-        heights = source.read(1, window=window)
-        transform = source.window_transform(window)
+    if len(TILES) == 1:
+        with rasterio.open(url(TILES[0])) as source:
+            window = from_bounds(WEST, SOUTH, EAST, NORTH, source.transform).round_offsets().round_lengths()
+            heights = source.read(1, window=window)
+            transform = source.window_transform(window)
+    else:
+        from rasterio.merge import merge
+        sources = [rasterio.open(url(tile)) for tile in TILES]
+        mosaic, transform = merge(sources, bounds=(WEST, SOUTH, EAST, NORTH))
+        heights = mosaic[0]
+        for source in sources:
+            source.close()
 
     rows, cols = heights.shape
     result = {
