@@ -71,11 +71,16 @@ struct ResortModel {
                 areaMapDistance: 17_000
             )
         }
-        // Небольшие курорты: камера с юга на середину модели, «Весь район» — чуть дальше и выше.
-        let width = Double(terrain.cols - 1) * terrain.step
-        let height = Double(terrain.rows - 1) * terrain.step
-        let middle = (east: terrain.west + width / 2, north: terrain.north - height / 2)
-        let size = max(width, height)
+        // Небольшие курорты: камера с юга на середину трасс, расстояние — по разбросу трасс.
+        let frame = LocalFrame(origin: data.summitCoordinate)
+        let mids = data.pistes.map { frame.local($0.mid) }
+        let east = mids.map(\.east), north = mids.map(\.north)
+        let middle = (
+            east: ((east.min() ?? 0) + (east.max() ?? 0)) / 2,
+            north: ((north.min() ?? 0) + (north.max() ?? 0)) / 2
+        )
+        let spread = max((east.max() ?? 0) - (east.min() ?? 0), (north.max() ?? 0) - (north.min() ?? 0))
+        let size = max(spread * 1.5 + 1_500, 2_500)
         return ResortModel(
             id: id,
             name: name,
@@ -83,8 +88,8 @@ struct ResortModel {
             terrain: terrain,
             scenery: scenery,
             textureName: "terrain-\(id)",
-            overview: ModelCamera(id: 0, east: middle.east, north: middle.north, distance: size * 0.8, heading: 0, pitch: 52),
-            area: ModelCamera(id: 0, east: middle.east, north: middle.north, distance: size * 1.25, heading: 20, pitch: 46),
+            overview: ModelCamera(id: 0, east: middle.east, north: middle.north, distance: size, heading: 0, pitch: 52),
+            area: ModelCamera(id: 0, east: middle.east, north: middle.north, distance: size * 1.5, heading: 20, pitch: 46),
             areaMapCenter: middle,
             areaMapDistance: size * 1.6
         )
