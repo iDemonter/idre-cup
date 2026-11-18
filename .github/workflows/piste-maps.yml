@@ -1,7 +1,7 @@
 name: Справка — официальные карты трасс
 
 # Временный: скачивает официальные карты трасс SkiStar, чтобы по ним дорисовать трассы,
-# которых нет в OpenStreetMap. В репозиторий карты не попадают: артефакт хранится сутки и удаляется.
+# которых нет в OpenStreetMap. В репозиторий карты не попадают: лог прогона удаляется сразу после чтения.
 on:
   push:
     branches: [tmp/piste-maps]
@@ -18,8 +18,18 @@ jobs:
             curl -sSfL -o "maps/$f.jpg" "$base/1920_1400px_${f}_2627.jpg" || echo "нет $f"
           done
           ls -la maps
-      - uses: actions/upload-artifact@v4
-        with:
-          name: maps
-          path: maps
-          retention-days: 1
+      - name: Передать карты в лог (лог удаляется сразу после чтения)
+        run: |
+          python3 -m pip install --quiet pillow
+          python3 - <<'PY'
+          import base64, io, pathlib
+          from PIL import Image
+          for path in sorted(pathlib.Path("maps").glob("*.jpg")):
+              im = Image.open(path).convert("RGB")
+              buf = io.BytesIO(); im.save(buf, "JPEG", quality=80)
+              data = base64.b64encode(buf.getvalue()).decode()
+              print(f"BEGIN {path.stem}")
+              for i in range(0, len(data), 4000):
+                  print("B64 " + data[i:i+4000])
+              print(f"END {path.stem}")
+          PY
