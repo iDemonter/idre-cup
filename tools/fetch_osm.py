@@ -29,24 +29,29 @@ out tags geom;
 # Окружение для 3D-модели: лес, вода, дома, дороги и полезные места в границах модели.
 LAND_BBOX = "61.869,12.730,61.931,12.894"
 
-LAND_QUERY = f"""
+def land_query(bbox: str, peaks: bool = False) -> str:
+    extra = f'  node["natural"="peak"]({bbox});\n' if peaks else ""
+    return f"""
 [out:json][timeout:120];
 (
-  way["natural"~"^(wood|water|scrub|heath|fell|bare_rock|wetland|grassland)$"]({LAND_BBOX});
-  relation["natural"~"^(wood|water|scrub|heath|fell|bare_rock|wetland|grassland)$"]({LAND_BBOX});
-  way["landuse"~"^(forest|residential|commercial|retail|winter_sports|recreation_ground)$"]({LAND_BBOX});
-  relation["landuse"~"^(forest|residential|commercial|retail|winter_sports|recreation_ground)$"]({LAND_BBOX});
-  way["building"]({LAND_BBOX});
-  way["highway"~"^(primary|secondary|tertiary|unclassified|residential|service|living_street|pedestrian)$"]({LAND_BBOX});
-  nwr["amenity"]({LAND_BBOX});
-  nwr["shop"]({LAND_BBOX});
-  nwr["tourism"]({LAND_BBOX});
-  nwr["leisure"]({LAND_BBOX});
-  nwr["sport"]({LAND_BBOX});
-  node["place"]({LAND_BBOX});
-);
+  way["natural"~"^(wood|water|scrub|heath|fell|bare_rock|wetland|grassland)$"]({bbox});
+  relation["natural"~"^(wood|water|scrub|heath|fell|bare_rock|wetland|grassland)$"]({bbox});
+  way["landuse"~"^(forest|residential|commercial|retail|winter_sports|recreation_ground)$"]({bbox});
+  relation["landuse"~"^(forest|residential|commercial|retail|winter_sports|recreation_ground)$"]({bbox});
+  way["building"]({bbox});
+  way["highway"~"^(primary|secondary|tertiary|unclassified|residential|service|living_street|pedestrian)$"]({bbox});
+  nwr["amenity"]({bbox});
+  nwr["shop"]({bbox});
+  nwr["tourism"]({bbox});
+  nwr["leisure"]({bbox});
+  nwr["sport"]({bbox});
+  node["place"]({bbox});
+{extra});
 out tags geom;
 """
+
+
+LAND_QUERY = land_query(LAND_BBOX)
 
 SERVERS = [
     "https://overpass-api.de/api/interpreter",
@@ -76,7 +81,27 @@ def fetch(query: str = QUERY) -> dict:
     raise SystemExit(f"Overpass недоступен: {last_error}")
 
 
+def other_model(model_id: str) -> None:
+    """Только окружение (лес, вода, дома, места, вершины) для модели другого курорта:
+    его трассы берутся из каталога курортов. Результат: data/osm-land-<курорт>.json."""
+    models = json.loads((OUT.parent.parent / "tools" / "models.json").read_text(encoding="utf-8"))
+    south, west, north, east = models[model_id]["landBox"]
+    bbox = f"{south},{west},{north},{east}"
+    land = fetch(land_query(bbox, peaks=True)).get("elements", [])
+    if not land:
+        raise SystemExit("Overpass вернул пустое окружение")
+    out = OUT.with_name(f"osm-land-{model_id}.json")
+    out.write_text(
+        json.dumps({"source": "OpenStreetMap, ODbL", "bbox": bbox, "elements": land}, ensure_ascii=False, separators=(",", ":")),
+        encoding="utf-8",
+    )
+    print(f"Окружение {model_id}: {len(land)} объектов → {out}")
+
+
 def main() -> None:
+    if len(sys.argv) > 1 and sys.argv[1] != "idre":
+        other_model(sys.argv[1])
+        return
     data = fetch()
     elements = data.get("elements", [])
     if not elements:

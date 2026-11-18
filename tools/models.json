@@ -1,0 +1,127 @@
+{
+  "_": "3D-модели курортов для вида «Модель». Idre — основная (файлы без суффикса), остальные кладутся в Resources как terrain-<id>.json, terrain-<id>.jpg, scenery-<id>.json, pistes-<id>.json. Новая модель = новая запись здесь и запуск workflow «3D-модель курорта». summit — начало координат модели (метры на восток и север от него), bounds — запад, восток, юг, север в метрах от summit.",
+  "idre": {
+    "name": "Idre Fjäll",
+    "summit": [
+      61.8881353,
+      12.8587081
+    ],
+    "demTile": "N61_00_E012_00",
+    "demBox": [
+      12.715,
+      61.855,
+      12.945,
+      61.945
+    ],
+    "landBox": [
+      61.869,
+      12.73,
+      61.931,
+      12.894
+    ],
+    "bounds": [
+      -6700,
+      2700,
+      -1800,
+      4500
+    ],
+    "exaggeration": 2.6,
+    "trees": [
+      790,
+      850
+    ],
+    "colors": [
+      580,
+      890
+    ],
+    "areaPlaces": [
+      "locality"
+    ]
+  },
+  "are": {
+    "name": "Åre",
+    "summit": [
+      63.43143,
+      13.09344
+    ],
+    "demTile": "N63_00_E013_00",
+    "demBox": [
+      12.995,
+      63.37,
+      13.205,
+      63.45
+    ],
+    "landBox": [
+      63.377,
+      13.005,
+      63.445,
+      13.19
+    ],
+    "bounds": [
+      -4400,
+      4800,
+      -6000,
+      1500
+    ],
+    "exaggeration": 1.5,
+    "trees": [
+      640,
+      780
+    ],
+    "colors": [
+      380,
+      1400
+    ],
+    "areaPlaces": [
+      "locality",
+      "hamlet",
+      "neighbourhood",
+      "village"
+    ],
+    "resort": "are",
+    "peaks": [
+      {
+        "name": "Åreskutan",
+        "height": 1420,
+        "at": [
+          63.43143,
+          13.09344
+        ]
+      }
+    ],
+    "zones": [
+      {
+        "name": "Åre by",
+        "center": [
+          63.41,
+          13.08
+        ],
+        "heading": 0
+      },
+      {
+        "name": "Högzonen",
+        "center": [
+          63.429,
+          13.072
+        ],
+        "heading": 0
+      },
+      {
+        "name": "Ullådalen",
+        "center": [
+          63.431,
+          13.03
+        ],
+        "heading": 80
+      },
+      {
+        "name": "Björnen",
+        "center": [
+          63.392,
+          13.14
+        ],
+        "heading": 330
+      }
+    ]
+  }
+}

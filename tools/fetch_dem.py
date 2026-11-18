@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Скачивает высоты района Idre Fjäll из модели Copernicus DEM GLO-30.
+"""Скачивает высоты района курорта из модели Copernicus DEM GLO-30.
 
-Запускается в GitHub Actions: workflow «Данные высот». Результат кладётся в
-data/dem-idre.json: сетка высот в метрах с шагом около 30 м.
+Запускается в GitHub Actions: workflow «Данные высот» (Idre) и «3D-модель курорта» (остальные).
+Курорт — первый аргумент, по умолчанию idre (см. tools/models.json). Результат кладётся в
+data/dem-<курорт>.json: сетка высот в метрах с шагом около 30 м.
 
 Данные: Copernicus DEM GLO-30. © DLR e.V. 2010-2014 и © Airbus Defence and Space GmbH
 2014-2018, предоставлены по программе COPERNICUS Европейским союзом и ESA.
@@ -10,19 +11,22 @@ data/dem-idre.json: сетка высот в метрах с шагом окол
 
 import json
 import pathlib
+import sys
 
 import rasterio
 from rasterio.windows import from_bounds
 
-# Рамка вокруг Idre Fjäll, Idre Himmelfjäll и вершины Städjan: запад, юг, восток, север.
-WEST, SOUTH, EAST, NORTH = 12.715, 61.855, 12.945, 61.945
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+MODEL_ID = sys.argv[1] if len(sys.argv) > 1 else "idre"
+MODEL = json.loads((ROOT / "tools" / "models.json").read_text(encoding="utf-8"))[MODEL_ID]
 
-URL = (
-    "https://copernicus-dem-30m.s3.amazonaws.com/"
-    "Copernicus_DSM_COG_10_N61_00_E012_00_DEM/Copernicus_DSM_COG_10_N61_00_E012_00_DEM.tif"
-)
+# Рамка вокруг курорта: запад, юг, восток, север.
+WEST, SOUTH, EAST, NORTH = MODEL["demBox"]
 
-OUT = pathlib.Path(__file__).resolve().parent.parent / "data" / "dem-idre.json"
+TILE = MODEL["demTile"]
+URL = f"https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_{TILE}_DEM/Copernicus_DSM_COG_10_{TILE}_DEM.tif"
+
+OUT = ROOT / "data" / f"dem-{MODEL_ID}.json"
 
 
 def main() -> None:

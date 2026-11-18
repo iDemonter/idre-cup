@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """Собирает 3D-модель горы для вида «Модель».
 
-Вход:  data/dem-idre.json  - высоты Copernicus DEM (fetch_dem.py)
-       data/osm-land.json  - вода, дома, дороги, полезные места из OpenStreetMap (fetch_osm.py)
-       app/IdreCup/Resources/pistes.json - трассы и подъёмники
-Выход: app/IdreCup/Resources/terrain.json - сетка высот
-       app/IdreCup/Resources/terrain.jpg  - раскраска горы: высота, тени, горизонтали, лес, дороги, вода
-       app/IdreCup/Resources/scenery.json - деревья, дома, полезные места и названия районов
+Курорт — первый аргумент, по умолчанию idre; настройки в tools/models.json.
+Для Idre файлы без суффикса, для остальных с суффиксом «-<курорт>» (например terrain-are.json).
+
+Вход:  data/dem-<курорт>.json  - высоты Copernicus DEM (fetch_dem.py)
+       data/osm-land.json (Idre) или data/osm-land-<курорт>.json - вода, дома, дороги, места (fetch_osm.py)
+       app/IdreCup/Resources/pistes[-<курорт>].json - трассы и подъёмники
+Выход: app/IdreCup/Resources/terrain[-<курорт>].json - сетка высот
+       app/IdreCup/Resources/terrain[-<курорт>].jpg  - раскраска горы: высота, тени, горизонтали, лес, дороги, вода
+       app/IdreCup/Resources/scenery[-<курорт>].json - деревья, дома, полезные места и названия районов
 
 Координаты модели: метры на восток (x) и на север (y) от вершины.
 Нужны numpy, scipy и Pillow: python3 -m pip install numpy scipy pillow
@@ -16,32 +19,37 @@ import json
 import math
 import pathlib
 import random
+import sys
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 from scipy import ndimage
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-DEM = ROOT / "data" / "dem-idre.json"
-LAND = ROOT / "data" / "osm-land.json"
-PISTES = ROOT / "app" / "IdreCup" / "Resources" / "pistes.json"
-OUT_GRID = ROOT / "app" / "IdreCup" / "Resources" / "terrain.json"
-OUT_TEXTURE = ROOT / "app" / "IdreCup" / "Resources" / "terrain.jpg"
-OUT_SCENERY = ROOT / "app" / "IdreCup" / "Resources" / "scenery.json"
+MODEL_ID = sys.argv[1] if len(sys.argv) > 1 else "idre"
+MODEL = json.loads((ROOT / "tools" / "models.json").read_text(encoding="utf-8"))[MODEL_ID]
+SUFFIX = "" if MODEL_ID == "idre" else f"-{MODEL_ID}"
+RESOURCES = ROOT / "app" / "IdreCup" / "Resources"
 
-SUMMIT = (61.8881353, 12.8587081)
+DEM = ROOT / "data" / f"dem-{MODEL_ID}.json"
+LAND = ROOT / "data" / ("osm-land.json" if MODEL_ID == "idre" else f"osm-land-{MODEL_ID}.json")
+PISTES = RESOURCES / f"pistes{SUFFIX}.json"
+OUT_GRID = RESOURCES / f"terrain{SUFFIX}.json"
+OUT_TEXTURE = RESOURCES / f"terrain{SUFFIX}.jpg"
+OUT_SCENERY = RESOURCES / f"scenery{SUFFIX}.json"
+
+SUMMIT = tuple(MODEL["summit"])
 LON_M = 111320 * math.cos(math.radians(SUMMIT[0]))
-# Границы модели, метры от вершины Idre Fjäll. На западе в неё входит соседний Idre Himmelfjäll,
+# Границы модели, метры от вершины. У Idre на западе в неё входит соседний Idre Himmelfjäll,
 # на севере вершина Städjan: рельеф общий, без шва.
-WEST, EAST = -6700, 2700
-SOUTH, NORTH = -1800, 4500
+WEST, EAST, SOUTH, NORTH = MODEL["bounds"]
 GRID_STEP = 25                     # шаг сетки высот в приложении, м
 PIXEL = 2.5                        # размер точки раскраски, м
-EXAGGERATION = 2.6                 # во сколько раз вытянута высота: гора пологая
+EXAGGERATION = MODEL["exaggeration"]   # во сколько раз вытянута высота: пологая гора вытянута сильнее
 
 # Лес. В OpenStreetMap он отмечен только местами, поэтому граница леса берётся по высоте:
 # ниже TREES_FULL лес сплошной, выше TREES_NONE его нет, между ними редеет.
-TREES_FULL, TREES_NONE = 790, 850
+TREES_FULL, TREES_NONE = MODEL["trees"]
 TREE_STEP = 24                     # среднее расстояние между деревьями модели, м
 GLADE = {"piste": 30, "lift": 16, "road": 9, "building": 10}   # сколько метров от линии без деревьев
 
@@ -240,7 +248,7 @@ def build_scenery(land, forest):
     areas = []
     for element in land:
         tags = element.get("tags", {})
-        if element["type"] == "node" and tags.get("place") == "locality" and tags.get("name"):
+        if element["type"] == "node" and tags.get("place") in MODEL["areaPlaces"] and tags.get("name"):
             middle = center(element)
             if inside(middle, 200) and tags["name"] != "Skills area":
                 areas.append({"name": tags["name"], "east": round(middle[0]), "north": round(middle[1])})
@@ -321,7 +329,7 @@ def main():
     scenery = build_scenery(land, forest)
 
     # Цвет по высоте: внизу холодный серо-синий, вверху белая вершина.
-    low, high = 580.0, 890.0
+    low, high = (float(v) for v in MODEL["colors"])
     t = (h - low) / (high - low)
     color = np.where((t < 0.55)[..., None], blend(LOW, MID, t / 0.55), blend(MID, HIGH, (t - 0.55) / 0.45))
 
