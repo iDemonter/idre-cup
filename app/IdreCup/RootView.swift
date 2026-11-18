@@ -202,20 +202,24 @@ struct RootView: View {
                         Text(item.title)
                             .font(Typo.caption2)
                     }
-                    .foregroundStyle(isActive ? Palette.accentText : Palette.textSecondary)
-                    .frame(maxWidth: .infinity)
+                    // На стекле — только textPrimary и accentText (контраст поверх карты).
+                    .foregroundStyle(isActive ? Palette.accentText : Palette.textPrimary)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(item.title)
+                .accessibilityAddTraits(isActive ? .isSelected : [])
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.top, 8)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        // Предложение 1: таб-бар — плавающая стеклянная капсула, контент уходит под неё.
+        // iOS 26 — Liquid Glass, iOS 18 — ultraThinMaterial (glassBackground в Tokens.swift).
+        .glassBackground(in: Capsule())
+        .overlay(Capsule().stroke(Palette.glassStroke, lineWidth: 1))
+        .shadow(color: Color.black.opacity(0.25), radius: 12, y: 4)
+        .padding(.horizontal, Spacing.l)
         .padding(.bottom, 4)
-        .background(Palette.surface.ignoresSafeArea(edges: .bottom))
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(Palette.border.opacity(0.6))
-                .frame(height: 1)
-        }
     }
 }
