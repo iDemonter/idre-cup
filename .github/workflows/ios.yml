@@ -70,7 +70,7 @@ jobs:
     name: Снимки экрана
     if: github.event_name != 'pull_request'
     runs-on: macos-26
-    timeout-minutes: 30
+    timeout-minutes: 50
     permissions:
       contents: write   # снимки кладутся в ветку screenshots
     steps:
