@@ -1,4 +1,5 @@
 import MapKit
+import SwiftUI
 
 /// 3D-модель курорта для вида «Модель»: трассы, рельеф, окружение и камеры.
 /// У Idre файлы pistes.json, terrain.json, terrain.jpg, scenery.json; у других курортов
