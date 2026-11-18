@@ -505,7 +505,7 @@ struct MapScreen: View {
                             LiftBadge(kind: kind, size: 16)
                             Text(kind.title)
                                 .font(Typo.caption2)
-                                .foregroundStyle(Palette.textSecondary)
+                                .foregroundStyle(Palette.textPrimary)
                         }
                     }
                 }
@@ -515,17 +515,21 @@ struct MapScreen: View {
             HStack {
                 Text(showsModel ? "Карта: © OpenStreetMap · Высоты: Copernicus DEM" : "Трассы: © участники OpenStreetMap")
                     .font(Typo.caption2)
-                    .foregroundStyle(Palette.textSecondary.opacity(0.8))
+                    .foregroundStyle(Palette.textPrimary)
                 Spacer()
                 Text(buildLabel)
                     .font(Typo.caption2)
-                    .foregroundStyle(Palette.textSecondary.opacity(0.8))
+                    .foregroundStyle(Palette.textPrimary)
             }
             .padding(.horizontal, 20)
         }
         .padding(.top, 12)
         .padding(.bottom, 8)
-        .background(Palette.surface.opacity(0.94))
+        // Предложение 1: панель над картой — стекло, карта видна под ней.
+        .glassBackground(in: RoundedRectangle(cornerRadius: Radius.cardLarge, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: Radius.cardLarge, style: .continuous).stroke(Palette.glassStroke, lineWidth: 1))
+        .padding(.horizontal, Spacing.m)
+        .padding(.bottom, Spacing.s)
     }
 
     // MARK: - Жильё
@@ -813,7 +817,7 @@ struct MapScreen: View {
                 .overlay(PisteShape(form: form).stroke(Color.white.opacity(form == .diamond ? 0.85 : 0.5), lineWidth: 1))
             Text(title)
                 .font(Typo.caption2)
-                .foregroundStyle(Palette.textSecondary)
+                .foregroundStyle(Palette.textPrimary)
         }
     }
 
