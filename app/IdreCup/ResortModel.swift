@@ -48,9 +48,12 @@ struct ResortModel {
         "bjornrike": "Björnrike",
         "klovsjo-storhogna": "Klövsjö / Storhogna",
     ]
-    static var bundled: [String] { Array(names.keys) }
+    /// Курорты каталога, которые лежат на чужой модели: Vargliften — на модели Vemdalsskalet.
+    static let aliases = ["vemdalsskalet-vargliften": "vemdalsskalet"]
+    static var bundled: [String] { Array(names.keys) + Array(aliases.keys) }
 
-    static func load(_ id: String) -> ResortModel? {
+    static func load(_ asked: String) -> ResortModel? {
+        let id = aliases[asked] ?? asked
         guard let name = names[id], let terrain = TerrainData.load("terrain-\(id)") else { return nil }
         let data = PisteData.load("pistes-\(id)")
         guard !data.pistes.isEmpty else { return nil }
