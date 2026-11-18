@@ -82,8 +82,13 @@ struct ResortModel {
             east: ((east.min() ?? 0) + (east.max() ?? 0)) / 2,
             north: ((north.min() ?? 0) + (north.max() ?? 0)) / 2
         )
-        let spread = max((east.max() ?? 0) - (east.min() ?? 0), (north.max() ?? 0) - (north.min() ?? 0))
-        let size = max(spread * 1.5 + 1_500, 2_500)
+        let wide = (east.max() ?? 0) - (east.min() ?? 0)
+        let tall = (north.max() ?? 0) - (north.min() ?? 0)
+        // Курорт вытянут с запада на восток (Klövsjö — Storhogna): смотрим вдоль, с востока,
+        // чтобы на высоком экране он вошёл целиком, как «Весь район» у Idre.
+        let along = wide > tall * 1.5
+        let size = along ? max(wide * 1.1 + 1_500, 2_500) : max(max(wide, tall) * 1.5 + 1_500, 2_500)
+        let heading: Double = along ? 270 : 0
         return ResortModel(
             id: id,
             name: name,
@@ -91,8 +96,8 @@ struct ResortModel {
             terrain: terrain,
             scenery: scenery,
             textureName: "terrain-\(id)",
-            overview: ModelCamera(id: 0, east: middle.east, north: middle.north, distance: size, heading: 0, pitch: 52),
-            area: ModelCamera(id: 0, east: middle.east, north: middle.north, distance: size * 1.5, heading: 20, pitch: 46),
+            overview: ModelCamera(id: 0, east: middle.east, north: middle.north, distance: size, heading: heading, pitch: 52),
+            area: ModelCamera(id: 0, east: middle.east, north: middle.north, distance: size * 1.5, heading: heading + 20, pitch: 46),
             areaMapCenter: middle,
             areaMapDistance: size * 1.6
         )
