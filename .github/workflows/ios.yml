@@ -18,6 +18,12 @@ on:
       - "app/**"
       - ".github/workflows/ios.yml"
   workflow_dispatch:
+  # Workflow «3D-модель курорта» коммитит данные моделей от имени github-actions, а такой коммит
+  # сборку сам не запускает. Поэтому после него сборка запускается отсюда, на свежем main.
+  workflow_run:
+    workflows: ["3D-модель курорта"]
+    types: [completed]
+    branches: [main]
 
 permissions:
   contents: read
