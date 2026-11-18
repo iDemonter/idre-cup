@@ -15,9 +15,10 @@ struct PisteData: Decodable {
 
     static let empty = PisteData(source: "", summit: [61.88814, 12.85871], zones: [], pistes: [], lifts: [], peaks: nil)
 
-    static func load() -> PisteData {
+    /// name: «pistes» у Idre, «pistes-are» у Åre (см. ResortModel).
+    static func load(_ name: String = "pistes") -> PisteData {
         guard
-            let url = Bundle.main.url(forResource: "pistes", withExtension: "json"),
+            let url = Bundle.main.url(forResource: name, withExtension: "json"),
             let raw = try? Data(contentsOf: url),
             let decoded = try? JSONDecoder().decode(PisteData.self, from: raw)
         else {

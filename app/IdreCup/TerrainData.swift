@@ -18,9 +18,10 @@ struct TerrainData: Decodable {
     /// Высота над base в дециметрах. Строки с севера на юг, в строке с запада на восток.
     let heights: [Int]
 
-    static func load() -> TerrainData? {
+    /// name: «terrain» у Idre, «terrain-are» у Åre (см. ResortModel).
+    static func load(_ name: String = "terrain") -> TerrainData? {
         guard
-            let url = Bundle.main.url(forResource: "terrain", withExtension: "json"),
+            let url = Bundle.main.url(forResource: name, withExtension: "json"),
             let raw = try? Data(contentsOf: url),
             let decoded = try? JSONDecoder().decode(TerrainData.self, from: raw),
             decoded.cols > 1, decoded.rows > 1, decoded.heights.count == decoded.cols * decoded.rows

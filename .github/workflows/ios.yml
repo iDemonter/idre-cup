@@ -147,6 +147,8 @@ jobs:
           shoot model-nord-demo 12 -section map -look Модель -preset Nord -demo YES
           shoot model-area 20 -section map -look Модель -preset "Весь район"
           shoot model-himmel 20 -section map -look Модель -preset Himmelfjäll
+          shoot model-are 30 -section map -look Модель -model are
+          shoot model-are-bjornen 25 -section map -look Модель -model are -preset Björnen
           shoot model-vast-home 12 -section map -look Модель -preset Väst -homeLat 61.88634 -homeLon 12.83393
           # Камера нарочно поставлена вверх ногами: на снимке модель должна стоять как обычно.
           shoot model-flip 12 -section map -look Модель -preset Nord -flipTest YES

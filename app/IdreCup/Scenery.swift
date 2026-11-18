@@ -58,9 +58,9 @@ struct SceneryData: Decodable {
     let places: [Place]
     let areas: [Area]
 
-    static func load() -> SceneryData? {
+    static func load(_ name: String = "scenery") -> SceneryData? {
         guard
-            let url = Bundle.main.url(forResource: "scenery", withExtension: "json"),
+            let url = Bundle.main.url(forResource: name, withExtension: "json"),
             let raw = try? Data(contentsOf: url)
         else { return nil }
         return try? JSONDecoder().decode(SceneryData.self, from: raw)

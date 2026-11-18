@@ -41,6 +41,8 @@ struct TerrainView: UIViewRepresentable {
     let scenery: SceneryData?
     @Binding var selectedPlace: SceneryData.Place?
     @Binding var selectedID: Int?
+    /// Раскраска горы в бандле: «terrain» у Idre, «terrain-are» у Åre.
+    var textureName = "terrain"
 
     func makeCoordinator() -> Coordinator {
         Coordinator(parent: self)
@@ -320,7 +322,7 @@ struct TerrainView: UIViewRepresentable {
             let material = SCNMaterial()
             material.lightingModel = .constant
             material.isDoubleSided = true
-            if let url = Bundle.main.url(forResource: "terrain", withExtension: "jpg"), let image = UIImage(contentsOfFile: url.path) {
+            if let url = Bundle.main.url(forResource: parent.textureName, withExtension: "jpg"), let image = UIImage(contentsOfFile: url.path) {
                 material.diffuse.contents = image
                 material.diffuse.mipFilter = .linear
             } else {

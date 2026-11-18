@@ -128,6 +128,7 @@ struct ResortPickerSheet: View {
             dismiss()
         } label: {
             var parts = ["\(resort.trails) \(Format.plural(resort.trails, "трасса", "трассы", "трасс"))"]
+            if ResortModel.bundled.contains(resort.id) { parts.insert("своя 3D-модель", at: 0) }
             if let km = distanceKm(resort) {
                 parts.append(km < 10 ? String(format: "%.1f км", km) : "\(Int(km)) км")
             }

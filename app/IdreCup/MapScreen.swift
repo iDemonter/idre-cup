@@ -4,9 +4,12 @@ import SwiftUI
 /// Карта трасс: 3D-модель горы или рельеф Apple Maps, поверх трассы по цветам сложности,
 /// подъёмники и значки с номерами. Нажатие на значок открывает карточку трассы.
 struct MapScreen: View {
-    private let data: PisteData
-    private let terrain: TerrainData?
-    private let scenery = SceneryData.load()
+    /// Idre — модель по умолчанию; из листа курортов открывается и модель другого курорта (Åre).
+    private let idreModel: ResortModel
+    @State private var model: ResortModel
+    private var data: PisteData { model.data }
+    private var terrain: TerrainData? { model.terrain }
+    private var scenery: SceneryData? { model.scenery }
 
     @EnvironmentObject private var tracker: Tracker
     @EnvironmentObject private var homeStore: HomeStore
@@ -37,13 +40,16 @@ struct MapScreen: View {
     private static let overviewName = "Обзор"
     private static let overviewDistance: Double = 9_500
 
-    init(data loaded: PisteData, terrain loadedTerrain: TerrainData?) {
-        data = loaded
-        terrain = loadedTerrain
-
-        // Вид и зону можно задать при запуске: -look Спутник -preset Nord.
+    init(data idreData: PisteData, terrain idreTerrain: TerrainData?) {
+        let idre = ResortModel.idre(data: idreData, terrain: idreTerrain)
+        idreModel = idre
+        // Вид, зону и модель курорта можно задать при запуске: -look Спутник -preset Nord -model are.
         // Так делаются снимки экрана при сборке.
         let defaults = UserDefaults.standard
+        let start = defaults.string(forKey: "model").flatMap { ResortModel.load($0) } ?? idre
+        _model = State(initialValue: start)
+        let loaded = start.data
+        let loadedTerrain = start.terrain
         let askedLook = defaults.string(forKey: "look").flatMap { MapLook(rawValue: $0) }
         let fallback: MapLook = loadedTerrain == nil ? .satellite : .model
         _look = State(initialValue: askedLook ?? fallback)
@@ -61,11 +67,11 @@ struct MapScreen: View {
             _position = State(initialValue: .camera(MapScreen.mapCamera(for: zone)))
         } else if defaults.string(forKey: "preset") == MapScreen.areaName {
             _activePreset = State(initialValue: MapScreen.areaName)
-            _modelCamera = State(initialValue: MapScreen.modelArea)
-            _position = State(initialValue: .camera(MapScreen.areaCamera(for: loaded)))
+            _modelCamera = State(initialValue: start.area)
+            _position = State(initialValue: .camera(start.areaMapCamera))
         } else {
             _activePreset = State(initialValue: MapScreen.overviewName)
-            _modelCamera = State(initialValue: MapScreen.modelOverview(id: 0))
+            _modelCamera = State(initialValue: start.overview)
             _position = State(initialValue: .camera(MapScreen.overviewCamera(for: loaded)))
         }
     }
@@ -84,25 +90,8 @@ struct MapScreen: View {
         MapCamera(centerCoordinate: data.summitCoordinate, distance: overviewDistance, heading: 0, pitch: 45)
     }
 
-    /// Общий вид модели: с юго-запада, как на официальной карте курорта.
-    private static func modelOverview(id: Int) -> ModelCamera {
-        ModelCamera(id: id, east: -900, north: -350, distance: 6_400, heading: 55, pitch: 54)
-    }
-
-    /// «Весь район»: оба курорта и Städjan.
+    /// «Весь район»: у Idre оба курорта и Städjan, у Åre — Åre by и Björnen. Камеры — в ResortModel.
     private static let areaName = "Весь район"
-    /// Смотрим с востока на запад: район вытянут с запада на восток и так целиком входит в высокий экран.
-    /// Idre Fjäll ближе к зрителю, Himmelfjäll дальше, Städjan справа.
-    private static let modelArea = ModelCamera(id: 0, east: -2_000, north: 1_350, distance: 16_000, heading: 270, pitch: 50)
-
-    private static func areaCamera(for data: PisteData) -> MapCamera {
-        MapCamera(
-            centerCoordinate: LocalFrame(origin: data.summitCoordinate).coordinate(east: -2_000, north: 1_350),
-            distance: 21_000,
-            heading: 270,
-            pitch: 40
-        )
-    }
 
     private var showsModel: Bool { look == .model && terrain != nil }
 
@@ -180,14 +169,18 @@ struct MapScreen: View {
     /// Все участки выбранной трассы: у одной трассы бывает несколько отрезков.
     private var selectedSegments: [Piste] {
         guard let selected else { return [] }
-        guard let number = selected.number else { return [selected] }
+        guard let number = selected.number else {
+            // У трасс других курортов номер только на значке: участки одной трассы — с тем же номером или именем.
+            guard let key = selected.display ?? selected.name else { return [selected] }
+            return data.pistes.filter { ($0.display ?? $0.name) == key }
+        }
         return data.pistes.filter { $0.number == number }
     }
 
     /// Значки появляются по мере приближения: у каждого своя высота камеры, с которой
     /// он не задевает соседние. Значок выбранной трассы виден всегда.
     private var visiblePisteBadges: [Piste] {
-        data.labelled.filter { $0.number == selected?.number || distance <= ($0.show ?? 8_000) }
+        data.labelled.filter { ($0.number != nil && $0.number == selected?.number) || $0.id == selected?.id || distance <= ($0.show ?? 8_000) }
     }
 
     private var visibleLiftBadges: [Lift] {
@@ -204,14 +197,18 @@ struct MapScreen: View {
                     path: tracker.path,
                     pathVersion: tracker.pathVersion,
                     here: tracker.here,
-                    home: homeStore.home,
-                    isPlacingHome: isPlacingHome,
+                    // Жильё у кубка одно, в Idre: на модели другого курорта звёздочки нет.
+                    home: model.isIdre ? homeStore.home : nil,
+                    isPlacingHome: isPlacingHome && model.isIdre,
                     onPlaceHome: placeHome,
                     friends: friendMarks,
                     scenery: scenery,
                     selectedPlace: $selectedPlace,
-                    selectedID: $selectedID
+                    selectedID: $selectedID,
+                    textureName: model.textureName
                 )
+                    // Другой курорт — другая сцена: строим её заново.
+                    .id(model.id)
                     .ignoresSafeArea()
             } else {
                 appleMap
@@ -309,7 +306,7 @@ struct MapScreen: View {
                     Button {
                         selectedID = piste.id
                     } label: {
-                        PisteBadge(piste: piste, isSelected: piste.number == selected?.number)
+                        PisteBadge(piste: piste, isSelected: piste.id == selected?.id || (piste.number != nil && piste.number == selected?.number))
                     }
                     .buttonStyle(.plain)
                 }
@@ -373,7 +370,7 @@ struct MapScreen: View {
                     .font(Typo.overline)
                     .foregroundStyle(Palette.textSecondary)
                 // Предложение 11: название курорта — кнопка выбора курорта.
-                ResortSwitcher(title: otherResort?.name ?? "Idre Fjäll") { showsPicker = true }
+                ResortSwitcher(title: otherResort?.name ?? model.name) { showsPicker = true }
             }
             Spacer()
             lookMenu
@@ -408,6 +405,10 @@ struct MapScreen: View {
             let count = other.trails.count
             let kind = other.region == "Stockholm" ? "ГОРКА" : "КУРОРТ"
             return "\(other.region.uppercased()) · \(kind) · \(count) \(Format.plural(count, "ТРАССА", "ТРАССЫ", "ТРАСС"))"
+        }
+        if !model.isIdre {
+            let count = data.labelled.count
+            return "\(model.name.uppercased()) · 3D-МОДЕЛЬ · \(count) \(Format.plural(count, "ТРАССА", "ТРАССЫ", "ТРАСС"))"
         }
         let neighbour = data.labelled.filter { $0.resort == "himmel" }.count
         let own = "IDRE FJÄLL · \(pisteCountTitle)"
@@ -475,8 +476,8 @@ struct MapScreen: View {
             } else {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    homeChip
-                    presetChip(MapScreen.overviewName, model: MapScreen.modelOverview(id: 0)) {
+                    if model.isIdre { homeChip }
+                    presetChip(MapScreen.overviewName, model: model.overview) {
                         MapScreen.overviewCamera(for: data)
                     }
                     ForEach(data.zones) { zone in
@@ -484,9 +485,9 @@ struct MapScreen: View {
                             MapScreen.mapCamera(for: zone)
                         }
                     }
-                    // Оба курорта и Städjan разом: видно, как они стоят относительно друг друга.
-                    presetChip(MapScreen.areaName, model: MapScreen.modelArea) {
-                        MapScreen.areaCamera(for: data)
+                    // У Idre оба курорта и Städjan разом, у Åre — Åre by и Björnen.
+                    presetChip(MapScreen.areaName, model: model.area) {
+                        model.areaMapCamera
                     }
                 }
                 .padding(.horizontal, 20)
@@ -723,7 +724,7 @@ struct MapScreen: View {
 
     /// Открытый лифт белый, закрытый блёклый красный, без данных как раньше.
     private func liftColor(_ lift: Lift) -> Color {
-        guard let code = lift.code, let status = idreConditions?.lift(code: code) else { return Color.white.opacity(0.75) }
+        guard model.isIdre, let code = lift.code, let status = idreConditions?.lift(code: code) else { return Color.white.opacity(0.75) }
         return status.isClosed ? Palette.error.opacity(0.45) : Color.white.opacity(status.isOpen ? 0.95 : 0.75)
     }
 
@@ -732,16 +733,30 @@ struct MapScreen: View {
         switch choice {
         case .idre(let zone):
             // Возвращаемся с другого курорта: снова своя 3D-модель.
-            if otherResort != nil, terrain != nil { look = .model }
+            if otherResort != nil || !model.isIdre, idreModel.terrain != nil { look = .model }
             otherResort = nil
             otherConditions = nil
+            selectedID = nil
+            selectedPlace = nil
+            model = idreModel
             if let zone, let found = data.zones.first(where: { $0.name == zone }) {
                 apply(preset: found.name, model: MapScreen.modelCamera(for: found, in: data), camera: MapScreen.mapCamera(for: found))
             } else {
-                apply(preset: MapScreen.overviewName, model: MapScreen.modelOverview(id: 0), camera: MapScreen.overviewCamera(for: data))
+                apply(preset: MapScreen.overviewName, model: model.overview, camera: MapScreen.overviewCamera(for: data))
             }
         case .other(let summary):
-            await openResort(summary)
+            if let own = ResortModel.load(summary.id) {
+                // У курорта есть своя 3D-модель (Åre): открываем её, как Idre.
+                otherResort = nil
+                selectedID = nil
+                selectedPlace = nil
+                model = own
+                look = .model
+                apply(preset: MapScreen.overviewName, model: own.overview, camera: MapScreen.overviewCamera(for: own.data))
+            } else {
+                model = idreModel
+                await openResort(summary)
+            }
             otherConditions = await session.conditions(near: summary.coordinate)
         }
     }
