@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// Сводка дня в «Моём дне» до записи (Figma: компонент DayBrief, экран «Мой день · сводка дня»):
-/// погода сейчас, лифты, трассы, снег, прогноз по часам, день и завтра. Нажатие — ConditionsDetails.
-/// Чего курорт не отдаёт, того в сводке нет.
+/// Сводка дня в «Моём дне» до записи (Figma: компонент DayBrief 63:530, экран «Мой день · сводка дня»).
+/// Сверху погода сейчас на мягкой акцентной подложке: значок, температура, низ и ветер.
+/// Ниже плитки «Лифты», «Трассы», «Снег», прогноз по часам со значками, днём и завтра.
+/// Нажатие — ConditionsDetails. Чего курорт не отдаёт, того в сводке нет (у снега — «нет данных»).
 struct DayBrief: View {
     let conditions: ConditionsReply
     @State private var showsDetails = false
@@ -12,31 +13,21 @@ struct DayBrief: View {
             showsDetails = true
         } label: {
             VStack(alignment: .leading, spacing: Spacing.m + 2) {
-                HStack(spacing: 6) {
-                    Text("\(conditions.resort.name) · сегодня")
-                        .overlineStyle()
-                        .foregroundStyle(Palette.textSecondary)
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(Typo.footnote)
-                        .foregroundStyle(Palette.textSecondary)
-                }
-                now
+                hero
                 tiles
                 hours
-                if let day = conditions.forecast?.day {
-                    Text("Днём: \(day.summary)")
-                        .font(Typo.caption1)
-                        .foregroundStyle(Palette.textSecondary)
+                VStack(alignment: .leading, spacing: Spacing.s) {
+                    if let day = conditions.forecast?.day {
+                        dayRow("Днём", symbol: day.symbol, text: day.summary)
+                    }
+                    if let tomorrow = conditions.forecast?.tomorrow {
+                        dayRow("Завтра", symbol: tomorrow.symbol, text: tomorrow.summary)
+                    }
                 }
-                if let tomorrow = conditions.forecast?.tomorrow {
-                    Text("Завтра: \(tomorrow.summary)")
-                        .font(Typo.caption1)
-                        .foregroundStyle(Palette.textSecondary)
-                }
+                .padding(.horizontal, Spacing.xs)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(Spacing.l)
+            .padding(Spacing.m)
             .background(Palette.surface, in: RoundedRectangle(cornerRadius: Radius.cardLarge, style: .continuous))
         }
         .buttonStyle(.plain)
@@ -52,7 +43,7 @@ struct DayBrief: View {
 
     private var weather: ConditionsReply.Weather? { conditions.status?.weather }
 
-    /// Ближайший час прогноза: из него описание погоды, если курорт сам не даёт температуру.
+    /// Ближайший час прогноза: из него значок и описание погоды.
     private var currentHour: ConditionsReply.Hour? {
         let hours = conditions.forecast?.hours ?? []
         let formatter = ISO8601DateFormatter()
@@ -60,52 +51,84 @@ struct DayBrief: View {
         return hours.first { (formatter.date(from: $0.time) ?? .distantPast) >= soon } ?? hours.first
     }
 
-    @ViewBuilder
-    private var now: some View {
+    private var hero: some View {
         let top = weather?.top?.temp
         let temp = top ?? weather?.valley?.temp ?? currentHour?.temp
-        if let temp {
+        return VStack(alignment: .leading, spacing: Spacing.m) {
+            HStack(spacing: 6) {
+                Text("\(conditions.resort.name) · сегодня")
+                    .overlineStyle()
+                    .foregroundStyle(Palette.textSecondary)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(Typo.footnote)
+                    .foregroundStyle(Palette.textSecondary)
+            }
             HStack(alignment: .center, spacing: Spacing.m) {
-                Text("\(Format.degrees(temp))°")
-                    .font(Typo.numberL)
-                    .foregroundStyle(Palette.textPrimary)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(headline(onTop: top != nil))
-                        .font(Typo.subheadline)
+                Image(systemName: WeatherSymbol.name(for: currentHour?.symbol))
+                    .symbolRenderingMode(.hierarchical)
+                    .font(.system(size: 44, weight: .semibold))
+                    .foregroundStyle(Palette.accentText)
+                    .frame(width: 56)
+                    .accessibilityHidden(true)
+                if let temp {
+                    Text("\(Format.degrees(temp))°")
+                        .font(Typo.numberXL)
                         .foregroundStyle(Palette.textPrimary)
                         .lineLimit(1)
-                    if let detail = detail(onTop: top != nil) {
-                        Text(detail)
-                            .font(Typo.caption1)
-                            .foregroundStyle(Palette.textSecondary)
-                            .lineLimit(2)
-                    }
+                        .minimumScaleFactor(0.6)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(currentHour?.text.map { $0.prefix(1).uppercased() + $0.dropFirst() } ?? "Сейчас")
+                        .font(Typo.headline)
+                        .foregroundStyle(Palette.textPrimary)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.8)
+                    Text(top != nil ? "на вершине" : (weather?.valley?.temp != nil ? "внизу" : "прогноз"))
+                        .font(Typo.caption1)
+                        .foregroundStyle(Palette.textSecondary)
+                }
+            }
+            pills(onTop: top != nil)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Palette.accentSoft, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
+    }
+
+    /// «внизу −6°» и «ветер 4 м/с, порывы 8».
+    @ViewBuilder
+    private func pills(onTop: Bool) -> some View {
+        let place = onTop ? weather?.top : weather?.valley
+        let wind = place?.wind ?? currentHour?.wind
+        let valley = onTop ? weather?.valley?.temp : nil
+        if valley != nil || wind != nil {
+            HStack(spacing: 6) {
+                if let valley {
+                    pill("mountain.2.fill", "внизу \(Format.degrees(valley))°")
+                }
+                if let wind {
+                    let gust = place?.gust.map { ", порывы \(Int($0.rounded()))" } ?? ""
+                    pill("wind", "ветер \(Int(wind.rounded())) м/с\(gust)")
                 }
             }
         }
     }
 
-    /// «Облачно»: описание ближайшего часа прогноза.
-    private func headline(onTop: Bool) -> String {
-        currentHour?.text.map { $0.prefix(1).uppercased() + $0.dropFirst() } ?? "Сейчас"
-    }
-
-    /// «на вершине · внизу −5° · ветер 6 м/с, порывы 11».
-    private func detail(onTop: Bool) -> String? {
-        var parts: [String] = []
-        if onTop {
-            parts.append("на вершине")
-            if let valley = weather?.valley?.temp { parts.append("внизу \(Format.degrees(valley))°") }
-        } else if weather?.valley?.temp != nil {
-            parts.append("внизу")
+    private func pill(_ symbol: String, _ text: String) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: symbol)
+                .font(Typo.caption2)
+                .foregroundStyle(Palette.accentText)
+            Text(text)
+                .font(Typo.caption1)
+                .foregroundStyle(Palette.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
         }
-        let place = onTop ? weather?.top : weather?.valley
-        if let wind = place?.wind ?? currentHour?.wind {
-            var text = "ветер \(Int(wind.rounded())) м/с"
-            if let gust = place?.gust { text += ", порывы \(Int(gust.rounded()))" }
-            parts.append(text)
-        }
-        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+        .padding(.vertical, 5)
+        .padding(.horizontal, Spacing.s)
+        .background(Palette.surface, in: Capsule())
     }
 
     // MARK: - Лифты, трассы, снег
@@ -126,40 +149,57 @@ struct DayBrief: View {
         time.hasPrefix("0") ? String(time.dropFirst()) : time
     }
 
+    private struct Tile: Identifiable {
+        let title: String
+        let symbol: String
+        let value: String
+        let note: String
+        var id: String { title }
+    }
+
+    private var tileItems: [Tile] {
+        guard let status = conditions.status else { return [] }
+        var items: [Tile] = []
+        if let closes = status.closes {
+            let note = [opens.map { "с \($0)" }, status.lifts.map { "\($0.open) из \($0.total)" }].compactMap { $0 }
+            items.append(Tile(title: "Лифты", symbol: "clock.fill", value: "до \(short(closes))", note: note.isEmpty ? "работают" : note.joined(separator: " · ")))
+        } else if let count = status.lifts, count.total > 0 {
+            items.append(Tile(title: "Лифты", symbol: "clock.fill", value: "\(count.open)/\(count.total)", note: "открыто"))
+        }
+        if let count = status.pistes, count.total > 0 {
+            items.append(Tile(title: "Трассы", symbol: "figure.skiing.downhill", value: "\(count.open)/\(count.total)", note: count.open == 0 ? "ещё закрыты" : "открыто"))
+        }
+        // Толщина снега: в трассе, иначе вне трасс; свежий за сутки — подписью.
+        let snow = status.snow
+        let depth = snow?.piste ?? snow?.terrain
+        let fresh = snow?.fresh ?? snow?.last24h
+        var note = depth == nil ? "нет данных" : (snow?.piste != nil ? "в трассе" : "вне трасс")
+        if let fresh, fresh > 0 { note += " · +\(Int(fresh.rounded())) см" }
+        items.append(Tile(title: "Снег", symbol: "snowflake", value: depth.map { "\(Int($0.rounded())) см" } ?? "—", note: note))
+        return items
+    }
+
     @ViewBuilder
     private var tiles: some View {
-        let status = conditions.status
-        let lifts: (String, String)? = {
-            if let closes = status?.closes {
-                let small = [opens.map { "с \($0)" }, status?.lifts.map { "\($0.open) из \($0.total)" }].compactMap { $0 }
-                return ("до \(short(closes))", small.isEmpty ? "работают" : small.joined(separator: " · "))
-            }
-            if let count = status?.lifts, count.total > 0 { return ("\(count.open)/\(count.total)", "открыто") }
-            return nil
-        }()
-        let pistes = status?.pistes.flatMap { $0.total > 0 ? ("\($0.open)/\($0.total)", "открыто") : nil }
-        let snow: (String, String)? = {
-            // Межсезонье: нули не показываем.
-            guard let snow = status?.snow, (snow.fresh ?? snow.last24h ?? 0) > 0 || (snow.piste ?? 0) > 0 else { return nil }
-            let depth = snow.piste.map { "покров \(Int($0)) см" }
-            if let fresh = snow.fresh ?? snow.last24h, fresh > 0 { return ("+\(Int(fresh)) см", depth ?? "за сутки") }
-            if let piste = snow.piste { return ("\(Int(piste)) см", "в трассе") }
-            return nil
-        }()
-        let items = [lifts.map { ("Лифты", $0.0, $0.1) }, pistes.map { ("Трассы", $0.0, $0.1) }, snow.map { ("Снег", $0.0, $0.1) }].compactMap { $0 }
+        let items = tileItems
         if !items.isEmpty {
             HStack(spacing: Spacing.s) {
-                ForEach(items, id: \.0) { item in
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(item.0)
-                            .overlineStyle()
-                            .foregroundStyle(Palette.textSecondary)
-                        Text(item.1)
+                ForEach(items) { item in
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack(spacing: 4) {
+                            Image(systemName: item.symbol)
+                                .font(Typo.caption2)
+                                .foregroundStyle(Palette.accentText)
+                            Text(item.title)
+                                .overlineStyle()
+                                .foregroundStyle(Palette.textSecondary)
+                        }
+                        Text(item.value)
                             .font(Typo.title3)
                             .foregroundStyle(Palette.textPrimary)
                             .lineLimit(1)
                             .minimumScaleFactor(0.7)
-                        Text(item.2)
+                        Text(item.note)
                             .font(Typo.caption2)
                             .foregroundStyle(Palette.textSecondary)
                             .lineLimit(1)
@@ -185,10 +225,16 @@ struct DayBrief: View {
             HStack {
                 ForEach(Array(picked.enumerated()), id: \.element.id) { index, hour in
                     if index > 0 { Spacer(minLength: 0) }
-                    VStack(spacing: 2) {
+                    VStack(spacing: 4) {
                         Text(Format.hour(hour.time))
                             .font(Typo.caption2)
                             .foregroundStyle(Palette.textSecondary)
+                        Image(systemName: WeatherSymbol.name(for: hour.symbol))
+                            .symbolRenderingMode(.hierarchical)
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(Palette.accentText)
+                            .frame(height: 22)
+                            .accessibilityLabel(hour.text ?? "")
                         Text("\(Format.degrees(hour.temp))°")
                             .font(Typo.subheadline)
                             .foregroundStyle(Palette.textPrimary)
@@ -198,6 +244,51 @@ struct DayBrief: View {
                     }
                 }
             }
+            .padding(.horizontal, Spacing.xs)
+        }
+    }
+
+    // MARK: - Днём и завтра
+
+    private func dayRow(_ title: String, symbol: String?, text: String) -> some View {
+        HStack(spacing: Spacing.s) {
+            Image(systemName: WeatherSymbol.name(for: symbol))
+                .symbolRenderingMode(.hierarchical)
+                .font(Typo.footnote)
+                .foregroundStyle(Palette.accentText)
+                .frame(width: 20)
+            Text(title)
+                .font(Typo.footnote)
+                .foregroundStyle(Palette.textPrimary)
+            Text(text)
+                .font(Typo.caption1)
+                .foregroundStyle(Palette.textSecondary)
+                .lineLimit(2)
+        }
+    }
+}
+
+/// Значок SF Symbols по коду погоды MET Norway (yr.no): «partlycloudy_day» → cloud.sun.fill.
+enum WeatherSymbol {
+    static func name(for code: String?) -> String {
+        guard let code else { return "cloud.fill" }
+        let night = code.hasSuffix("_night") || code.hasSuffix("_polartwilight")
+        let base = code
+            .replacingOccurrences(of: "_day", with: "")
+            .replacingOccurrences(of: "_night", with: "")
+            .replacingOccurrences(of: "_polartwilight", with: "")
+        switch base {
+        case "clearsky": return night ? "moon.stars.fill" : "sun.max.fill"
+        case "fair", "partlycloudy": return night ? "cloud.moon.fill" : "cloud.sun.fill"
+        case "cloudy": return "cloud.fill"
+        case "fog": return "cloud.fog.fill"
+        default:
+            if base.contains("thunder") { return "cloud.bolt.fill" }
+            if base.contains("sleet") { return "cloud.sleet.fill" }
+            if base.contains("snow") { return "cloud.snow.fill" }
+            if base.contains("lightrain") { return "cloud.drizzle.fill" }
+            if base.contains("rain") { return "cloud.rain.fill" }
+            return "cloud.fill"
         }
     }
 }

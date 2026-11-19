@@ -64,6 +64,8 @@ struct ConditionsReply: Decodable {
         let max: Int
         let wind: Int
         let precipitation: Double
+        /// Код погоды MET Norway: «cloudy», «lightsnow», «partlycloudy_day»…
+        let symbol: String?
         let text: String?
     }
 
@@ -72,6 +74,7 @@ struct ConditionsReply: Decodable {
         let temp: Double
         let wind: Double
         let precipitation: Double
+        let symbol: String?
         let text: String?
         var id: String { time }
     }
