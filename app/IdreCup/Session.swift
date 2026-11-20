@@ -309,6 +309,13 @@ final class Session: ObservableObject {
         return try? await api.send("GET", "/v1/conditions" + query)
     }
 
+    /// Условия курорта по id каталога («are», «vemdalsskalet», «idre-fjall»…).
+    func conditions(resort id: String) async -> ConditionsReply? {
+        guard let api, phase == .signedIn else { return nil }
+        let escaped = id.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? id
+        return try? await api.send("GET", "/v1/conditions?resort=" + escaped)
+    }
+
     func season() async -> SeasonReply? {
         guard let api, phase == .signedIn else { return nil }
         return try? await api.send("GET", "/v1/season")

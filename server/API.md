@@ -118,7 +118,7 @@
 
 ## Условия на курорте
 
-`GET /v1/conditions?resort=` или `?lat=&lon=` (курорт, где сейчас телефон; иначе Idre Fjäll).
+`GET /v1/conditions?resort=` или `?lat=&lon=` (курорт, где сейчас телефон; иначе Idre Fjäll). Поле `matched` говорит, как выбран курорт: `asked` (по `resort`), `near` (рядом с телефоном), `default` (Idre Fjäll по умолчанию) — тогда приложение может спросить курорт, открытый на карте.
 
 - `status`: с сайта курорта (`config/conditions.json`: Idre Fjäll и зоны SkiStar в Åre и Vemdalen), обновляется не чаще раза в 10 минут. `lifts`, `pistes` (`open`/`total`), `liftList` (`code`, `name`, `status` open/closed/later, `hours`, `today` — часы на сегодня), `pisteList` (SkiStar), `snow`, `weather` (`top`, `valley`: температура, ветер, порывы), `closes` — когда закрывается последний дневной лифт (вечерние после 20:00 не считаются). Готового API у курортов нет: сервер разбирает их страницы (`src/conditions.js`). Если сайт не ответил или изменился, `status` = `null` или поля пустые.
 - `forecast`: MET Norway (api.met.no) по координатам курорта, не чаще раза в 30 минут: `day` (мин/макс температура 9–16, ветер, осадки, погода словами) и `hours` (12 часов).

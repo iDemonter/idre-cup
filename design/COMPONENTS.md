@@ -99,6 +99,7 @@
 | LiftStatusRow | Статус: Открыт / Закрыт / Нет данных | `Conditions.swift` · список «ЛИФТЫ» в `ConditionsDetails` | вынести | [50:638](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=50-638) |
 | HourForecast | — | `Conditions.swift` · ряд прогноза по часам | вынести | [50:639](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=50-639) |
 | DayBrief | — | `DayBrief.swift` (в «Моём дне» до записи; во время записи и на паузе вместо неё ConditionsStrip) | есть | [63:530](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=63-530) |
+| MapWeatherChip | — | `MapWeatherChip.swift` (под названием курорта в шапке карты; погода и условия открытого курорта) | есть | [82:5174](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=82-5174) |
 | LeaderboardRow (в «Сезоне» и «В других местах») | Вид: Обычная / Своя; в «В других местах» — без места и очков | `RatingScreen.swift` · `seasonList`, `dayList` (`rowCard()`) | вынести | [28:112](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=28-112) |
 | SeasonDayRow | — | `RatingScreen.swift` · `seasonList`, «МОИ ДНИ» | вынести | [50:720](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=50-720) |
 | SeasonCrownRow | Своя: Да / Нет | `RatingScreen.swift` · `seasonList`, «КОРОНЫ СЕЗОНА» | вынести | [50:735](https://www.figma.com/design/acerhjwP1YhbPlMWSAF0qy/Idre-Cup?node-id=50-735) |

@@ -13,10 +13,21 @@ import { migrate } from "../src/migrate.js";
 const fixture = (name) => readFileSync(new URL(`./fixtures/${name}`, import.meta.url), "utf8");
 const asHtml = (text) => text.split("\n").map((line) => `<div>${line.replace(/&/g, "&amp;")}</div>`).join("\n");
 export const fetched = [];
+// Прогноз в fixture записан на 16–18 ноября: сдвигаем его к текущему часу, иначе через пару дней
+// все часы оказываются в прошлом и тест падает сам по себе.
+function shiftForecast(json) {
+  const series = json.properties.timeseries;
+  const hour = new Date();
+  hour.setUTCMinutes(0, 0, 0);
+  const offset = hour.getTime() - 3_600_000 - new Date(series[0].time).getTime();
+  for (const point of series) point.time = new Date(new Date(point.time).getTime() + offset).toISOString().replace(".000Z", "Z");
+  return json;
+}
+
 async function fakeFetch(url) {
   fetched.push(url);
   if (url.includes("idrefjall.se")) return new Response(asHtml(fixture("idre-status.txt")));
-  if (url.includes("api.met.no")) return new Response(fixture("met-forecast.json"));
+  if (url.includes("api.met.no")) return new Response(JSON.stringify(shiftForecast(JSON.parse(fixture("met-forecast.json")))));
   return new Response("нет", { status: 404 });
 }
 
@@ -719,6 +730,11 @@ test("условия: лифты, часы, погода и снег Idre Fjäll
   // Где нет страницы курорта, всё равно есть прогноз.
   const hill = (await call("GET", "/v1/conditions?resort=hammarbybacken", { token: me.token })).body;
   assert.equal(hill.resort.name, "Hammarbybacken");
+  assert.equal(hill.matched, "asked");
+  // Телефон далеко от курортов (Мальмё): Idre Fjäll по умолчанию, приложение может спросить курорт с карты.
+  const far = (await call("GET", "/v1/conditions?lat=55.6&lon=13.0", { token: me.token })).body;
+  assert.equal(far.resort.id, "idre-fjall");
+  assert.equal(far.matched, "default");
   assert.equal(hill.status, null);
   assert.ok(hill.forecast);
 });

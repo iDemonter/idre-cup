@@ -86,6 +86,8 @@ struct ConditionsReply: Decodable {
     }
 
     let resort: Resort
+    /// Как сервер выбрал курорт: asked (по id), near (рядом с телефоном), default (Idre Fjäll по умолчанию).
+    let matched: String?
     let status: Status?
     let forecast: Forecast?
 

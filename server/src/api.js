@@ -1842,10 +1842,13 @@ export function mountApi(app, { db, rules, attemptLimit = 30, autoEvents = true,
     const lat = Number(req.query.lat);
     const lon = Number(req.query.lon);
     // Курорт: явно указанный, иначе тот, где сейчас телефон (с запасом в два радиуса), иначе Idre Fjäll.
+    // matched: как выбран курорт — asked (по id), near (по месту телефона) или default (Idre Fjäll по умолчанию).
     let resort = typeof req.query.resort === "string" ? resortInfo.get(req.query.resort) : null;
+    let matched = resort ? "asked" : "default";
     if (!resort && Number.isFinite(lat) && Number.isFinite(lon)) {
       const wide = resorts.map((item) => ({ ...item, radiusKm: item.radiusKm * 2 }));
       resort = resortInfo.get(resortOf(wide, { lat, lon })?.id) ?? null;
+      if (resort) matched = "near";
     }
     resort ??= resortInfo.get("idre-fjall");
     const [status, forecast] = await Promise.all([
@@ -1855,6 +1858,7 @@ export function mountApi(app, { db, rules, attemptLimit = 30, autoEvents = true,
     const weekday = new Date(new Date().toLocaleString("en-US", { timeZone: cup.timezone })).getDay();
     res.json({
       resort: { id: resort.id, name: resort.name, region: resort.region },
+      matched,
       status: status
         ? {
             ...status,

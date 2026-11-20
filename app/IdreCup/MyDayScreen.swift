@@ -71,7 +71,14 @@ struct MyDayScreen: View {
         .task(id: session.phase == .signedIn) {
             // Условия меняются медленно: раз в 5 минут хватает (сервер сам ходит на сайты не чаще раза в 10 минут).
             while !Task.isCancelled && session.phase == .signedIn {
-                if let fresh = await session.conditions(near: tracker.here) {
+                var reply = await session.conditions(near: tracker.here)
+                // Телефон далеко от курортов: показываем курорт, последний открытый на карте, а не Idre по умолчанию.
+                if reply?.matched == "default",
+                   let picked = UserDefaults.standard.string(forKey: "mapResort"), picked != "idre-fjall",
+                   let chosen = await session.conditions(resort: picked) {
+                    reply = chosen
+                }
+                if let fresh = reply {
                     conditions = fresh
                     ConditionsAlerts.updateMorning(fresh)
                     ConditionsAlerts.scheduleClosing(fresh, recording: tracker.isRecording && !tracker.isDemo)

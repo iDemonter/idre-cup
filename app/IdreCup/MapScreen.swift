@@ -30,6 +30,11 @@ struct MapScreen: View {
     @State private var otherConditions: ConditionsReply?
     /// Какие лифты Idre Fjäll сейчас работают (с сайта курорта): закрытые на карте блёклые.
     @State private var idreConditions: ConditionsReply?
+    /// Погода и условия курорта, открытого на карте (MapWeatherChip).
+    @State private var mapConditions: ConditionsReply?
+    @State private var showsMapConditions = false
+    /// Последний курорт, открытый на карте: «Мой день» показывает его, если телефон далеко от курортов.
+    @AppStorage("mapResort") private var mapResort = "idre-fjall"
     @State private var distance: Double = MapScreen.overviewDistance
     @State private var selectedID: Int?
     /// Выбранное на модели место: ресторан, прокат, ски-центр.
@@ -371,12 +376,33 @@ struct MapScreen: View {
                     .foregroundStyle(Palette.textSecondary)
                 // Предложение 11: название курорта — кнопка выбора курорта.
                 ResortSwitcher(title: otherResort?.name ?? model.name) { showsPicker = true }
+                if let mapConditions {
+                    MapWeatherChip(conditions: mapConditions) { showsMapConditions = true }
+                        .padding(.top, Spacing.xs)
+                }
             }
             Spacer()
             lookMenu
         }
         .task(id: session.phase == .signedIn) {
             if otherResorts.isEmpty { otherResorts = await session.resorts() }
+        }
+        .task(id: "\(currentResortID)|\(session.phase == .signedIn)") {
+            // Погода выбранного курорта: сервер обновляет её не чаще раза в 10 минут.
+            let id = currentResortID
+            if mapConditions?.resort.id != id { mapConditions = nil }
+            mapResort = id
+            while !Task.isCancelled && session.phase == .signedIn {
+                if let fresh = await session.conditions(resort: id) { mapConditions = fresh }
+                try? await Task.sleep(for: .seconds(300))
+            }
+        }
+        .sheet(isPresented: $showsMapConditions) {
+            if let mapConditions {
+                ConditionsDetails(conditions: mapConditions)
+                    .preferredColorScheme(.dark)
+                    .presentationDetents([.medium, .large])
+            }
         }
         .sheet(isPresented: $showsPicker) {
             ResortPickerSheet(resorts: otherResorts, here: tracker.here) { choice in
@@ -397,6 +423,11 @@ struct MapScreen: View {
             )
             .ignoresSafeArea(edges: .top)
         )
+    }
+
+    /// Курорт, открытый на карте, по id каталога сервера.
+    private var currentResortID: String {
+        otherResort?.id ?? (model.isIdre ? "idre-fjall" : model.id)
     }
 
     /// «IDRE FJÄLL · 41 ТРАССА · HIMMELFJÄLL · 25».
@@ -761,7 +792,7 @@ struct MapScreen: View {
                 model = idreModel
                 await openResort(summary)
             }
-            otherConditions = await session.conditions(near: summary.coordinate)
+            otherConditions = await session.conditions(resort: summary.id)
         }
     }
 
