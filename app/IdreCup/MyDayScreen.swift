@@ -81,16 +81,22 @@ struct MyDayScreen: View {
                 if let fresh = reply {
                     conditions = fresh
                     ConditionsAlerts.updateMorning(fresh)
-                    ConditionsAlerts.scheduleClosing(fresh, recording: tracker.isRecording && !tracker.isDemo)
+                    ConditionsAlerts.scheduleClosing(fresh, recording: tracker.isRecording && !tracker.isDemo && atResort(fresh))
                 }
                 try? await Task.sleep(for: .seconds(300))
             }
         }
         .onChange(of: tracker.isRecording) { _, recording in
             if let conditions {
-                ConditionsAlerts.scheduleClosing(conditions, recording: recording && !tracker.isDemo)
+                ConditionsAlerts.scheduleClosing(conditions, recording: recording && !tracker.isDemo && atResort(conditions))
             }
         }
+    }
+
+    /// Предупреждать о закрытии лифтов можно, только если телефон на этом курорте:
+    /// сводка курорта с карты или Idre по умолчанию — не повод для уведомления.
+    private func atResort(_ reply: ConditionsReply) -> Bool {
+        reply.matched == nil || reply.matched == "near"
     }
 
     /// Идёт запись или пауза: тогда наверху DayHero, а не сводка дня.
